@@ -112,9 +112,22 @@ module Api
       # Set header to help with debugging
       response.headers["X-Auth-Reason"] = reason if reason
 
-      # Return 401 Unauthorized
-      # The reverse proxy should redirect to login
-      head :unauthorized
+      # Get the redirect URL from query params or construct default
+      base_url = params[:rd] || "https://clinch.aapamilne.com"
+
+      # Set the original URL that user was trying to access
+      # This will be used after authentication
+      request_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
+      original_url = if request_host
+        "https://#{request_host}#{request.fullpath}"
+      else
+        request.fullpath
+      end
+
+      session[:return_to_after_authenticating] = original_url
+
+      # Return 302 redirect to login page
+      redirect_to "#{base_url}/signin", allow_other_host: true
     end
 
     def render_forbidden(reason = nil)
