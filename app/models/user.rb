@@ -1,0 +1,78 @@
+class User < ApplicationRecord
+  has_secure_password
+  has_many :sessions, dependent: :destroy
+  has_many :user_groups, dependent: :destroy
+  has_many :groups, through: :user_groups
+
+  # Token generation for passwordless flows
+  generates_token_for :invitation, expires_in: 7.days
+  generates_token_for :password_reset, expires_in: 1.hour
+  generates_token_for :magic_login, expires_in: 15.minutes
+
+  normalizes :email_address, with: ->(e) { e.strip.downcase }
+
+  validates :email_address, presence: true, uniqueness: { case_sensitive: false },
+                           format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :status, presence: true,
+                    inclusion: { in: %w[active disabled pending_invitation] }
+
+  # Scopes
+  scope :active, -> { where(status: "active") }
+  scope :admins, -> { where(admin: true) }
+
+  # TOTP methods
+  def totp_enabled?
+    totp_secret.present?
+  end
+
+  def enable_totp!
+    require "rotp"
+    self.totp_secret = ROTP::Base32.random
+    self.backup_codes = generate_backup_codes
+    save!
+  end
+
+  def disable_totp!
+    update!(totp_secret: nil, totp_required: false, backup_codes: nil)
+  end
+
+  def totp_provisioning_uri(issuer: "Clinch")
+    return nil unless totp_enabled?
+
+    require "rotp"
+    totp = ROTP::TOTP.new(totp_secret, issuer: issuer)
+    totp.provisioning_uri(email_address)
+  end
+
+  def verify_totp(code)
+    return false unless totp_enabled?
+
+    require "rotp"
+    totp = ROTP::TOTP.new(totp_secret)
+    totp.verify(code, drift_behind: 30, drift_ahead: 30)
+  end
+
+  def verify_backup_code(code)
+    return false unless backup_codes.present?
+
+    codes = JSON.parse(backup_codes)
+    if codes.include?(code)
+      codes.delete(code)
+      update(backup_codes: codes.to_json)
+      true
+    else
+      false
+    end
+  end
+
+  def parsed_backup_codes
+    return [] unless backup_codes.present?
+    JSON.parse(backup_codes)
+  end
+
+  private
+
+  def generate_backup_codes
+    Array.new(10) { SecureRandom.alphanumeric(8).upcase }.to_json
+  end
+end

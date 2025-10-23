@@ -1,0 +1,19 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  code: MyString
+  application: one
+  user: one
+  redirect_uri: MyString
+  scope: MyString
+  expires_at: 2025-10-23 16:40:38
+  used: false
+
+two:
+  code: MyString
+  application: two
+  user: two
+  redirect_uri: MyString
+  scope: MyString
+  expires_at: 2025-10-23 16:40:38
+  used: false
