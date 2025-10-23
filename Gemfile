@@ -28,6 +28,9 @@ gem "rotp", "~> 6.3"
 # QR code generation for TOTP setup
 gem "rqrcode", "~> 2.0"
 
+# JWT for OIDC ID tokens
+gem "jwt", "~> 2.9"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

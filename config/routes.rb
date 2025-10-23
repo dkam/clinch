@@ -18,6 +18,14 @@ Rails.application.routes.draw do
   get "/totp-verification", to: "sessions#verify_totp", as: :totp_verification
   post "/totp-verification", to: "sessions#verify_totp"
 
+  # OIDC (OpenID Connect) routes
+  get "/.well-known/openid-configuration", to: "oidc#discovery"
+  get "/.well-known/jwks.json", to: "oidc#jwks"
+  get "/oauth/authorize", to: "oidc#authorize"
+  post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
+  post "/oauth/token", to: "oidc#token"
+  get "/oauth/userinfo", to: "oidc#userinfo"
+
   # Authenticated routes
   root "dashboard#index"
   resource :profile, only: [:show, :update]

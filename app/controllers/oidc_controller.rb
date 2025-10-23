@@ -1,6 +1,6 @@
 class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
-  allow_unauthenticated_access only: [:discovery, :jwks, :token]
+  allow_unauthenticated_access only: [:discovery, :jwks, :token, :userinfo]
   skip_before_action :verify_authenticity_token, only: [:token]
 
   # GET /.well-known/openid-configuration

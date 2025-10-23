@@ -15,7 +15,7 @@ class OidcAuthorizationCode < ApplicationRecord
     expires_at <= Time.current
   end
 
-  def valid?
+  def usable?
     !used? && !expired?
   end
 
