@@ -117,11 +117,18 @@ module Api
 
       # Set the original URL that user was trying to access
       # This will be used after authentication
-      request_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
-      original_url = if request_host
-        "https://#{request_host}#{request.fullpath}"
+      original_host = request.headers["X-Forwarded-Host"]
+      original_uri = request.headers["X-Forwarded-Uri"] || request.headers["X-Forwarded-Path"] || "/"
+
+      # Debug logging to see what headers we're getting
+      Rails.logger.info "ForwardAuth Headers: Host=#{request.headers['Host']}, X-Forwarded-Host=#{original_host}, X-Forwarded-Uri=#{request.headers['X-Forwarded-Uri']}, X-Forwarded-Path=#{request.headers['X-Forwarded-Path']}"
+
+      original_url = if original_host
+        # Use the forwarded host and URI
+        "https://#{original_host}#{original_uri}"
       else
-        request.fullpath
+        # Fallback: just redirect to the root of the original host
+        "https://#{request.headers['Host']}"
       end
 
       session[:return_to_after_authenticating] = original_url
