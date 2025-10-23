@@ -1,0 +1,116 @@
+<div class="mb-8">
+  <h1 class="text-3xl font-bold text-gray-900">
+    Welcome, <%= @user.email_address %>
+  </h1>
+  <p class="mt-2 text-gray-600">
+    <% if @user.admin? %>
+      Administrator
+    <% else %>
+      User
+    <% end %>
+  </p>
+</div>
+
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  <!-- Active Sessions Card -->
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">
+              Active Sessions
+            </dt>
+            <dd class="text-lg font-semibold text-gray-900">
+              <%= @user.sessions.active.count %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "View all sessions", profile_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+    </div>
+  </div>
+
+  <% if @user.totp_enabled? %>
+    <!-- 2FA Status Card -->
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                Two-Factor Authentication
+              </dt>
+              <dd class="text-lg font-semibold text-green-600">
+                Enabled
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-5 py-3">
+        <%= link_to "Manage 2FA", profile_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+      </div>
+    </div>
+  <% else %>
+    <!-- 2FA Disabled Card -->
+    <div class="bg-white overflow-hidden shadow rounded-lg border-2 border-yellow-200">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                Two-Factor Authentication
+              </dt>
+              <dd class="text-lg font-semibold text-yellow-600">
+                Not Enabled
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-5 py-3">
+        <%= link_to "Enable 2FA", profile_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<% if @user.admin? %>
+  <div class="mt-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Admin Quick Actions</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <%= link_to admin_users_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Manage Users</h3>
+        <p class="text-sm text-gray-600">View, edit, and invite users</p>
+      <% end %>
+
+      <%= link_to admin_applications_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Manage Applications</h3>
+        <p class="text-sm text-gray-600">Register and configure applications</p>
+      <% end %>
+
+      <%= link_to admin_groups_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Manage Groups</h3>
+        <p class="text-sm text-gray-600">Create and organize user groups</p>
+      <% end %>
+    </div>
+  </div>
+<% end %>

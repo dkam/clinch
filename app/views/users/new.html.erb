@@ -1,0 +1,62 @@
+<div class="mx-auto md:w-2/3 w-full">
+  <div class="mb-8">
+    <h1 class="font-bold text-4xl">Welcome to Clinch</h1>
+    <p class="mt-2 text-gray-600">Create your admin account to get started</p>
+  </div>
+
+  <%= form_with model: @user, url: signup_path, class: "contents" do |form| %>
+    <% if @user.errors.any? %>
+      <div class="bg-red-50 text-red-500 px-3 py-2 font-medium rounded-lg mt-3">
+        <h2><%= pluralize(@user.errors.count, "error") %> prohibited this account from being saved:</h2>
+        <ul class="list-disc list-inside">
+          <% @user.errors.each do |error| %>
+            <li><%= error.full_message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div class="my-5">
+      <%= form.label :email_address, class: "block font-medium text-sm text-gray-700" %>
+      <%= form.email_field :email_address,
+          required: true,
+          autofocus: true,
+          autocomplete: "email",
+          placeholder: "admin@example.com",
+          class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+    </div>
+
+    <div class="my-5">
+      <%= form.label :password, class: "block font-medium text-sm text-gray-700" %>
+      <%= form.password_field :password,
+          required: true,
+          autocomplete: "new-password",
+          placeholder: "Enter a strong password",
+          maxlength: 72,
+          class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+      <p class="mt-1 text-sm text-gray-500">Must be at least 8 characters</p>
+    </div>
+
+    <div class="my-5">
+      <%= form.label :password_confirmation, "Confirm Password", class: "block font-medium text-sm text-gray-700" %>
+      <%= form.password_field :password_confirmation,
+          required: true,
+          autocomplete: "new-password",
+          placeholder: "Re-enter your password",
+          maxlength: 72,
+          class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+    </div>
+
+    <div class="my-5">
+      <%= form.submit "Create Admin Account",
+          class: "w-full rounded-md px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium cursor-pointer" %>
+    </div>
+
+    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+      <p class="text-sm text-blue-900">
+        <strong>Note:</strong> This is a first-run setup. You're creating the initial administrator account.
+        After this, you'll be able to invite other users from the admin dashboard.
+      </p>
+    </div>
+  <% end %>
+</div>

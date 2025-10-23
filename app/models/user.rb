@@ -13,6 +13,7 @@ class User < ApplicationRecord
 
   validates :email_address, presence: true, uniqueness: { case_sensitive: false },
                            format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :password, length: { minimum: 8 }, allow_nil: true
   validates :status, presence: true,
                     inclusion: { in: %w[active disabled pending_invitation] }
 

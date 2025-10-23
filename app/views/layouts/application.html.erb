@@ -24,8 +24,51 @@
   </head>
 
   <body>
-    <main class="container mx-auto mt-28 px-5 flex">
-      <%= yield %>
-    </main>
+    <% if authenticated? %>
+      <%= render "shared/sidebar" %>
+      <div class="lg:pl-64">
+        <!-- Mobile menu button -->
+        <div class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:hidden">
+          <button type="button" class="-m-2.5 p-2.5 text-gray-700" id="mobile-menu-button">
+            <span class="sr-only">Open sidebar</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
+
+        <main class="py-10">
+          <div class="px-4 sm:px-6 lg:px-8">
+            <%= render "shared/flash" %>
+            <%= yield %>
+          </div>
+        </main>
+      </div>
+    <% else %>
+      <!-- Public layout (signup/signin) -->
+      <main class="container mx-auto mt-28 px-5 flex">
+        <%= render "shared/flash" %>
+        <%= yield %>
+      </main>
+    <% end %>
+
+    <script>
+      // Mobile sidebar toggle
+      const mobileMenuButton = document.getElementById('mobile-menu-button');
+      const mobileMenuClose = document.getElementById('mobile-menu-close');
+      const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+
+      if (mobileMenuButton) {
+        mobileMenuButton.addEventListener('click', () => {
+          mobileSidebarOverlay?.classList.remove('hidden');
+        });
+      }
+
+      if (mobileMenuClose) {
+        mobileMenuClose.addEventListener('click', () => {
+          mobileSidebarOverlay?.classList.add('hidden');
+        });
+      }
+    </script>
   </body>
 </html>
