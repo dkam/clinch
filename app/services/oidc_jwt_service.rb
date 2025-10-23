@@ -63,15 +63,17 @@ class OidcJwtService
     # Get or generate RSA private key
     def private_key
       @private_key ||= begin
-        # Try to load from Rails credentials first
-        key_pem = Rails.application.credentials.oidc_private_key
-
-        if key_pem.present?
-          OpenSSL::PKey::RSA.new(key_pem)
+        # Try ENV variable first (best for Docker/Kamal)
+        if ENV["OIDC_PRIVATE_KEY"].present?
+          OpenSSL::PKey::RSA.new(ENV["OIDC_PRIVATE_KEY"])
+        # Then try Rails credentials
+        elsif Rails.application.credentials.oidc_private_key.present?
+          OpenSSL::PKey::RSA.new(Rails.application.credentials.oidc_private_key)
         else
           # Generate a new key for development
-          # In production, you should generate this once and store in credentials
-          Rails.logger.warn "OIDC: No private key found in credentials, generating new key (development only)"
+          # In production, you MUST set OIDC_PRIVATE_KEY env var or add to credentials
+          Rails.logger.warn "OIDC: No private key found in ENV or credentials, generating new key (development only)"
+          Rails.logger.warn "OIDC: Set OIDC_PRIVATE_KEY environment variable in production!"
           OpenSSL::PKey::RSA.new(2048)
         end
       end
