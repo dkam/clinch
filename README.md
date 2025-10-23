@@ -8,7 +8,7 @@ Clinch gives you one place to manage users and lets any web app authenticate aga
 
 Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea? Rather than managing all those separate user accounts, set everyone up on Clinch and let it do the authentication and user management.
 
-**Clinch is a lightweight alternative to Authelia and Authentik**, designed for simplicity and ease of deployment.
+**Clinch is a lightweight alternative to [Authelia](https://www.authelia.com) and [Authentik](https://goauthentik.io)**, designed for simplicity and ease of deployment.
 
 ---
 
@@ -45,6 +45,7 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
 3. **401/403** → Proxy redirects to Clinch login; after login, user returns to original URL
 
 Apps that speak OIDC use the OIDC flow; apps that only need "who is it?" headers use ForwardAuth.
+Forward Auth works only on the same domain as Clinch runs
 
 ### SMTP Integration
 Send emails for:

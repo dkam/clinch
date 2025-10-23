@@ -8,7 +8,7 @@ class Application < ApplicationRecord
   validates :slug, presence: true, uniqueness: { case_sensitive: false },
                   format: { with: /\A[a-z0-9\-]+\z/, message: "only lowercase letters, numbers, and hyphens" }
   validates :app_type, presence: true,
-                      inclusion: { in: %w[oidc trusted_header saml] }
+                      inclusion: { in: %w[oidc saml] }
   validates :client_id, uniqueness: { allow_nil: true }
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
@@ -18,16 +18,11 @@ class Application < ApplicationRecord
   # Scopes
   scope :active, -> { where(active: true) }
   scope :oidc, -> { where(app_type: "oidc") }
-  scope :trusted_header, -> { where(app_type: "trusted_header") }
   scope :saml, -> { where(app_type: "saml") }
 
   # Type checks
   def oidc?
     app_type == "oidc"
-  end
-
-  def trusted_header?
-    app_type == "trusted_header"
   end
 
   def saml?

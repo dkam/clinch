@@ -36,7 +36,7 @@
 
   <div>
     <%= form.label :app_type, "Application Type", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["ForwardAuth (Trusted Headers)", "trusted_header"], ["SAML (Coming Soon)", "saml", { disabled: true }]], {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", disabled: application.persisted? %>
+    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["SAML (Coming Soon)", "saml", { disabled: true }]], {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", disabled: application.persisted? %>
     <% if application.persisted? %>
       <p class="mt-1 text-sm text-gray-500">Application type cannot be changed after creation.</p>
     <% end %>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_23_091355) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_23_234744) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -35,6 +35,23 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_23_091355) do
     t.index ["active"], name: "index_applications_on_active"
     t.index ["client_id"], name: "index_applications_on_client_id", unique: true
     t.index ["slug"], name: "index_applications_on_slug", unique: true
+  end
+
+  create_table "forward_auth_rule_groups", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "forward_auth_rule_id", null: false
+    t.integer "group_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["forward_auth_rule_id"], name: "index_forward_auth_rule_groups_on_forward_auth_rule_id"
+    t.index ["group_id"], name: "index_forward_auth_rule_groups_on_group_id"
+  end
+
+  create_table "forward_auth_rules", force: :cascade do |t|
+    t.boolean "active"
+    t.datetime "created_at", null: false
+    t.string "domain_pattern"
+    t.integer "policy"
+    t.datetime "updated_at", null: false
   end
 
   create_table "groups", force: :cascade do |t|
@@ -108,7 +125,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_23_091355) do
     t.datetime "created_at", null: false
     t.string "email_address", null: false
     t.string "password_digest", null: false
-    t.integer "status"
+    t.integer "status", default: 0, null: false
     t.boolean "totp_required", default: false, null: false
     t.string "totp_secret"
     t.datetime "updated_at", null: false
@@ -118,6 +135,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_23_091355) do
 
   add_foreign_key "application_groups", "applications"
   add_foreign_key "application_groups", "groups"
+  add_foreign_key "forward_auth_rule_groups", "forward_auth_rules"
+  add_foreign_key "forward_auth_rule_groups", "groups"
   add_foreign_key "oidc_access_tokens", "applications"
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"

@@ -1,0 +1,89 @@
+<% content_for :title, "Forward Auth Rules" %>
+
+<div class="sm:flex sm:items-center">
+  <div class="sm:flex-auto">
+    <h1 class="text-base font-semibold leading-6 text-gray-900">Forward Auth Rules</h1>
+    <p class="mt-2 text-sm text-gray-700">A list of all forward authentication rules for domain-based access control.</p>
+  </div>
+  <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+    <%= link_to "Add rule", new_admin_forward_auth_rule_path, class: "block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
+  </div>
+</div>
+
+<div class="mt-8 flow-root">
+  <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+    <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+      <% if @forward_auth_rules.any? %>
+        <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+          <table class="min-w-full divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Domain Pattern</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Groups</th>
+                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+              <% @forward_auth_rules.each do |rule| %>
+                <tr>
+                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                    <%= rule.domain_pattern %>
+                  </td>
+                  <td class="px-3 py-4 text-sm text-gray-500">
+                    <% if rule.allowed_groups.any? %>
+                      <div class="flex flex-wrap gap-1">
+                        <% rule.allowed_groups.each do |group| %>
+                          <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                            <%= group.name %>
+                          </span>
+                        <% end %>
+                      </div>
+                    <% else %>
+                      <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                        Bypass (All Users)
+                      </span>
+                    <% end %>
+                  </td>
+                  <td class="px-3 py-4 text-sm text-gray-500">
+                    <% if rule.active? %>
+                      <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                        Active
+                      </span>
+                    <% else %>
+                      <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+                        Inactive
+                      </span>
+                    <% end %>
+                  </td>
+                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <%= link_to "Edit", edit_admin_forward_auth_rule_path(rule), class: "text-blue-600 hover:text-blue-900 mr-4" %>
+                    <%= link_to "Delete", admin_forward_auth_rule_path(rule),
+                        data: {
+                          turbo_method: :delete,
+                          turbo_confirm: "Are you sure you want to delete this forward auth rule?"
+                        },
+                        class: "text-red-600 hover:text-red-900" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="text-center py-12">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <h3 class="mt-2 text-sm font-semibold text-gray-900">No forward auth rules</h3>
+          <p class="mt-1 text-sm text-gray-500">Get started by creating a new forward authentication rule.</p>
+          <div class="mt-6">
+            <%= link_to "Add rule", new_admin_forward_auth_rule_path, class: "inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
