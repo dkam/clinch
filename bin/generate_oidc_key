@@ -1,0 +1,37 @@
+#!/bin/bash
+# Generate OIDC private key for Clinch
+# Usage: bin/generate_oidc_key
+
+set -e
+
+echo "Generating OIDC RSA private key..."
+echo
+
+# Generate the key
+KEY=$(openssl genrsa 2048 2>/dev/null)
+
+# Display the key
+echo "$KEY"
+echo
+echo "---"
+echo
+echo "✅ Key generated successfully!"
+echo
+echo "To use this key:"
+echo
+echo "1. Copy the entire key above (including BEGIN/END lines)"
+echo
+echo "2. Add to your .env file:"
+echo "   OIDC_PRIVATE_KEY=\"-----BEGIN RSA PRIVATE KEY-----"
+echo "   ...paste key here..."
+echo "   -----END RSA PRIVATE KEY-----\""
+echo
+echo "3. Or save to file:"
+echo "   bin/generate_oidc_key > oidc_private_key.pem"
+echo
+echo "⚠️  Important:"
+echo "   - Generate this key ONCE and keep it forever"
+echo "   - Backup the key securely"
+echo "   - Don't commit .env to git (it's in .gitignore)"
+echo "   - If you regenerate this key, all OIDC sessions become invalid"
+echo

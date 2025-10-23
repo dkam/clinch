@@ -1,0 +1,145 @@
+<div class="mb-8">
+  <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+  <p class="mt-2 text-gray-600">System overview and quick actions</p>
+</div>
+
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  <!-- Users Card -->
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">
+              Total Users
+            </dt>
+            <dd class="flex items-baseline">
+              <div class="text-2xl font-semibold text-gray-900">
+                <%= @user_count %>
+              </div>
+              <div class="ml-2 text-sm text-gray-600">
+                (<%= @active_user_count %> active)
+              </div>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "Manage users", admin_users_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+    </div>
+  </div>
+
+  <!-- Applications Card -->
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 010 2H6v10a1 1 0 001 1h10a1 1 0 001-1v-3a1 1 0 112 0v3a3 3 0 01-3 3H7a3 3 0 01-3-3V6a1 1 0 011-1zm9 1a1 1 0 10-2 0v3a1 1 0 102 0V6zm-4 8a1 1 0 100 2h.01a1 1 0 100-2H9zm4 0a1 1 0 100 2h.01a1 1 0 100-2H13z"></path>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">
+              Applications
+            </dt>
+            <dd class="flex items-baseline">
+              <div class="text-2xl font-semibold text-gray-900">
+                <%= @application_count %>
+              </div>
+              <div class="ml-2 text-sm text-gray-600">
+                (<%= @active_application_count %> active)
+              </div>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "Manage applications", admin_applications_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+    </div>
+  </div>
+
+  <!-- Groups Card -->
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">
+              Groups
+            </dt>
+            <dd class="text-2xl font-semibold text-gray-900">
+              <%= @group_count %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "Manage groups", admin_groups_path, class: "text-sm font-medium text-blue-600 hover:text-blue-500" %>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Users -->
+<div class="mt-8">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Users</h2>
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <ul class="divide-y divide-gray-200">
+      <% @recent_users.each do |user| %>
+        <li class="px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-900"><%= user.email_address %></p>
+              <p class="text-xs text-gray-500">
+                Created <%= time_ago_in_words(user.created_at) %> ago
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <% if user.admin? %>
+                <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">Admin</span>
+              <% end %>
+              <% if user.totp_enabled? %>
+                <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">2FA</span>
+              <% end %>
+              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700"><%= user.status.titleize %></span>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="mt-8">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <%= link_to new_admin_user_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Create User</h3>
+      <p class="text-sm text-gray-600">Add a new user to the system</p>
+    <% end %>
+
+    <%= link_to new_admin_application_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Register Application</h3>
+      <p class="text-sm text-gray-600">Add a new OIDC or ForwardAuth app</p>
+    <% end %>
+
+    <%= link_to new_admin_group_path, class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:shadow-md transition" do %>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Create Group</h3>
+      <p class="text-sm text-gray-600">Organize users into a new group</p>
+    <% end %>
+  </div>
+</div>

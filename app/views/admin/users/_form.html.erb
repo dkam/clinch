@@ -1,0 +1,53 @@
+<%= form_with(model: [:admin, user], class: "space-y-6") do |form| %>
+  <% if user.errors.any? %>
+    <div class="rounded-md bg-red-50 p-4">
+      <div class="flex">
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">
+            <%= pluralize(user.errors.count, "error") %> prohibited this user from being saved:
+          </h3>
+          <div class="mt-2 text-sm text-red-700">
+            <ul class="list-disc pl-5 space-y-1">
+              <% user.errors.full_messages.each do |message| %>
+                <li><%= message %></li>
+              <% end %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :email_address, class: "block text-sm font-medium text-gray-700" %>
+    <%= form.email_field :email_address, required: true, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "user@example.com" %>
+  </div>
+
+  <div>
+    <%= form.label :password, class: "block text-sm font-medium text-gray-700" %>
+    <%= form.password_field :password, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: user.persisted? ? "Leave blank to keep current password" : "Enter password" %>
+    <% if user.persisted? %>
+      <p class="mt-1 text-sm text-gray-500">Leave blank to keep the current password</p>
+    <% else %>
+      <p class="mt-1 text-sm text-gray-500">Leave blank to generate a random password</p>
+    <% end %>
+  </div>
+
+  <div>
+    <%= form.label :status, class: "block text-sm font-medium text-gray-700" %>
+    <%= form.select :status, User.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+  </div>
+
+  <div class="flex items-center">
+    <%= form.check_box :admin, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500", disabled: (user == Current.session.user) %>
+    <%= form.label :admin, "Administrator", class: "ml-2 block text-sm text-gray-900" %>
+    <% if user == Current.session.user %>
+      <span class="ml-2 text-xs text-gray-500">(Cannot change your own admin status)</span>
+    <% end %>
+  </div>
+
+  <div class="flex gap-3">
+    <%= form.submit user.persisted? ? "Update User" : "Create User", class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
+    <%= link_to "Cancel", admin_users_path, class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+  </div>
+<% end %>

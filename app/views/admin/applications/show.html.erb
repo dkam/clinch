@@ -1,0 +1,122 @@
+<div class="mb-6">
+  <div class="sm:flex sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900"><%= @application.name %></h1>
+      <p class="mt-1 text-sm text-gray-500"><%= @application.description %></p>
+    </div>
+    <div class="mt-4 sm:mt-0 flex gap-3">
+      <%= link_to "Edit", edit_admin_application_path(@application), class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+      <%= button_to "Delete", admin_application_path(@application), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500" %>
+    </div>
+  </div>
+</div>
+
+<div class="space-y-6">
+  <!-- Basic Information -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Basic Information</h3>
+      <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Slug</dt>
+          <dd class="mt-1 text-sm text-gray-900"><code class="bg-gray-100 px-2 py-1 rounded"><%= @application.slug %></code></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Type</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <% case @application.app_type %>
+            <% when "oidc" %>
+              <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">OIDC</span>
+            <% when "trusted_header" %>
+              <span class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700">ForwardAuth</span>
+            <% when "saml" %>
+              <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">SAML</span>
+            <% end %>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Status</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <% if @application.active? %>
+              <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">Active</span>
+            <% else %>
+              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">Inactive</span>
+            <% end %>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- OIDC Configuration (only for OIDC apps) -->
+  <% if @application.oidc? %>
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-semibold leading-6 text-gray-900">OIDC Credentials</h3>
+          <%= button_to "Regenerate Credentials", regenerate_credentials_admin_application_path(@application), method: :post, data: { turbo_confirm: "This will invalidate the current credentials. Continue?" }, class: "text-sm text-red-600 hover:text-red-900" %>
+        </div>
+        <dl class="space-y-4">
+          <div>
+            <dt class="text-sm font-medium text-gray-500">Client ID</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_id %></code>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_secret %></code>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500">Redirect URIs</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <% if @application.redirect_uris.present? %>
+                <% @application.parsed_redirect_uris.each do |uri| %>
+                  <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all mb-2"><%= uri %></code>
+                <% end %>
+              <% else %>
+                <span class="text-gray-400">No redirect URIs configured</span>
+              <% end %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Group Access Control -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Access Control</h3>
+      <div>
+        <dt class="text-sm font-medium text-gray-500 mb-2">Allowed Groups</dt>
+        <dd class="mt-1 text-sm text-gray-900">
+          <% if @allowed_groups.empty? %>
+            <div class="rounded-md bg-blue-50 p-4">
+              <div class="flex">
+                <div class="ml-3">
+                  <p class="text-sm text-blue-700">
+                    No groups assigned - all active users can access this application.
+                  </p>
+                </div>
+              </div>
+            </div>
+          <% else %>
+            <ul class="divide-y divide-gray-200 border border-gray-200 rounded-md">
+              <% @allowed_groups.each do |group| %>
+                <li class="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900"><%= group.name %></p>
+                    <p class="text-xs text-gray-500"><%= pluralize(group.users.count, "member") %></p>
+                  </div>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+        </dd>
+      </div>
+    </div>
+  </div>
+</div>
