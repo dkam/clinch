@@ -133,8 +133,10 @@ module Api
 
       session[:return_to_after_authenticating] = original_url
 
-      # Return 302 redirect to login page
-      redirect_to "#{base_url}/signin", allow_other_host: true
+      # Return 401 Unauthorized with Location header
+      # Caddy will automatically redirect to this URL
+      response.headers["Location"] = "#{base_url}/signin"
+      head :unauthorized
     end
 
     def render_forbidden(reason = nil)
