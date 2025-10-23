@@ -131,12 +131,22 @@ module Api
         "https://#{request.headers['Host']}"
       end
 
+      # Debug: log what we're redirecting to after login
+      Rails.logger.info "ForwardAuth: Will redirect to after login: #{original_url}"
+
       session[:return_to_after_authenticating] = original_url
 
-      # Return 401 Unauthorized with Location header
-      # Caddy will automatically redirect to this URL
-      response.headers["Location"] = "#{base_url}/signin"
-      head :unauthorized
+      # Build login URL with redirect parameters like Authelia
+      login_url = URI.parse("#{base_url}/signin")
+      login_url.query_params = {
+        rd: original_url,
+        rm: request.method
+      }.to_query
+
+      # Return 302 Found directly to login page (matching Authelia)
+      # This is the same as Authelia's StatusFound response
+      Rails.logger.info "Setting 302 redirect to: #{login_url}"
+      redirect_to login_url.to_s, allow_other_host: true, status: :found
     end
 
     def render_forbidden(reason = nil)
