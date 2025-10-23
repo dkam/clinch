@@ -137,16 +137,16 @@ module Api
       session[:return_to_after_authenticating] = original_url
 
       # Build login URL with redirect parameters like Authelia
-      login_url = URI.parse("#{base_url}/signin")
-      login_url.query_params = {
+      login_params = {
         rd: original_url,
         rm: request.method
-      }.to_query
+      }
+      login_url = "#{base_url}/signin?#{login_params.to_query}"
 
       # Return 302 Found directly to login page (matching Authelia)
       # This is the same as Authelia's StatusFound response
       Rails.logger.info "Setting 302 redirect to: #{login_url}"
-      redirect_to login_url.to_s, allow_other_host: true, status: :found
+      redirect_to login_url, allow_other_host: true, status: :found
     end
 
     def render_forbidden(reason = nil)
