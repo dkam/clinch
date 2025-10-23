@@ -17,7 +17,7 @@ class SessionsController < ApplicationController
     end
 
     # Check if user is active
-    unless user.status == "active"
+    unless user.active?
       redirect_to signin_path, alert: "Your account is not active. Please contact an administrator."
       return
     end

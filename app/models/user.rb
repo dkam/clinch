@@ -14,11 +14,11 @@ class User < ApplicationRecord
   validates :email_address, presence: true, uniqueness: { case_sensitive: false },
                            format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :password, length: { minimum: 8 }, allow_nil: true
-  validates :status, presence: true,
-                    inclusion: { in: %w[active disabled pending_invitation] }
+
+  # Enum - automatically creates scopes (User.active, User.disabled, etc.)
+  enum :status, { active: 0, disabled: 1, pending_invitation: 2 }
 
   # Scopes
-  scope :active, -> { where(status: "active") }
   scope :admins, -> { where(admin: true) }
 
   # TOTP methods

@@ -26,6 +26,11 @@ Rails.application.routes.draw do
   post "/oauth/token", to: "oidc#token"
   get "/oauth/userinfo", to: "oidc#userinfo"
 
+  # ForwardAuth / Trusted Header SSO
+  namespace :api do
+    get "/verify", to: "forward_auth#verify"
+  end
+
   # Authenticated routes
   root "dashboard#index"
   resource :profile, only: [:show, :update]
