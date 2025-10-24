@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_24_033007) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_24_053326) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -100,6 +100,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_24_033007) do
     t.string "code", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
+    t.string "nonce"
     t.string "redirect_uri", null: false
     t.string "scope"
     t.datetime "updated_at", null: false

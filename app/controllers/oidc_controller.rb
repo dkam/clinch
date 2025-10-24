@@ -127,11 +127,9 @@ class OidcController < ApplicationController
       code: code,
       redirect_uri: oauth_params['redirect_uri'],
       scope: oauth_params['scope'],
+      nonce: oauth_params['nonce'],
       expires_at: 10.minutes.from_now
     )
-
-    # Store nonce in the authorization code metadata if needed
-    # For now, we'll pass it through the code itself
 
     # Clear OAuth params from session
     session.delete(:oauth_params)
@@ -211,7 +209,7 @@ class OidcController < ApplicationController
     )
 
     # Generate ID token
-    id_token = OidcJwtService.generate_id_token(user, application)
+    id_token = OidcJwtService.generate_id_token(user, application, nonce: auth_code.nonce)
 
     # Return tokens
     render json: {
