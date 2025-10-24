@@ -8,6 +8,7 @@
     </div>
 
     <%= form_with url: totp_verification_path, method: :post, class: "space-y-6" do |form| %>
+    <%= hidden_field_tag :rd, params[:rd] if params[:rd].present? %>
       <div>
         <%= label_tag :code, "Verification Code", class: "block text-sm font-medium text-gray-700" %>
         <%= text_field_tag :code,

@@ -16,6 +16,11 @@ class SessionsController < ApplicationController
       return
     end
 
+    # Store the redirect URL from forward auth if present
+    if params[:rd].present?
+      session[:return_to_after_authenticating] = params[:rd]
+    end
+
     # Check if user is active
     unless user.active?
       redirect_to signin_path, alert: "Your account is not active. Please contact an administrator."
@@ -26,7 +31,11 @@ class SessionsController < ApplicationController
     if user.totp_enabled?
       # Store user ID in session temporarily for TOTP verification
       session[:pending_totp_user_id] = user.id
-      redirect_to totp_verification_path
+      # Preserve the redirect URL through TOTP verification
+      if params[:rd].present?
+        session[:totp_redirect_url] = params[:rd]
+      end
+      redirect_to totp_verification_path(rd: params[:rd])
       return
     end
 
@@ -57,6 +66,10 @@ class SessionsController < ApplicationController
       # Try TOTP verification first
       if user.verify_totp(code)
         session.delete(:pending_totp_user_id)
+        # Restore redirect URL if it was preserved
+        if session[:totp_redirect_url].present?
+          session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
+        end
         start_new_session_for user
         redirect_to after_authentication_url, notice: "Signed in successfully."
         return
@@ -65,6 +78,10 @@ class SessionsController < ApplicationController
       # Try backup code verification
       if user.verify_backup_code(code)
         session.delete(:pending_totp_user_id)
+        # Restore redirect URL if it was preserved
+        if session[:totp_redirect_url].present?
+          session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
+        end
         start_new_session_for user
         redirect_to after_authentication_url, notice: "Signed in successfully using backup code."
         return

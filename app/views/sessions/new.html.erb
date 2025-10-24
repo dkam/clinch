@@ -4,6 +4,7 @@
   </div>
 
   <%= form_with url: signin_path, class: "contents" do |form| %>
+    <%= hidden_field_tag :rd, params[:rd] if params[:rd].present? %>
     <div class="my-5">
       <%= form.label :email_address, "Email Address", class: "block font-medium text-sm text-gray-700" %>
       <%= form.email_field :email_address,

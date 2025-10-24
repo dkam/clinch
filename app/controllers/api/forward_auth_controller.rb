@@ -1,15 +1,15 @@
 module Api
   class ForwardAuthController < ApplicationController
-    # ForwardAuth endpoints don't use sessions or CSRF
+    # ForwardAuth endpoints need session storage for return URL
     allow_unauthenticated_access
     skip_before_action :verify_authenticity_token
+    skip_before_action :verify_request_origin
 
     # GET /api/verify
     # This endpoint is called by reverse proxies (Traefik, Caddy, nginx)
-    # to verify if a user is authenticated and authorized to access an application
+    # to verify if a user is authenticated and authorized to access a domain
     def verify
-      # Get the application slug from query params or X-Forwarded-Host header
-      app_slug = params[:app] || extract_app_from_headers
+      # Note: app_slug parameter is no longer used - we match domains directly with ForwardAuthRule
 
       # Get the session from cookie
       session_id = extract_session_id
@@ -40,24 +40,28 @@ module Api
         return render_unauthorized("User account is not active")
       end
 
-      # If an application is specified, check authorization
-      if app_slug.present?
-        application = Application.find_by(slug: app_slug, app_type: "trusted_header", active: true)
+      # Check for forward auth rule authorization
+      # Get the forwarded host for domain matching
+      forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
 
-        unless application
-          Rails.logger.warn "ForwardAuth: Application not found or not configured for trusted_header: #{app_slug}"
-          return render_forbidden("Application not found or not configured")
+      if forwarded_host.present?
+        # Find matching forward auth rule for this domain
+        rule = ForwardAuthRule.active.find { |r| r.matches_domain?(forwarded_host) }
+
+        unless rule
+          Rails.logger.warn "ForwardAuth: No rule found for domain: #{forwarded_host}"
+          return render_forbidden("No authentication rule configured for this domain")
         end
 
-        # Check if user is allowed to access this application
-        unless application.user_allowed?(user)
-          Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{app_slug}"
-          return render_forbidden("You do not have permission to access this application")
+        # Check if user is allowed by this rule
+        unless rule.user_allowed?(user)
+          Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by rule #{rule.domain_pattern}"
+          return render_forbidden("You do not have permission to access this domain")
         end
 
-        Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{app_slug}"
+        Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by rule #{rule.domain_pattern} (policy: #{rule.policy_for_user(user)})"
       else
-        Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no app specified)"
+        Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no domain specified)"
       end
 
       # User is authenticated and authorized
@@ -87,22 +91,8 @@ module Api
     end
 
     def extract_app_from_headers
-      # Try to extract application slug from forwarded headers
-      # This is useful when the proxy doesn't pass ?app= param
-
-      # X-Forwarded-Host might contain the hostname
-      host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
-
-      # Try to match hostname to application
-      # Format: app-slug.domain.com -> app-slug
-      if host.present?
-        # Extract subdomain as potential app slug
-        parts = host.split(".")
-        if parts.length >= 2
-          return parts.first if parts.first != "www"
-        end
-      end
-
+      # This method is deprecated since we now use ForwardAuthRule domain matching
+      # Keeping it for backward compatibility but it's no longer used
       nil
     end
 
