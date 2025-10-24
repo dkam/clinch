@@ -98,6 +98,10 @@ class OidcController < ApplicationController
 
   # POST /oauth/authorize/consent
   def consent
+    Rails.logger.info "=== CONSENT METHOD STARTED ==="
+    Rails.logger.info "Session data: #{session.inspect}"
+    Rails.logger.info "OAuth params from session: #{session[:oauth_params].inspect}"
+
     # Get OAuth params from session
     oauth_params = session[:oauth_params]
     unless oauth_params
@@ -115,9 +119,9 @@ class OidcController < ApplicationController
     end
 
     # Find the application
-    Rails.logger.debug "OAuth params: #{oauth_params.inspect}"
+    Rails.logger.info "OAuth params: #{oauth_params.inspect}"
     application = Application.find_by(client_id: oauth_params[:client_id], app_type: "oidc")
-    Rails.logger.debug "Found application: #{application.inspect}"
+    Rails.logger.info "Found application: #{application.inspect}"
     user = Current.session.user
 
     # Generate authorization code
