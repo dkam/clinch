@@ -120,7 +120,19 @@ class OidcController < ApplicationController
 
     # Find the application
     Rails.logger.info "OAuth params: #{oauth_params.inspect}"
-    application = Application.find_by(client_id: oauth_params[:client_id], app_type: "oidc")
+    Rails.logger.info "OAuth params keys: #{oauth_params.keys.inspect}"
+    Rails.logger.info "OAuth params string key 'client_id': #{oauth_params['client_id']}"
+    Rails.logger.info "OAuth params symbol key :client_id: #{oauth_params[:client_id]}"
+
+    client_id = oauth_params[:client_id] || oauth_params['client_id']
+    Rails.logger.info "Looking for application with client_id: #{client_id} and app_type: oidc"
+
+    # Try different query approaches
+    all_apps = Application.all
+    Rails.logger.info "All applications count: #{all_apps.count}"
+    all_apps.each { |app| Rails.logger.info "App: #{app.name}, client_id: #{app.client_id}, app_type: #{app.app_type}" }
+
+    application = Application.find_by(client_id: client_id, app_type: "oidc")
     Rails.logger.info "Found application: #{application.inspect}"
     user = Current.session.user
 
