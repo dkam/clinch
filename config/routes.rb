@@ -25,6 +25,7 @@ Rails.application.routes.draw do
   post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
   post "/oauth/token", to: "oidc#token"
   get "/oauth/userinfo", to: "oidc#userinfo"
+  get "/logout", to: "oidc#logout"
 
   # ForwardAuth / Trusted Header SSO
   namespace :api do

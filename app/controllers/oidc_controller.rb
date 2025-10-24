@@ -1,7 +1,7 @@
 class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
-  allow_unauthenticated_access only: [:discovery, :jwks, :token, :userinfo]
-  skip_before_action :verify_authenticity_token, only: [:token]
+  allow_unauthenticated_access only: [:discovery, :jwks, :token, :userinfo, :logout]
+  skip_before_action :verify_authenticity_token, only: [:token, :logout]
 
   # GET /.well-known/openid-configuration
   def discovery
@@ -13,6 +13,7 @@ class OidcController < ApplicationController
       token_endpoint: "#{base_url}/oauth/token",
       userinfo_endpoint: "#{base_url}/oauth/userinfo",
       jwks_uri: "#{base_url}/.well-known/jwks.json",
+      end_session_endpoint: "#{base_url}/logout",
       response_types_supported: ["code"],
       subject_types_supported: ["public"],
       id_token_signing_alg_values_supported: ["RS256"],
@@ -266,6 +267,33 @@ class OidcController < ApplicationController
     claims[:admin] = true if user.admin?
 
     render json: claims
+  end
+
+  # GET /logout
+  def logout
+    # OpenID Connect RP-Initiated Logout
+    # Handle id_token_hint and post_logout_redirect_uri parameters
+
+    id_token_hint = params[:id_token_hint]
+    post_logout_redirect_uri = params[:post_logout_redirect_uri]
+    state = params[:state]
+
+    # If user is authenticated, log them out
+    if authenticated?
+      # Invalidate the current session
+      Current.session&.destroy
+      reset_session
+    end
+
+    # If post_logout_redirect_uri is provided, redirect there
+    if post_logout_redirect_uri.present?
+      redirect_uri = post_logout_redirect_uri
+      redirect_uri += "?state=#{state}" if state.present?
+      redirect_to redirect_uri, allow_other_host: true
+    else
+      # Default redirect to home page
+      redirect_to root_path
+    end
   end
 
   private
