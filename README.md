@@ -8,7 +8,13 @@ Clinch gives you one place to manage users and lets any web app authenticate aga
 
 Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea? Rather than managing all those separate user accounts, set everyone up on Clinch and let it do the authentication and user management.
 
-**Clinch is a lightweight alternative to [Authelia](https://www.authelia.com) and [Authentik](https://goauthentik.io)**, designed for simplicity and ease of deployment.
+Clinch sits in a sweet spot between two excellent open-source identity solutions:
+
+**[Authelia](https://www.authelia.com)** is a fantastic choice for those who prefer external user management through LDAP and enjoy comprehensive YAML-based configuration. It's lightweight, secure, and works beautifully with reverse proxies.
+
+**[Authentik](https://goauthentik.io)** is an enterprise-grade powerhouse offering extensive protocol support (OAuth2, SAML, LDAP, RADIUS), advanced policy engines, and distributed "outpost" architecture for complex deployments.
+
+**Clinch** offers a middle ground with built-in user management, a modern web interface, and focused SSO capabilities (OIDC + ForwardAuth). It's perfect for users who want self-hosted simplicity without external dependencies or enterprise complexity.
 
 ---
 

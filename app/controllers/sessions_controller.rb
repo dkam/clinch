@@ -41,7 +41,7 @@ class SessionsController < ApplicationController
 
     # Sign in successful
     start_new_session_for user
-    redirect_to after_authentication_url, notice: "Signed in successfully."
+    redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
   end
 
   def verify_totp
@@ -71,7 +71,7 @@ class SessionsController < ApplicationController
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
         start_new_session_for user
-        redirect_to after_authentication_url, notice: "Signed in successfully."
+        redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
         return
       end
 
@@ -83,7 +83,7 @@ class SessionsController < ApplicationController
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
         start_new_session_for user
-        redirect_to after_authentication_url, notice: "Signed in successfully using backup code."
+        redirect_to after_authentication_url, notice: "Signed in successfully using backup code.", allow_other_host: true
         return
       end
 
