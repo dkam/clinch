@@ -23,7 +23,11 @@ class SessionsController < ApplicationController
 
     # Check if user is active
     unless user.active?
-      redirect_to signin_path, alert: "Your account is not active. Please contact an administrator."
+      if user.pending_invitation?
+        redirect_to signin_path, alert: "Please check your email for an invitation to set up your account."
+      else
+        redirect_to signin_path, alert: "Your account is not active. Please contact an administrator."
+      end
       return
     end
 

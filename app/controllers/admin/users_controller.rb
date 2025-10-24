@@ -1,6 +1,6 @@
 module Admin
   class UsersController < BaseController
-    before_action :set_user, only: [:show, :edit, :update, :destroy]
+    before_action :set_user, only: [:show, :edit, :update, :destroy, :resend_invitation]
 
     def index
       @users = User.order(created_at: :desc)
@@ -16,9 +16,11 @@ module Admin
     def create
       @user = User.new(user_params)
       @user.password = SecureRandom.alphanumeric(16) if user_params[:password].blank?
+      @user.status = :pending_invitation
 
       if @user.save
-        redirect_to admin_users_path, notice: "User created successfully."
+        InvitationsMailer.invite_user(@user).deliver_later
+        redirect_to admin_users_path, notice: "User created successfully. Invitation email sent to #{@user.email_address}."
       else
         render :new, status: :unprocessable_entity
       end
@@ -44,6 +46,16 @@ module Admin
       else
         render :edit, status: :unprocessable_entity
       end
+    end
+
+    def resend_invitation
+      unless @user.pending_invitation?
+        redirect_to admin_users_path, alert: "Cannot send invitation. User is not pending invitation."
+        return
+      end
+
+      InvitationsMailer.invite_user(@user).deliver_later
+      redirect_to admin_users_path, notice: "Invitation email resent to #{@user.email_address}."
     end
 
     def destroy
