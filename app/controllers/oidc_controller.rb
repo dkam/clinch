@@ -115,7 +115,9 @@ class OidcController < ApplicationController
     end
 
     # Find the application
+    Rails.logger.debug "OAuth params: #{oauth_params.inspect}"
     application = Application.find_by(client_id: oauth_params[:client_id], app_type: "oidc")
+    Rails.logger.debug "Found application: #{application.inspect}"
     user = Current.session.user
 
     # Generate authorization code
