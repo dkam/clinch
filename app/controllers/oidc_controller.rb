@@ -148,16 +148,12 @@ class OidcController < ApplicationController
     requested_scopes = oauth_params['scope'].split(' ')
     OidcUserConsent.upsert(
       {
-        user: user,
-        application: application,
+        user_id: user.id,
+        application_id: application.id,
         scopes_granted: requested_scopes.join(' '),
         granted_at: Time.current
       },
-      unique_by: [:user_id, :application_id],
-      update_columns: {
-        scopes_granted: requested_scopes.join(' '),
-        granted_at: Time.current
-      }
+      unique_by: [:user_id, :application_id]
     )
 
     # Generate authorization code
