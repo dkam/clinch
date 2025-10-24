@@ -98,10 +98,6 @@ class OidcController < ApplicationController
 
   # POST /oauth/authorize/consent
   def consent
-    Rails.logger.info "=== CONSENT METHOD STARTED ==="
-    Rails.logger.info "Session data: #{session.inspect}"
-    Rails.logger.info "OAuth params from session: #{session[:oauth_params].inspect}"
-
     # Get OAuth params from session
     oauth_params = session[:oauth_params]
     unless oauth_params
@@ -112,8 +108,8 @@ class OidcController < ApplicationController
     # User denied consent
     if params[:deny].present?
       session.delete(:oauth_params)
-      error_uri = "#{oauth_params[:redirect_uri]}?error=access_denied"
-      error_uri += "&state=#{oauth_params[:state]}" if oauth_params[:state]
+      error_uri = "#{oauth_params['redirect_uri']}?error=access_denied"
+      error_uri += "&state=#{oauth_params['state']}" if oauth_params['state']
       redirect_to error_uri, allow_other_host: true
       return
     end
@@ -141,8 +137,8 @@ class OidcController < ApplicationController
     session.delete(:oauth_params)
 
     # Redirect back to client with authorization code
-    redirect_uri = "#{oauth_params[:redirect_uri]}?code=#{code}"
-    redirect_uri += "&state=#{oauth_params[:state]}" if oauth_params[:state]
+    redirect_uri = "#{oauth_params['redirect_uri']}?code=#{code}"
+    redirect_uri += "&state=#{oauth_params['state']}" if oauth_params['state']
 
     redirect_to redirect_uri, allow_other_host: true
   end
