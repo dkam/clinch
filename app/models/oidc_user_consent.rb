@@ -26,6 +26,24 @@ class OidcUserConsent < ApplicationRecord
     (requested - granted).empty?
   end
 
+  # Get a human-readable list of scopes
+  def formatted_scopes
+    scopes.map do |scope|
+      case scope
+      when 'openid'
+        'Basic authentication'
+      when 'profile'
+        'Profile information'
+      when 'email'
+        'Email address'
+      when 'groups'
+        'Group membership'
+      else
+        scope.humanize
+      end
+    end.join(', ')
+  end
+
   private
 
   def set_granted_at

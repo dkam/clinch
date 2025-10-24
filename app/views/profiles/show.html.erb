@@ -1,7 +1,7 @@
 <div class="space-y-8">
   <div>
-    <h1 class="text-3xl font-bold text-gray-900">Profile & Settings</h1>
-    <p class="mt-2 text-sm text-gray-600">Manage your account settings and security preferences.</p>
+    <h1 class="text-3xl font-bold text-gray-900">Account Security</h1>
+    <p class="mt-2 text-sm text-gray-600">Manage your account settings, active sessions, and connected applications.</p>
   </div>
 
   <!-- Account Information -->
@@ -199,6 +199,44 @@
     }
   </script>
 
+  <!-- Connected Applications -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-lg font-medium leading-6 text-gray-900">Connected Applications</h3>
+      <div class="mt-2 max-w-xl text-sm text-gray-500">
+        <p>These applications have access to your account. You can revoke access at any time.</p>
+      </div>
+      <div class="mt-5">
+        <% if @connected_applications.any? %>
+          <ul role="list" class="divide-y divide-gray-200">
+            <% @connected_applications.each do |consent| %>
+              <li class="py-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex flex-col">
+                    <p class="text-sm font-medium text-gray-900">
+                      <%= consent.application.name %>
+                    </p>
+                    <p class="mt-1 text-sm text-gray-500">
+                      Access to: <%= consent.formatted_scopes %>
+                    </p>
+                    <p class="mt-1 text-xs text-gray-400">
+                      Authorized <%= time_ago_in_words(consent.granted_at) %> ago
+                    </p>
+                  </div>
+                  <%= button_to "Revoke Access", revoke_consent_profile_path(application_id: consent.application.id), method: :delete,
+                      class: "inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2",
+                      form: { data: { turbo_confirm: "Are you sure you want to revoke access to #{consent.application.name}? You'll need to re-authorize this application to use it again." } } %>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% else %>
+          <p class="text-sm text-gray-500">No connected applications.</p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
   <!-- Active Sessions -->
   <div class="bg-white shadow sm:rounded-lg">
     <div class="px-4 py-5 sm:p-6">
@@ -239,6 +277,29 @@
           </ul>
         <% else %>
           <p class="text-sm text-gray-500">No other active sessions.</p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Security Actions -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-lg font-medium leading-6 text-gray-900">Security Actions</h3>
+      <div class="mt-2 max-w-xl text-sm text-gray-500">
+        <p>Use these actions to quickly secure your account. Be careful - these actions cannot be undone.</p>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-4">
+        <% if @active_sessions.count > 1 %>
+          <%= button_to "Sign Out Everywhere Else", session_path(Current.session), method: :delete,
+              class: "inline-flex items-center rounded-md border border-orange-300 bg-white px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+              form: { data: { turbo_confirm: "This will sign you out from all other devices except this one. Are you sure?" } } %>
+        <% end %>
+
+        <% if @connected_applications.any? %>
+          <%= button_to "Revoke All App Access", revoke_all_consents_profile_path, method: :delete,
+              class: "inline-flex items-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2",
+              form: { data: { turbo_confirm: "This will revoke access from all connected applications. You'll need to re-authorize each application to use them again. Are you sure?" } } %>
         <% end %>
       </div>
     </div>

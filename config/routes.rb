@@ -34,7 +34,12 @@ Rails.application.routes.draw do
 
   # Authenticated routes
   root "dashboard#index"
-  resource :profile, only: [:show, :update]
+  resource :profile, only: [:show, :update] do
+    member do
+      delete :revoke_consent
+      delete :revoke_all_consents
+    end
+  end
   resources :sessions, only: [] do
     member do
       delete :destroy, action: :destroy_other

@@ -80,6 +80,15 @@ class User < ApplicationRecord
       .find { |consent| consent.covers_scopes?(requested_scopes) }
   end
 
+  def revoke_consent!(application)
+    consent = oidc_user_consents.find_by(application: application)
+    consent&.destroy
+  end
+
+  def revoke_all_consents!
+    oidc_user_consents.destroy_all
+  end
+
   private
 
   def generate_backup_codes
