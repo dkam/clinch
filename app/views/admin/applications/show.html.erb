@@ -1,4 +1,21 @@
 <div class="mb-6">
+  <% if flash[:client_id] && flash[:client_secret] %>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+      <h4 class="text-sm font-medium text-yellow-800 mb-2">🔐 OIDC Client Credentials</h4>
+      <p class="text-xs text-yellow-700 mb-3">Copy these credentials now. The client secret will not be shown again.</p>
+      <div class="space-y-2">
+        <div>
+          <span class="text-xs font-medium text-yellow-700">Client ID:</span>
+        </div>
+        <code class="block bg-yellow-100 px-3 py-2 rounded font-mono text-xs break-all"><%= flash[:client_id] %></code>
+        <div class="mt-3">
+          <span class="text-xs font-medium text-yellow-700">Client Secret:</span>
+        </div>
+        <code class="block bg-yellow-100 px-3 py-2 rounded font-mono text-xs break-all"><%= flash[:client_secret] %></code>
+      </div>
+    </div>
+  <% end %>
+
   <div class="sm:flex sm:items-center sm:justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-gray-900"><%= @application.name %></h1>
@@ -6,6 +23,9 @@
     </div>
     <div class="mt-4 sm:mt-0 flex gap-3">
       <%= link_to "Edit", edit_admin_application_path(@application), class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+      <% if @application.oidc? %>
+        <%= link_to "Manage Roles", roles_admin_application_path(@application), class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500" %>
+      <% end %>
       <%= button_to "Delete", admin_application_path(@application), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500" %>
     </div>
   </div>
@@ -64,7 +84,12 @@
           <div>
             <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
             <dd class="mt-1 text-sm text-gray-900">
-              <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_secret %></code>
+              <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500 italic">
+                🔒 Client secret is stored securely and cannot be displayed
+              </div>
+              <p class="mt-2 text-xs text-gray-500">
+                To get a new client secret, use the "Regenerate Credentials" button above.
+              </p>
             </dd>
           </div>
           <div>

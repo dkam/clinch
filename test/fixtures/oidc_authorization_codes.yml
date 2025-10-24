@@ -1,19 +1,19 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  code: MyString
-  application: one
-  user: one
-  redirect_uri: MyString
-  scope: MyString
-  expires_at: 2025-10-23 16:40:38
+  code: <%= SecureRandom.urlsafe_base64(32) %>
+  application: kavita_app
+  user: alice
+  redirect_uri: "https://kavita.example.com/signin-oidc"
+  scope: "openid profile email"
+  expires_at: 2025-12-31 23:59:59
   used: false
 
 two:
-  code: MyString
-  application: two
-  user: two
-  redirect_uri: MyString
-  scope: MyString
-  expires_at: 2025-10-23 16:40:38
+  code: <%= SecureRandom.urlsafe_base64(32) %>
+  application: another_app
+  user: bob
+  redirect_uri: "https://app.example.com/auth/callback"
+  scope: "openid profile email"
+  expires_at: 2025-12-31 23:59:59
   used: false

@@ -1,21 +1,26 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  name: MyString
-  slug: MyString
-  app_type: MyString
-  client_id: MyString
-  client_secret: MyString
-  redirect_uris: MyText
-  metadata: MyText
-  active: false
+<% require 'bcrypt' %>
 
-two:
-  name: MyString
-  slug: MyString
-  app_type: MyString
-  client_id: MyString
-  client_secret: MyString
-  redirect_uris: MyText
-  metadata: MyText
-  active: false
+kavita_app:
+  name: Kavita Reader
+  slug: kavita-reader
+  app_type: oidc
+  client_id: <%= SecureRandom.urlsafe_base64(32) %>
+  client_secret_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
+  redirect_uris: |
+    https://kavita.example.com/signin-oidc
+    https://kavita.example.com/signout-callback-oidc
+  metadata: "{}"
+  active: true
+
+another_app:
+  name: Another App
+  slug: another-app
+  app_type: oidc
+  client_id: <%= SecureRandom.urlsafe_base64(32) %>
+  client_secret_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
+  redirect_uris: |
+    https://app.example.com/auth/callback
+  metadata: "{}"
+  active: true

@@ -3,6 +3,8 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
   has_many :user_groups, dependent: :destroy
   has_many :groups, through: :user_groups
+  has_many :user_role_assignments, dependent: :destroy
+  has_many :application_roles, through: :user_role_assignments
 
   # Token generation for passwordless flows
   generates_token_for :invitation, expires_in: 7.days

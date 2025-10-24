@@ -161,7 +161,7 @@ class OidcController < ApplicationController
 
     # Find and validate the application
     application = Application.find_by(client_id: client_id)
-    unless application && application.client_secret == client_secret
+    unless application && application.authenticate_client_secret(client_secret)
       render json: { error: "invalid_client" }, status: :unauthorized
       return
     end

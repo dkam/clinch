@@ -27,6 +27,11 @@ class OidcJwtService
       # Add admin claim if user is admin
       payload[:admin] = true if user.admin?
 
+      # Add role-based claims if role mapping is enabled
+      if application.role_mapping_enabled?
+        add_role_claims!(payload, user, application)
+      end
+
       JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
     end
 
@@ -87,6 +92,51 @@ class OidcJwtService
     # Key identifier (fingerprint of the public key)
     def key_id
       @key_id ||= Digest::SHA256.hexdigest(public_key.to_pem)[0..15]
+    end
+
+    # Add role-based claims to the JWT payload
+    def add_role_claims!(payload, user, application)
+      user_roles = application.user_roles(user)
+      return if user_roles.empty?
+
+      role_names = user_roles.pluck(:name)
+
+      # Filter roles by prefix if configured
+      if application.role_prefix.present?
+        role_names = role_names.select { |role| role.start_with?(application.role_prefix) }
+      end
+
+      return if role_names.empty?
+
+      # Add roles using the configured claim name
+      claim_name = application.role_claim_name.presence || 'roles'
+      payload[claim_name] = role_names
+
+      # Add role permissions if configured
+      managed_permissions = application.parsed_managed_permissions
+      if managed_permissions['include_permissions'] == true
+        role_permissions = user_roles.map do |role|
+          {
+            name: role.name,
+            display_name: role.display_name,
+            permissions: role.permissions
+          }
+        end
+        payload['role_permissions'] = role_permissions
+      end
+
+      # Add role metadata if configured
+      if managed_permissions['include_metadata'] == true
+        role_metadata = user_roles.map do |role|
+          assignment = role.user_role_assignments.find_by(user: user)
+          {
+            name: role.name,
+            source: assignment&.source,
+            assigned_at: assignment&.created_at
+          }
+        end
+        payload['role_metadata'] = role_metadata
+      end
     end
   end
 end

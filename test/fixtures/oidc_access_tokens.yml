@@ -1,15 +1,15 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  token: MyString
-  application: one
-  user: one
-  scope: MyString
-  expires_at: 2025-10-23 16:40:39
+  token: <%= SecureRandom.urlsafe_base64(32) %>
+  application: kavita_app
+  user: alice
+  scope: "openid profile email"
+  expires_at: 2025-12-31 23:59:59
 
 two:
-  token: MyString
-  application: two
-  user: two
-  scope: MyString
-  expires_at: 2025-10-23 16:40:39
+  token: <%= SecureRandom.urlsafe_base64(32) %>
+  application: another_app
+  user: bob
+  scope: "openid profile email"
+  expires_at: 2025-12-31 23:59:59

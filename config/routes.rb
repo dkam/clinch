@@ -54,6 +54,11 @@ Rails.application.routes.draw do
     resources :applications do
       member do
         post :regenerate_credentials
+        get :roles
+        post :create_role
+        patch :update_role
+        post :assign_role
+        post :remove_role
       end
     end
     resources :groups
