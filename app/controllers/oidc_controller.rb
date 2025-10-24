@@ -82,6 +82,30 @@ class OidcController < ApplicationController
       return
     end
 
+    requested_scopes = scope.split(" ")
+
+    # Check if user has already granted consent for these scopes
+    existing_consent = user.has_oidc_consent?(@application, requested_scopes)
+    if existing_consent
+      # User has already consented, generate authorization code directly
+      code = SecureRandom.urlsafe_base64(32)
+      auth_code = OidcAuthorizationCode.create!(
+        application: @application,
+        user: user,
+        code: code,
+        redirect_uri: redirect_uri,
+        scope: scope,
+        nonce: nonce,
+        expires_at: 10.minutes.from_now
+      )
+
+      # Redirect back to client with authorization code
+      redirect_uri = "#{redirect_uri}?code=#{code}"
+      redirect_uri += "&state=#{state}" if state.present?
+      redirect_to redirect_uri, allow_other_host: true
+      return
+    end
+
     # Store OAuth parameters for consent page
     session[:oauth_params] = {
       client_id: client_id,
@@ -93,7 +117,7 @@ class OidcController < ApplicationController
 
     # Render consent page
     @redirect_uri = redirect_uri
-    @scopes = scope.split(" ")
+    @scopes = requested_scopes
     render :consent
   end
 
@@ -119,6 +143,22 @@ class OidcController < ApplicationController
     client_id = oauth_params['client_id']
     application = Application.find_by(client_id: client_id, app_type: "oidc")
     user = Current.session.user
+
+    # Record user consent
+    requested_scopes = oauth_params['scope'].split(' ')
+    OidcUserConsent.upsert(
+      {
+        user: user,
+        application: application,
+        scopes_granted: requested_scopes.join(' '),
+        granted_at: Time.current
+      },
+      unique_by: [:user_id, :application_id],
+      update_columns: {
+        scopes_granted: requested_scopes.join(' '),
+        granted_at: Time.current
+      }
+    )
 
     # Generate authorization code
     code = SecureRandom.urlsafe_base64(32)

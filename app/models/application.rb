@@ -5,6 +5,7 @@ class Application < ApplicationRecord
   has_many :allowed_groups, through: :application_groups, source: :group
   has_many :oidc_authorization_codes, dependent: :destroy
   has_many :oidc_access_tokens, dependent: :destroy
+  has_many :oidc_user_consents, dependent: :destroy
   has_many :application_roles, dependent: :destroy
   has_many :user_role_assignments, through: :application_roles
 

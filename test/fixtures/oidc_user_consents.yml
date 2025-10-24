@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user: one
+  application: one
+  scopes_granted: MyText
+  granted_at: 2025-10-24 16:57:39
+
+two:
+  user: two
+  application: two
+  scopes_granted: MyText
+  granted_at: 2025-10-24 16:57:39

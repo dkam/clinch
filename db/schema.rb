@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_24_053326) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_24_055739) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -113,6 +113,19 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_24_053326) do
     t.index ["user_id"], name: "index_oidc_authorization_codes_on_user_id"
   end
 
+  create_table "oidc_user_consents", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "granted_at", null: false
+    t.text "scopes_granted", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["application_id"], name: "index_oidc_user_consents_on_application_id"
+    t.index ["granted_at"], name: "index_oidc_user_consents_on_granted_at"
+    t.index ["user_id", "application_id"], name: "index_oidc_user_consents_on_user_id_and_application_id", unique: true
+    t.index ["user_id"], name: "index_oidc_user_consents_on_user_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "device_name"
@@ -173,6 +186,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_24_053326) do
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
+  add_foreign_key "oidc_user_consents", "applications"
+  add_foreign_key "oidc_user_consents", "users"
   add_foreign_key "sessions", "users"
   add_foreign_key "user_groups", "groups"
   add_foreign_key "user_groups", "users"

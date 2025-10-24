@@ -5,6 +5,7 @@ class User < ApplicationRecord
   has_many :groups, through: :user_groups
   has_many :user_role_assignments, dependent: :destroy
   has_many :application_roles, through: :user_role_assignments
+  has_many :oidc_user_consents, dependent: :destroy
 
   # Token generation for passwordless flows
   generates_token_for :invitation, expires_in: 7.days
@@ -71,6 +72,12 @@ class User < ApplicationRecord
   def parsed_backup_codes
     return [] unless backup_codes.present?
     JSON.parse(backup_codes)
+  end
+
+  def has_oidc_consent?(application, requested_scopes)
+    oidc_user_consents
+      .where(application: application)
+      .find { |consent| consent.covers_scopes?(requested_scopes) }
   end
 
   private
