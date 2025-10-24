@@ -51,7 +51,8 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
 3. **401/403** → Proxy redirects to Clinch login; after login, user returns to original URL
 
 Apps that speak OIDC use the OIDC flow; apps that only need "who is it?" headers use ForwardAuth.
-Forward Auth works only on the same domain as Clinch runs
+
+**Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
 
 ### SMTP Integration
 Send emails for:
