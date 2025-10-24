@@ -115,7 +115,7 @@ class OidcController < ApplicationController
     end
 
     # Find the application
-    application = Application.find_by(client_id: oauth_params[:client_id])
+    application = Application.find_by(client_id: oauth_params[:client_id], app_type: "oidc")
     user = Current.session.user
 
     # Generate authorization code
