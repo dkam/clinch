@@ -119,21 +119,8 @@ class OidcController < ApplicationController
     end
 
     # Find the application
-    Rails.logger.info "OAuth params: #{oauth_params.inspect}"
-    Rails.logger.info "OAuth params keys: #{oauth_params.keys.inspect}"
-    Rails.logger.info "OAuth params string key 'client_id': #{oauth_params['client_id']}"
-    Rails.logger.info "OAuth params symbol key :client_id: #{oauth_params[:client_id]}"
-
-    client_id = oauth_params[:client_id] || oauth_params['client_id']
-    Rails.logger.info "Looking for application with client_id: #{client_id} and app_type: oidc"
-
-    # Try different query approaches
-    all_apps = Application.all
-    Rails.logger.info "All applications count: #{all_apps.count}"
-    all_apps.each { |app| Rails.logger.info "App: #{app.name}, client_id: #{app.client_id}, app_type: #{app.app_type}" }
-
+    client_id = oauth_params['client_id']
     application = Application.find_by(client_id: client_id, app_type: "oidc")
-    Rails.logger.info "Found application: #{application.inspect}"
     user = Current.session.user
 
     # Generate authorization code
@@ -142,8 +129,8 @@ class OidcController < ApplicationController
       application: application,
       user: user,
       code: code,
-      redirect_uri: oauth_params[:redirect_uri],
-      scope: oauth_params[:scope],
+      redirect_uri: oauth_params['redirect_uri'],
+      scope: oauth_params['scope'],
       expires_at: 10.minutes.from_now
     )
 
