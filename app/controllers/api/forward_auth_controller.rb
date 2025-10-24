@@ -3,7 +3,6 @@ module Api
     # ForwardAuth endpoints need session storage for return URL
     allow_unauthenticated_access
     skip_before_action :verify_authenticity_token
-    skip_before_action :verify_request_origin
 
     # GET /api/verify
     # This endpoint is called by reverse proxies (Traefik, Caddy, nginx)
