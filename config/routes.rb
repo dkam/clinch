@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   resource :session
   resources :passwords, param: :token
+  resources :invitations, param: :token, only: [:show, :update]
   mount ActionCable.server => "/cable"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
@@ -56,7 +57,11 @@ Rails.application.routes.draw do
   # Admin routes
   namespace :admin do
     root "dashboard#index"
-    resources :users
+    resources :users do
+      member do
+        post :resend_invitation
+      end
+    end
     resources :applications do
       member do
         post :regenerate_credentials

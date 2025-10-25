@@ -145,7 +145,7 @@ GEM
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
     json (2.15.1)
-    jwt (2.10.2)
+    jwt (3.1.2)
       base64
     kamal (2.8.1)
       activesupport (>= 7.0)
@@ -276,10 +276,10 @@ GEM
       io-console (~> 0.5)
     rexml (3.4.4)
     rotp (6.3.0)
-    rqrcode (2.2.0)
+    rqrcode (3.1.0)
       chunky_png (~> 1.0)
-      rqrcode_core (~> 1.0)
-    rqrcode_core (1.2.0)
+      rqrcode_core (~> 2.0)
+    rqrcode_core (2.0.0)
     rubocop (1.81.6)
       json (~> 2.3)
       language_server-protocol (~> 3.17.0.2)
@@ -312,9 +312,9 @@ GEM
     ruby-vips (2.2.5)
       ffi (~> 1.12)
       logger
-    rubyzip (3.2.0)
+    rubyzip (3.2.1)
     securerandom (0.4.1)
-    selenium-webdriver (4.37.0)
+    selenium-webdriver (4.38.0)
       base64 (~> 0.2)
       logger (~> 1.4)
       rexml (~> 3.2, >= 3.2.5)
@@ -414,13 +414,13 @@ DEPENDENCIES
   image_processing (~> 1.2)
   importmap-rails
   jbuilder
-  jwt (~> 2.9)
+  jwt (~> 3.1)
   kamal
   propshaft
   puma (>= 5.0)
   rails (~> 8.1.0)
   rotp (~> 6.3)
-  rqrcode (~> 2.0)
+  rqrcode (~> 3.1)
   rubocop-rails-omakase
   selenium-webdriver
   solid_cable
