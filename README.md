@@ -169,7 +169,7 @@ bin/dev
 docker build -t clinch .
 
 # Run container
-docker run -p 9000:9000 \
+docker run -p 3000:3000 \
   -v clinch-storage:/rails/storage \
   -e SECRET_KEY_BASE=your-secret-key \
   -e SMTP_ADDRESS=smtp.example.com \
@@ -210,7 +210,7 @@ CLINCH_FROM_EMAIL=noreply@example.com
 ```
 
 ### First Run
-1. Visit Clinch at `http://localhost:9000` (or your configured domain)
+1. Visit Clinch at `http://localhost:3000` (or your configured domain)
 2. First-run wizard creates initial admin user
 3. Admin can then:
    - Create groups
@@ -229,12 +229,14 @@ CLINCH_FROM_EMAIL=noreply@example.com
 - First-run wizard
 
 ### Planned Features
+- **Audit logging** - Track all authentication events
+- **WebAuthn/Passkeys** - Hardware key support
+
+#### Maybe
 - **SAML support** - SAML 2.0 identity provider
 - **Policy engine** - Rule-based access control
   - Example: `IF user.email =~ "*@gmail.com" AND app.slug == "kavita" THEN DENY`
   - Stored as JSON, evaluated after auth but before consent
-- **Audit logging** - Track all authentication events
-- **WebAuthn/Passkeys** - Hardware key support
 - **LDAP sync** - Import users from LDAP/Active Directory
 
 ---
@@ -253,4 +255,3 @@ CLINCH_FROM_EMAIL=noreply@example.com
 ## License
 
 MIT
-
