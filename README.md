@@ -1,5 +1,7 @@
 # Clinch
 
+This software is experiemental. If you'd like to try it out, find bugs, security flaws and improvements, please do. 
+
 **A lightweight, self-hosted identity & SSO portal**
 
 Clinch gives you one place to manage users and lets any web app authenticate against it without maintaining its own user table.
