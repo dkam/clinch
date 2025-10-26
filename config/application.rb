@@ -30,7 +30,7 @@ module Clinch
       address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
       port: ENV.fetch('SMTP_PORT', 587),
       domain: ENV.fetch('SMTP_DOMAIN', 'localhost'),
-      user_name: ENV.fetch('SMTP_USER_NAME', nil),
+      user_name: ENV.fetch('SMTP_USERNAME', nil),
       password: ENV.fetch('SMTP_PASSWORD', nil),
       authentication: ENV.fetch('SMTP_AUTHENTICATION', 'plain').to_sym,
       enable_starttls_auto: ENV.fetch('SMTP_STARTTLS_AUTO', 'true') == 'true',
