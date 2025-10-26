@@ -39,6 +39,7 @@ module Authentication
     end
 
     def start_new_session_for(user)
+      user.update!(last_sign_in_at: Time.current)
       user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip).tap do |session|
         Current.session = session
 

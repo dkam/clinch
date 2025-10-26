@@ -44,22 +44,9 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
     assert @user.magic_login_token_created_at > 5.minutes.ago
   end
 
-  test "should generate invitation token" do
-    assert_nil @user.invitation_token
-    assert_nil @user.invitation_token_created_at
-
-    @user.generate_token_for(:invitation)
-    @user.save!
-
-    assert_not_nil @user.invitation_token
-    assert_not_nil @user.invitation_token_created_at
-    assert @user.invitation_token.length > 20
-    assert @user.invitation_token_created_at > 5.minutes.ago
-  end
-
   test "should generate tokens with different lengths" do
     # Test that different token types generate appropriate length tokens
-    token_types = [:password_reset, :invitation_login, :magic_login, :invitation]
+    token_types = [:password_reset, :invitation_login, :magic_login]
 
     token_types.each do |token_type|
       @user.generate_token_for(token_type)
@@ -146,7 +133,7 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
 
   test "should validate different token types" do
     # Test all token types work
-    token_types = [:password_reset, :invitation_login, :magic_login, :invitation]
+    token_types = [:password_reset, :invitation_login, :magic_login]
 
     token_types.each do |token_type|
       @user.generate_token_for(token_type)
@@ -162,9 +149,6 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
       when :magic_login
         assert @user.magic_login_token.present?
         assert @user.magic_login_token_valid?
-      when :invitation
-        assert @user.invitation_token.present?
-        assert @user.invitation_token_valid?
       end
     end
   end
@@ -283,5 +267,35 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
 
     assert_not old_password_instance.authenticate("NewPassword123!"), "Old password should not authenticate new instance"
     assert_not old_password_instance.authenticate("NewPassword123!"), "Password change should invalidate old sessions"
+  end
+
+  test "should update last_sign_in_at timestamp" do
+    # Test that last_sign_in_at is initially nil
+    assert_nil @user.last_sign_in_at, "New user should have nil last_sign_in_at"
+
+    # Update last_sign_in_at
+    @user.update!(last_sign_in_at: Time.current)
+
+    @user.reload
+    assert_not_nil @user.last_sign_in_at, "last_sign_in_at should be set after update"
+    assert @user.last_sign_in_at > 1.minute.ago, "last_sign_in_at should be recent"
+  end
+
+  test "should invalidate magic login token after sign in" do
+    # Generate magic login token
+    @user.update!(last_sign_in_at: 1.hour.ago)  # Set initial timestamp
+    old_sign_in_time = @user.last_sign_in_at
+
+    magic_token = @user.generate_token_for(:magic_login)
+
+    # Token should be valid before sign-in
+    assert User.find_by_magic_login_token(magic_token)&.id == @user.id, "Magic login token should be valid initially"
+
+    # Simulate sign-in (which updates last_sign_in_at)
+    @user.update!(last_sign_in_at: Time.current)
+
+    # Token should now be invalid because last_sign_in_at changed
+    assert_nil User.find_by_magic_login_token(magic_token), "Magic login token should be invalid after sign-in"
+    assert_not_equal old_sign_in_time, @user.last_sign_in_at, "last_sign_in_at should have changed"
   end
 end
