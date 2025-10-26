@@ -71,7 +71,8 @@ class OidcUserConsentTest < ActiveSupport::TestCase
     assert_nil new_consent.granted_at
     assert new_consent.save
     assert_not_nil new_consent.granted_at
-    assert new_consent.granted_at <= Time.current
+    # Should be very close to current time (allow 1 second variance)
+    assert_in_delta Time.current.to_f, new_consent.granted_at.to_f, 1.0
   end
 
   test "scopes should parse space-separated scopes into array" do
@@ -183,10 +184,10 @@ class OidcUserConsentTest < ActiveSupport::TestCase
   end
 
   test "should handle consent updates correctly" do
-    # Create initial consent
+    # Use a different user and app combination to avoid uniqueness constraint
     consent = OidcUserConsent.create!(
-      user: users(:bob),
-      application: applications(:another_app),
+      user: users(:alice),
+      application: applications(:another_app), # Different app than in fixtures
       scopes_granted: "openid email"
     )
 
