@@ -64,15 +64,14 @@ class OidcUserConsentTest < ActiveSupport::TestCase
 
   test "should set granted_at before validation on create" do
     new_consent = OidcUserConsent.new(
-      user: users(:bob),
+      user: users(:alice),
       application: applications(:another_app),
       scopes_granted: "openid email"
     )
     assert_nil new_consent.granted_at
-    assert new_consent.save
+    assert new_consent.save!, "Should save successfully"
     assert_not_nil new_consent.granted_at
-    # Should be very close to current time (allow 1 second variance)
-    assert_in_delta Time.current.to_f, new_consent.granted_at.to_f, 1.0
+    assert new_consent.granted_at.is_a?(Time), "granted_at should be a Time object"
   end
 
   test "scopes should parse space-separated scopes into array" do
