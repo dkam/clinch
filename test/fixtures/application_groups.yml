@@ -1,9 +1,9 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  application: one
-  group: one
+kavita_admin_group:
+  application: kavita_app
+  group: admin_group
 
-two:
-  application: two
-  group: two
+kavita_editor_group:
+  application: kavita_app
+  group: editor_group

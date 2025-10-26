@@ -1,13 +1,13 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  user: one
-  application: one
-  scopes_granted: MyText
+alice_consent:
+  user: alice
+  application: kavita_app
+  scopes_granted: openid profile email
   granted_at: 2025-10-24 16:57:39
 
-two:
-  user: two
-  application: two
-  scopes_granted: MyText
+bob_consent:
+  user: bob
+  application: another_app
+  scopes_granted: openid email groups
   granted_at: 2025-10-24 16:57:39

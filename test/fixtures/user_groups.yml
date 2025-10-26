@@ -1,9 +1,9 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  user: one
-  group: one
+alice_admin_group:
+  user: alice
+  group: admin_group
 
-two:
-  user: two
-  group: two
+bob_editor_group:
+  user: bob
+  group: editor_group
