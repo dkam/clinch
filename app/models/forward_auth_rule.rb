@@ -7,6 +7,15 @@ class ForwardAuthRule < ApplicationRecord
 
   normalizes :domain_pattern, with: ->(pattern) { pattern.strip.downcase }
 
+  # Default header configuration
+  DEFAULT_HEADERS = {
+    user: 'X-Remote-User',
+    email: 'X-Remote-Email',
+    name: 'X-Remote-Name',
+    groups: 'X-Remote-Groups',
+    admin: 'X-Remote-Admin'
+  }.freeze
+
   # Scopes
   scope :active, -> { where(active: true) }
   scope :ordered, -> { order(domain_pattern: :asc) }
@@ -49,5 +58,37 @@ class ForwardAuthRule < ApplicationRecord
     else
       'deny'
     end
+  end
+
+  # Get effective header configuration (rule-specific + defaults)
+  def effective_headers
+    DEFAULT_HEADERS.merge((headers_config || {}).symbolize_keys)
+  end
+
+  # Generate headers for a specific user
+  def headers_for_user(user)
+    headers = {}
+    effective = effective_headers
+
+    # Only generate headers that are configured (not set to nil/false)
+    effective.each do |key, header_name|
+      next unless header_name.present?  # Skip disabled headers
+
+      case key
+      when :user, :email, :name
+        headers[header_name] = user.email_address
+      when :groups
+        headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
+      when :admin
+        headers[header_name] = user.admin? ? "true" : "false"
+      end
+    end
+
+    headers
+  end
+
+  # Check if all headers are disabled
+  def headers_disabled?
+    headers_config.present? && effective_headers.values.all?(&:blank?)
   end
 end

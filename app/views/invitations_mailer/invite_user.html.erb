@@ -1,0 +1,12 @@
+<p>
+  You've been invited to join Clinch! To set up your account and create your password, please visit
+  <%= link_to "this invitation page", invite_url(@user.invitation_login_token) %>.
+</p>
+
+<p>
+  This invitation link will expire in <%= distance_of_time_in_words(0, @user.invitation_login_token_expires_in) %>.
+</p>
+
+<p>
+  If you didn't expect this invitation, you can safely ignore this email.
+</p>

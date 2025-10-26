@@ -45,6 +45,75 @@
               Select groups that are allowed to access this domain. If no groups are selected, all authenticated users will be allowed access (bypass).
             </p>
           </div>
+
+          <div class="col-span-full">
+            <div class="block text-sm font-medium leading-6 text-gray-900 mb-4">
+              HTTP Headers Configuration
+            </div>
+            <div class="mt-2 space-y-4">
+              <div class="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
+                <div>
+                  <%= label_tag "headers_config[user]", "User Header", class: "block text-sm font-medium leading-6 text-gray-900" %>
+                  <div class="mt-2">
+                    <%= text_field_tag "headers_config[user]", @forward_auth_rule.headers_config&.dig(:user) || ForwardAuthRule::DEFAULT_HEADERS[:user],
+                        class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6",
+                        placeholder: "Remote-User" %>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Header name for user identity</p>
+                </div>
+
+                <div>
+                  <%= label_tag "headers_config[email]", "Email Header", class: "block text-sm font-medium leading-6 text-gray-900" %>
+                  <div class="mt-2">
+                    <%= text_field_tag "headers_config[email]", @forward_auth_rule.headers_config&.dig(:email) || ForwardAuthRule::DEFAULT_HEADERS[:email],
+                        class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6",
+                        placeholder: "Remote-Email" %>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Header name for user email</p>
+                </div>
+
+                <div>
+                  <%= label_tag "headers_config[name]", "Name Header", class: "block text-sm font-medium leading-6 text-gray-900" %>
+                  <div class="mt-2">
+                    <%= text_field_tag "headers_config[name]", @forward_auth_rule.headers_config&.dig(:name) || ForwardAuthRule::DEFAULT_HEADERS[:name],
+                        class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6",
+                        placeholder: "Remote-Name" %>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Header name for user display name</p>
+                </div>
+
+                <div>
+                  <%= label_tag "headers_config[groups]", "Groups Header", class: "block text-sm font-medium leading-6 text-gray-900" %>
+                  <div class="mt-2">
+                    <%= text_field_tag "headers_config[groups]", @forward_auth_rule.headers_config&.dig(:groups) || ForwardAuthRule::DEFAULT_HEADERS[:groups],
+                        class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6",
+                        placeholder: "Remote-Groups" %>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Header name for user groups (comma-separated)</p>
+                </div>
+
+                <div>
+                  <%= label_tag "headers_config[admin]", "Admin Header", class: "block text-sm font-medium leading-6 text-gray-900" %>
+                  <div class="mt-2">
+                    <%= text_field_tag "headers_config[admin]", @forward_auth_rule.headers_config&.dig(:admin) || ForwardAuthRule::DEFAULT_HEADERS[:admin],
+                        class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6",
+                        placeholder: "Remote-Admin" %>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Header name for admin status (true/false)</p>
+                </div>
+              </div>
+
+              <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                <h4 class="text-sm font-medium text-blue-900 mb-2">Header Configuration Options:</h4>
+                <ul class="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>Default headers:</strong> Use standard headers like Remote-User, Remote-Email</li>
+                  <li>• <strong>X- prefixed:</strong> Use X-Remote-User, X-Remote-Email, etc.</li>
+                  <li>• <strong>Custom:</strong> Use application-specific headers</li>
+                  <li>• <strong>No headers:</strong> Leave fields empty for access-only (like Metube)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

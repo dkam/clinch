@@ -64,18 +64,26 @@ module Api
       end
 
       # User is authenticated and authorized
-      # Return 200 with user information headers
-      response.headers["Remote-User"] = user.email_address
-      response.headers["Remote-Email"] = user.email_address
-      response.headers["Remote-Name"] = user.email_address
+      # Return 200 with user information headers using rule-specific configuration
+      headers = rule ? rule.headers_for_user(user) : ForwardAuthRule::DEFAULT_HEADERS.map { |key, header_name|
+        case key
+        when :user, :email, :name
+          [header_name, user.email_address]
+        when :groups
+          user.groups.any? ? [header_name, user.groups.pluck(:name).join(",")] : nil
+        when :admin
+          [header_name, user.admin? ? "true" : "false"]
+        end
+      }.compact.to_h
 
-      # Add groups if user has any
-      if user.groups.any?
-        response.headers["Remote-Groups"] = user.groups.pluck(:name).join(",")
+      headers.each { |key, value| response.headers[key] = value }
+
+      # Log what headers we're sending (helpful for debugging)
+      if headers.any?
+        Rails.logger.debug "ForwardAuth: Headers sent: #{headers.keys.join(', ')}"
+      else
+        Rails.logger.debug "ForwardAuth: No headers sent (access only)"
       end
-
-      # Add admin flag
-      response.headers["Remote-Admin"] = user.admin? ? "true" : "false"
 
       # Return 200 OK with no body
       head :ok

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_24_055739) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_26_033102) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -68,6 +68,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_24_055739) do
     t.boolean "active"
     t.datetime "created_at", null: false
     t.string "domain_pattern"
+    t.json "headers_config", default: {}, null: false
     t.integer "policy"
     t.datetime "updated_at", null: false
   end

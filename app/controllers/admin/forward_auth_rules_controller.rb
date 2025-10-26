@@ -17,6 +17,8 @@ module Admin
 
     def create
       @forward_auth_rule = ForwardAuthRule.new(forward_auth_rule_params)
+      # Handle headers configuration
+      @forward_auth_rule.headers_config = process_headers_config(params[:headers_config])
 
       if @forward_auth_rule.save
         # Handle group assignments
@@ -38,6 +40,10 @@ module Admin
 
     def update
       if @forward_auth_rule.update(forward_auth_rule_params)
+        # Handle headers configuration
+        @forward_auth_rule.headers_config = process_headers_config(params[:headers_config])
+        @forward_auth_rule.save!
+
         # Handle group assignments
         if params[:forward_auth_rule][:group_ids].present?
           group_ids = params[:forward_auth_rule][:group_ids].reject(&:blank?)
@@ -66,6 +72,13 @@ module Admin
 
     def forward_auth_rule_params
       params.require(:forward_auth_rule).permit(:domain_pattern, :active)
+    end
+
+    def process_headers_config(headers_params)
+      return {} unless headers_params.is_a?(Hash)
+
+      # Clean up headers config - remove empty values, keep only filled ones
+      headers_params.select { |key, value| value.present? }.symbolize_keys
     end
   end
 end
