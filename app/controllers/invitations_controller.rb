@@ -14,7 +14,7 @@ class InvitationsController < ApplicationController
       start_new_session_for @user
       redirect_to root_path, notice: "Your account has been set up successfully. Welcome!"
     else
-      redirect_to invite_path(params[:token]), alert: "Passwords did not match."
+      redirect_to invitation_path(params[:token]), alert: "Passwords did not match."
     end
   end
 

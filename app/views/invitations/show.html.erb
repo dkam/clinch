@@ -6,7 +6,7 @@
   <h1 class="font-bold text-4xl">Welcome to Clinch!</h1>
   <p class="mt-2 text-gray-600">You've been invited to join Clinch. Please create your password to complete your account setup.</p>
 
-  <%= form_with url: invite_path(params[:token]), method: :put, class: "contents" do |form| %>
+  <%= form_with url: invitation_path(params[:token]), method: :put, class: "contents" do |form| %>
     <div class="my-5">
       <%= form.password_field :password, required: true, autocomplete: "new-password", placeholder: "Enter your password", maxlength: 72, class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
     </div>
