@@ -31,8 +31,9 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Don't care if the mailer can't send.
-  config.action_mailer.raise_delivery_errors = false
+  # Preview emails in browser using letter_opener
+  config.action_mailer.delivery_method = :letter_opener
+  config.action_mailer.perform_deliveries = true
 
   # Make template changes take effect immediately.
   config.action_mailer.perform_caching = false
@@ -58,9 +59,8 @@ Rails.application.configure do
   # Highlight code that enqueued background job in logs.
   config.active_job.verbose_enqueue_logs = true
 
-  # Use Solid Queue for background jobs (same as production).
-  config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
+  # Use async processor for background jobs in development
+  config.active_job.queue_adapter = :async
   
 
   # Highlight code that triggered redirect in logs.

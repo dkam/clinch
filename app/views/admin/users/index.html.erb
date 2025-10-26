@@ -8,6 +8,39 @@
   </div>
 </div>
 
+<% unless smtp_configured? %>
+  <div class="mt-6 rounded-md bg-yellow-50 p-4">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-yellow-800">
+          Email delivery not configured
+        </h3>
+        <div class="mt-2 text-sm text-yellow-700">
+          <p>
+            <% if Rails.env.development? %>
+              Emails are being delivered using <span class="font-mono"><%= email_delivery_method %></span> and will open in your browser.
+            <% else %>
+              SMTP settings are not configured. Invitation emails and other notifications will not be sent.
+            <% end %>
+          </p>
+          <p class="mt-1">
+            <% if Rails.env.development? %>
+              To configure SMTP for production, set environment variables like <span class="font-mono">SMTP_ADDRESS</span>, <span class="font-mono">SMTP_PORT</span>, <span class="font-mono">SMTP_USERNAME</span>, etc.
+            <% else %>
+              Configure SMTP settings by setting environment variables: <span class="font-mono">SMTP_ADDRESS</span>, <span class="font-mono">SMTP_PORT</span>, <span class="font-mono">SMTP_USERNAME</span>, <span class="font-mono">SMTP_PASSWORD</span>, etc.
+            <% end %>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+<% end %>
+
 <div class="mt-8 flow-root">
   <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
     <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
@@ -66,11 +99,17 @@
                 <%= user.groups.count %>
               </td>
               <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
-                <% if user.pending_invitation? %>
-                  <%= button_to "Resend", resend_invitation_admin_user_path(user), method: :post, class: "text-yellow-600 hover:text-yellow-900 mr-4" %>
-                <% end %>
-                <%= link_to "Edit", edit_admin_user_path(user), class: "text-blue-600 hover:text-blue-900 mr-4" %>
-                <%= button_to "Delete", admin_user_path(user), method: :delete, data: { turbo_confirm: "Are you sure you want to delete this user?" }, class: "text-red-600 hover:text-red-900" %>
+                <div class="flex justify-end space-x-3">
+                  <% if user.pending_invitation? %>
+                    <%= link_to "Resend", resend_invitation_admin_user_path(user),
+                        data: { turbo_method: :post },
+                        class: "text-yellow-600 hover:text-yellow-900" %>
+                  <% end %>
+                  <%= link_to "Edit", edit_admin_user_path(user), class: "text-blue-600 hover:text-blue-900" %>
+                  <%= link_to "Delete", admin_user_path(user),
+                      data: { turbo_method: :delete, turbo_confirm: "Are you sure you want to delete this user?" },
+                      class: "text-red-600 hover:text-red-900" %>
+                </div>
               </td>
             </tr>
           <% end %>
