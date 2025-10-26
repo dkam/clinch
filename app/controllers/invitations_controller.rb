@@ -1,4 +1,5 @@
 class InvitationsController < ApplicationController
+  include Authentication
   allow_unauthenticated_access
   before_action :set_user_by_invitation_token, only: %i[ show update ]
 
@@ -10,7 +11,8 @@ class InvitationsController < ApplicationController
     if @user.update(params.permit(:password, :password_confirmation))
       @user.update!(status: :active)
       @user.sessions.destroy_all
-      redirect_to new_session_path, notice: "Your account has been set up successfully. Please sign in."
+      start_new_session_for @user
+      redirect_to root_path, notice: "Your account has been set up successfully. Welcome!"
     else
       redirect_to invite_path(params[:token]), alert: "Passwords did not match."
     end
@@ -19,7 +21,7 @@ class InvitationsController < ApplicationController
   private
 
   def set_user_by_invitation_token
-    @user = User.find_by_invitation_login_token!(params[:token])
+    @user = User.find_by_token_for(:invitation_login, params[:token])
 
     # Check if user is still pending invitation
     unless @user.pending_invitation?
