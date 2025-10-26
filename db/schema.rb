@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_26_033102) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_26_113035) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -169,6 +169,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_26_033102) do
     t.text "backup_codes"
     t.datetime "created_at", null: false
     t.string "email_address", null: false
+    t.datetime "last_sign_in_at"
     t.string "password_digest", null: false
     t.integer "status", default: 0, null: false
     t.boolean "totp_required", default: false, null: false
