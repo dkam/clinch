@@ -10,15 +10,19 @@ module Api
     def verify
       # Note: app_slug parameter is no longer used - we match domains directly with ForwardAuthRule
 
-      # Get the session from cookie
-      session_id = extract_session_id
+      # Check for one-time forward auth token first (to handle race condition)
+      session_id = check_forward_auth_token
+
+      # If no token found, try to get session from cookie
+      session_id ||= extract_session_id
+
       unless session_id
-        # No session cookie - user is not authenticated
+        # No session cookie or token - user is not authenticated
         return render_unauthorized("No session cookie")
       end
 
-      # Find the session
-      session = Session.find_by(id: session_id)
+      # Find the session with user association (eager loading for performance)
+      session = Session.includes(:user).find_by(id: session_id)
       unless session
         # Invalid session
         return render_unauthorized("Invalid session")
@@ -30,10 +34,10 @@ module Api
         return render_unauthorized("Session expired")
       end
 
-      # Update last activity
+      # Update last activity (skip validations for performance)
       session.update_column(:last_activity_at, Time.current)
 
-      # Get the user
+      # Get the user (already loaded via includes(:user))
       user = session.user
       unless user.active?
         return render_unauthorized("User account is not active")
@@ -44,8 +48,12 @@ module Api
       forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
 
       if forwarded_host.present?
+        # Load active rules with their associations for better performance
+        # Preload groups to avoid N+1 queries in user_allowed? checks
+        rules = ForwardAuthRule.includes(:groups).active
+
         # Find matching forward auth rule for this domain
-        rule = ForwardAuthRule.active.find { |r| r.matches_domain?(forwarded_host) }
+        rule = rules.find { |r| r.matches_domain?(forwarded_host) }
 
         unless rule
           Rails.logger.warn "ForwardAuth: No rule found for domain: #{forwarded_host}"
@@ -91,13 +99,30 @@ module Api
 
     private
 
+    def check_forward_auth_token
+      # Check for one-time token in query parameters (for race condition handling)
+      token = params[:fa_token]
+      return nil unless token.present?
+
+      # Try to get session ID from cache
+      session_id = Rails.cache.read("forward_auth_token:#{token}")
+      return nil unless session_id
+
+      # Verify the session exists and is valid
+      session = Session.find_by(id: session_id)
+      return nil unless session && !session.expired?
+
+      # Delete the token immediately (one-time use)
+      Rails.cache.delete("forward_auth_token:#{token}")
+
+            session_id
+    end
+
     def extract_session_id
       # Extract session ID from cookie
       # Rails uses signed cookies by default
       session_id = cookies.signed[:session_id]
-      Rails.logger.info "ForwardAuth: Session cookie present: #{session_id.present?}, value: #{session_id&.to_s&.first(10)}..."
-      Rails.logger.info "ForwardAuth: All cookies: #{cookies.to_h.keys.join(', ')}"
-      session_id
+            session_id
     end
 
     def extract_app_from_headers

@@ -1,3 +1,5 @@
+require 'uri'
+
 module Authentication
   extend ActiveSupport::Concern
 
@@ -36,9 +38,7 @@ module Authentication
 
     def after_authentication_url
       return_url = session[:return_to_after_authenticating]
-      Rails.logger.info "Authentication: after_authentication_url - session[:return_to_after_authenticating] = #{return_url.inspect}"
       final_url = session.delete(:return_to_after_authenticating) || root_url
-      Rails.logger.info "Authentication: Final redirect URL: #{final_url}"
       final_url
     end
 
@@ -60,9 +60,11 @@ module Authentication
         # Set domain for cross-subdomain authentication if we can extract it
         cookie_options[:domain] = domain if domain.present?
 
-        Rails.logger.info "Authentication: Setting session cookie with options: #{cookie_options.except(:value).merge(value: cookie_options[:value]&.to_s&.first(10) + '...')}"
-        Rails.logger.info "Authentication: Extracted domain from #{request.host}: #{domain.inspect}"
-        cookies.signed.permanent[:session_id] = cookie_options
+                cookies.signed.permanent[:session_id] = cookie_options
+
+        # Create a one-time token for immediate forward auth after authentication
+        # This solves the race condition where browser hasn't processed cookie yet
+        create_forward_auth_token(session)
       end
     end
 
@@ -102,5 +104,36 @@ module Authentication
       # For regular domains: app.example.com -> .example.com
       root_parts = parts[-2..-1]
       ".#{root_parts.join('.')}"
+    end
+
+    # Create a one-time token for forward auth to handle the race condition
+    # where the browser hasn't processed the session cookie yet
+    def create_forward_auth_token(session_obj)
+      # Generate a secure random token
+      token = SecureRandom.urlsafe_base64(32)
+
+      # Store it with an expiry of 30 seconds
+      Rails.cache.write(
+        "forward_auth_token:#{token}",
+        session_obj.id,
+        expires_in: 30.seconds
+      )
+
+      # Set the token as a query parameter on the redirect URL
+      # We need to store this in the controller's session
+      controller_session = session
+      if controller_session[:return_to_after_authenticating].present?
+        original_url = controller_session[:return_to_after_authenticating]
+        uri = URI.parse(original_url)
+
+        # Add token as query parameter
+        query_params = URI.decode_www_form(uri.query || "").to_h
+        query_params['fa_token'] = token
+        uri.query = URI.encode_www_form(query_params)
+
+        # Update the session with the tokenized URL
+        controller_session[:return_to_after_authenticating] = uri.to_s
+
+              end
     end
 end

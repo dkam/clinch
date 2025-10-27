@@ -67,6 +67,12 @@ class SessionsController < ApplicationController
     if request.post?
       code = params[:code]&.strip
 
+      # Check if user is already authenticated (prevent duplicate submissions)
+      if authenticated?
+        redirect_to root_path, notice: "Already signed in."
+        return
+      end
+
       # Try TOTP verification first
       if user.verify_totp(code)
         session.delete(:pending_totp_user_id)
