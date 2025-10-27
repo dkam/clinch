@@ -23,7 +23,31 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 ## Screenshots
 
 ### User Dashboard
-[![User Dashboard](docs/screenshots/dashboard-thumb.png)](docs/screenshots/dashboard.png)
+[![User Dashboard](docs/screenshots/thumbs/0-dashboard.png)](docs/screenshots/0-dashboard.png)
+
+### Sign In
+[![Sign In](docs/screenshots/thumbs/1-signin.png)](docs/screenshots/1-signin.png)
+
+### Sign In with Error
+[![Sign In with Error](docs/screenshots/thumbs/2-signin.png)](docs/screenshots/2-signin.png)
+
+### Users Management
+[![Users Management](docs/screenshots/thumbs/3-users.png)](docs/screenshots/3-users.png)
+
+### Welcome Screen
+[![Welcome Screen](docs/screenshots/thumbs/4-welcome.png)](docs/screenshots/4-welcome.png)
+
+### Welcome Setup
+[![Welcome Setup](docs/screenshots/thumbs/5-welcome-2.png)](docs/screenshots/5-welcome-2.png)
+
+### Setup 2FA
+[![Setup 2FA](docs/screenshots/thumbs/6-setup-2fa.png)](docs/screenshots/6-setup-2fa.png)
+
+### Forward Auth Example 1
+[![Forward Auth Example 1](docs/screenshots/thumbs/7-forward-auth-1.png)](docs/screenshots/7-forward-auth-1.png)
+
+### Forward Auth Example 2
+[![Forward Auth Example 2](docs/screenshots/thumbs/8-forward-auth-2.png)](docs/screenshots/8-forward-auth-2.png)
 
 ## Features
 
