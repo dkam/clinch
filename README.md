@@ -20,6 +20,11 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 
 ---
 
+## Screenshots
+
+### User Dashboard
+[![User Dashboard](docs/screenshots/dashboard-thumb.png)](docs/screenshots/dashboard.png)
+
 ## Features
 
 ### User Management
