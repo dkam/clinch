@@ -35,7 +35,11 @@ module Authentication
     end
 
     def after_authentication_url
-      session.delete(:return_to_after_authenticating) || root_url
+      return_url = session[:return_to_after_authenticating]
+      Rails.logger.info "Authentication: after_authentication_url - session[:return_to_after_authenticating] = #{return_url.inspect}"
+      final_url = session.delete(:return_to_after_authenticating) || root_url
+      Rails.logger.info "Authentication: Final redirect URL: #{final_url}"
+      final_url
     end
 
     def start_new_session_for(user)
@@ -56,6 +60,8 @@ module Authentication
         # Set domain for cross-subdomain authentication if we can extract it
         cookie_options[:domain] = domain if domain.present?
 
+        Rails.logger.info "Authentication: Setting session cookie with options: #{cookie_options.except(:value).merge(value: cookie_options[:value]&.to_s&.first(10) + '...')}"
+        Rails.logger.info "Authentication: Extracted domain from #{request.host}: #{domain.inspect}"
         cookies.signed.permanent[:session_id] = cookie_options
       end
     end

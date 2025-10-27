@@ -94,7 +94,10 @@ module Api
     def extract_session_id
       # Extract session ID from cookie
       # Rails uses signed cookies by default
-      cookies.signed[:session_id]
+      session_id = cookies.signed[:session_id]
+      Rails.logger.info "ForwardAuth: Session cookie present: #{session_id.present?}, value: #{session_id&.to_s&.first(10)}..."
+      Rails.logger.info "ForwardAuth: All cookies: #{cookies.to_h.keys.join(', ')}"
+      session_id
     end
 
     def extract_app_from_headers
