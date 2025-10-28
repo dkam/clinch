@@ -28,8 +28,8 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 ### Sign In
 [![Sign In](docs/screenshots/thumbs/1-signin.png)](docs/screenshots/1-signin.png)
 
-### Sign In with Error
-[![Sign In with Error](docs/screenshots/thumbs/2-signin.png)](docs/screenshots/2-signin.png)
+### Sign In with 2FA
+[![Sign In with 2FA](docs/screenshots/thumbs/2-signin.png)](docs/screenshots/2-signin.png)
 
 ### Users Management
 [![Users Management](docs/screenshots/thumbs/3-users.png)](docs/screenshots/3-users.png)

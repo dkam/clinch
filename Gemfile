@@ -31,6 +31,9 @@ gem "rqrcode", "~> 3.1"
 # JWT for OIDC ID tokens
 gem "jwt", "~> 3.1"
 
+# Public Suffix List for domain parsing
+gem "public_suffix", "~> 6.0"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

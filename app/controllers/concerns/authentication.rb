@@ -1,4 +1,5 @@
 require 'uri'
+require 'public_suffix'
 
 module Authentication
   extend ActiveSupport::Concern
@@ -73,37 +74,43 @@ module Authentication
       cookies.delete(:session_id)
     end
 
-    # Extract root domain for cross-subdomain cookies
+    # Extract root domain for cross-subdomain cookies in SSO forward_auth system.
+    #
+    # PURPOSE: Enables a single authentication session to work across multiple subdomains
+    # by setting cookies with the domain parameter (e.g., .example.com allows access from
+    # both app.example.com and api.example.com).
+    #
+    # CRITICAL: Returns nil for IP addresses and localhost - this is intentional!
+    # When accessing services by IP, there are no subdomains to share cookies with,
+    # and setting a domain cookie would break authentication.
+    #
+    # Uses the Public Suffix List (industry standard maintained by Mozilla) to
+    # correctly handle complex domain patterns like co.uk, com.au, appspot.com, etc.
+    #
     # Examples:
-    # - clinch.aapamilne.com -> .aapamilne.com
-    # - app.example.co.uk -> .example.co.uk
-    # - localhost -> nil (no domain setting for local development)
+    # - app.example.com -> .example.com (enables cross-subdomain SSO)
+    # - api.example.co.uk -> .example.co.uk (handles complex TLDs)
+    # - myapp.appspot.com -> .myapp.appspot.com (handles platform domains)
+    # - localhost -> nil (local development, no domain cookie)
+    # - 192.168.1.1 -> nil (IP access, no domain cookie - prevents SSO breakage)
+    #
+    # @param host [String] The request host (may include port)
+    # @return [String, nil] Root domain with leading dot for cookies, or nil for no domain setting
     def extract_root_domain(host)
       return nil if host.blank? || host.match?(/^(localhost|127\.0\.0\.1|::1)$/)
 
-      # Split hostname into parts
-      parts = host.split('.')
+      # Strip port number for domain parsing
+      host_without_port = host.split(':').first
 
-      # For normal domains like example.com, we need at least 2 parts
-      # For complex domains like co.uk, we need at least 3 parts
-      return nil if parts.length < 2
+      # Check if it's an IP address - if so, don't set domain cookie
+      return nil if host_without_port.match?(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)
 
-      # Extract root domain with leading dot for cross-subdomain cookies
-      if parts.length >= 3
-        # Check if it's a known complex TLD
-        complex_tlds = %w[co.uk com.au co.nz co.za co.jp]
-        second_level = "#{parts[-2]}.#{parts[-1]}"
-
-        if complex_tlds.include?(second_level)
-          # For complex TLDs, include more parts: app.example.co.uk -> .example.co.uk
-          root_parts = parts[-3..-1]
-          return ".#{root_parts.join('.')}"
-        end
-      end
-
-      # For regular domains: app.example.com -> .example.com
-      root_parts = parts[-2..-1]
-      ".#{root_parts.join('.')}"
+      # Use Public Suffix List for accurate domain parsing
+      domain = PublicSuffix.parse(host_without_port)
+      ".#{domain.domain}"
+    rescue PublicSuffix::DomainInvalid
+      # Fallback for invalid domains or IPs
+      nil
     end
 
     # Create a one-time token for forward auth to handle the race condition
