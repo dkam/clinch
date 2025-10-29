@@ -83,9 +83,28 @@ Rails.application.configure do
   # Enable DNS rebinding protection and other `Host` header attacks.
   # Configure allowed hosts based on deployment scenario
   allowed_hosts = [
-    ENV.fetch('CLINCH_HOST', 'auth.aapamilne.com'),  # External domain
-    /.*#{ENV.fetch('CLINCH_HOST', 'aapamilne\.com').gsub('.', '\.')}/  # Subdomains
+    ENV.fetch('CLINCH_HOST', 'auth.example.com'),  # External domain (auth service itself)
   ]
+
+  # Use PublicSuffix to extract registrable domain and allow all subdomains
+  host_domain = ENV.fetch('CLINCH_HOST', 'auth.example.com')
+  if host_domain.present?
+    begin
+      # Use PublicSuffix to properly extract the domain
+      domain = PublicSuffix.parse(host_domain)
+      registrable_domain = domain.domain  # Gets "example.com" from "auth.example.com"
+
+      if registrable_domain.present?
+        # Create regex to allow any subdomain of the registrable domain
+        allowed_hosts << /.*#{Regexp.escape(registrable_domain)}/
+      end
+    rescue PublicSuffix::DomainInvalid
+      # Fallback to simple domain extraction if PublicSuffix fails
+      Rails.logger.warn "Could not parse domain '#{host_domain}' with PublicSuffix, using fallback"
+      base_domain = host_domain.split('.').last(2).join('.')
+      allowed_hosts << /.*#{Regexp.escape(base_domain)}/
+    end
+  end
 
   # Allow Docker service names if running in same compose
   if ENV['CLINCH_DOCKER_SERVICE_NAME']
