@@ -104,17 +104,17 @@ end
 - Secure random generation
 - Session validation before token acceptance
 
-## Authelia Analysis
+## Implementation Overview
 
-### Implementation Comparison
+### Forward Auth Pattern
 
-**Authelia Approach (from analysis of `tmp/authelia/`):**
+**Standard Forward Auth Approach:**
 - Returns `302 Found` or `303 See Other` with `Location` header
-- Direct browser redirects (bypasses some proxy logic)
-- Uses StatusFound (302) or StatusSeeOther (303)
+- Direct browser redirects to authentication service
+- Uses HTTP status codes to communicate authentication state
 
 **Clinch Current Implementation:**
-- Returns `302 Found` directly to login URL (matching Authelia)
+- Returns `302 Found` directly to login URL
 - Includes `rd` (redirect destination) and `rm` (request method) parameters
 - Uses root domain cookies for cross-subdomain authentication
 
@@ -123,7 +123,7 @@ end
 ### Authentication Flow
 
 1. **User visits** `https://metube.example.com/`
-2. **Caddy forwards** to `http://clinch:9000/api/verify?rd=https://clinch.example.com`
+2. **Caddy forwards** to `http://clinch:3000/api/verify?rd=https://clinch.example.com`
 3. **Clinch checks session**:
    - **If authenticated**: Returns `200 OK` with user headers
    - **If not authenticated**: Returns `302 Found` to login URL with redirect parameters
@@ -157,12 +157,12 @@ Location: https://clinch.example.com/signin?rd=https://metube.example.com/&rm=GE
 ```caddyfile
 # Clinch SSO (main authentication server)
 clinch.example.com {
-    reverse_proxy clinch:9000
+    reverse_proxy clinch:3000
 }
 
 # MEtube (protected by Clinch)
 metube.example.com {
-    forward_auth clinch:9000 {
+    forward_auth clinch:3000 {
         uri /api/verify?rd=https://clinch.example.com
         copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
     }
@@ -181,13 +181,13 @@ metube.example.com {
 - **Forward Auth Controller**: `app/controllers/api/forward_auth_controller.rb`
 - **Authentication Logic**: `app/controllers/concerns/authentication.rb`
 - **Caddy Examples**: `docs/caddy-example.md`
-- **Authelia Analysis**: `docs/authelia-forward-auth.md`
+- **Implementation Details**: See technical documentation below
 
 ## Testing
 
 ```bash
 # Test forward auth endpoint directly
-curl -v http://localhost:9000/api/verify?rd=https://clinch.example.com
+curl -v http://localhost:3000/api/verify?rd=https://clinch.example.com
 
 # Should return 302 redirect to login page
 # Or 200 OK if you have a valid session cookie
