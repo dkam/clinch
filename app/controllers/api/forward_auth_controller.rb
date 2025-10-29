@@ -3,6 +3,7 @@ module Api
     # ForwardAuth endpoints need session storage for return URL
     allow_unauthenticated_access
     skip_before_action :verify_authenticity_token
+    rate_limit to: 100, within: 1.minute, only: :verify, with: -> { head :too_many_requests }
 
     # GET /api/verify
     # This endpoint is called by reverse proxies (Traefik, Caddy, nginx)
