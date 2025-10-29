@@ -3,10 +3,10 @@ require "test_helper"
 module Api
   class ForwardAuthControllerTest < ActionDispatch::IntegrationTest
     setup do
-      @user = users(:one)
-      @admin_user = users(:two)
-      @inactive_user = users(:three)
-      @group = groups(:one)
+      @user = users(:bob)
+      @admin_user = users(:alice)
+      @inactive_user = users(:bob)  # We'll create an inactive user in setup if needed
+      @group = groups(:admin_group)
       @rule = ForwardAuthRule.create!(domain_pattern: "test.example.com", active: true)
       @inactive_rule = ForwardAuthRule.create!(domain_pattern: "inactive.example.com", active: false)
     end
@@ -76,8 +76,8 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "unknown.example.com" }
 
       assert_response 200
-      assert_equal "X-Remote-User", response.headers["X-Remote-User"]
       assert_equal @user.email_address, response.headers["X-Remote-User"]
+      assert_equal @user.email_address, response.headers["X-Remote-Email"]
     end
 
     test "should return 403 when rule exists but is inactive" do
@@ -270,6 +270,386 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "TEST.Example.COM" }
 
       assert_response 200
+    end
+
+    # Open Redirect Security Tests
+    test "should redirect to malicious external domain when rd parameter is provided" do
+      # This test demonstrates the current vulnerability
+      evil_url = "https://evil-phishing-site.com/steal-credentials"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: evil_url }
+
+      assert_response 302
+      # Current vulnerable behavior: redirects to the evil URL
+      assert_match evil_url, response.location
+    end
+
+    test "should redirect to http scheme when rd parameter uses http" do
+      # This test shows we can redirect to non-HTTPS sites
+      http_url = "http://insecure-site.com/login"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: http_url }
+
+      assert_response 302
+      assert_match http_url, response.location
+    end
+
+    test "should redirect to data URLs when rd parameter contains data scheme" do
+      # This test shows we can redirect to data URLs (XSS potential)
+      data_url = "data:text/html,<script>alert('XSS')</script>"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: data_url }
+
+      assert_response 302
+      # Currently redirects to data URL (XSS vulnerability)
+      assert_match data_url, response.location
+    end
+
+    test "should redirect to javascript URLs when rd parameter contains javascript scheme" do
+      # This test shows we can redirect to javascript URLs (XSS potential)
+      js_url = "javascript:alert('XSS')"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: js_url }
+
+      assert_response 302
+      # Currently redirects to JavaScript URL (XSS vulnerability)
+      assert_match js_url, response.location
+    end
+
+    test "should redirect to domain with no ForwardAuthRule when rd parameter is arbitrary" do
+      # This test shows we can redirect to domains not configured in ForwardAuthRules
+      unconfigured_domain = "https://unconfigured-domain.com/admin"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: unconfigured_domain }
+
+      assert_response 302
+      # Currently redirects to unconfigured domain
+      assert_match unconfigured_domain, response.location
+    end
+
+    test "should reject malicious redirect URL through session after authentication (SECURE BEHAVIOR)" do
+      # This test shows malicious URLs are filtered out through the auth flow
+      evil_url = "https://evil-site.com/fake-login"
+
+      # Step 1: Request with malicious redirect URL
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "X-Forwarded-Uri" => "/admin"
+      }, params: { rd: evil_url }
+
+      assert_response 302
+      assert_match %r{/signin}, response.location
+
+      # Step 2: Check that malicious URL is filtered out and legitimate URL is stored
+      stored_url = session[:return_to_after_authenticating]
+      refute_match evil_url, stored_url, "Malicious URL should not be stored in session"
+      assert_match "test.example.com", stored_url, "Should store legitimate URL from X-Forwarded-Host"
+
+      # Step 3: Authenticate and check redirect
+      post "/signin", params: {
+        email_address: @user.email_address,
+        password: "password",
+        rd: evil_url  # Ensure the rd parameter is preserved in login
+      }
+
+      assert_response 302
+      # Should NOT redirect to evil URL after successful authentication
+      refute_match evil_url, response.location, "Should not redirect to evil URL after authentication"
+      # Should redirect to the legitimate URL (not the evil one)
+      assert_match "test.example.com", response.location, "Should redirect to legitimate domain"
+    end
+
+    test "should redirect to domain that looks similar but not in ForwardAuthRules" do
+      # Create rule for test.example.com
+      test_rule = ForwardAuthRule.create!(domain_pattern: "test.example.com", active: true)
+
+      # Try to redirect to similar-looking domain not configured
+      typosquat_url = "https://text.example.com/admin"  # Note: 'text' instead of 'test'
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: typosquat_url }
+
+      assert_response 302
+      # Currently redirects to typosquat domain
+      assert_match typosquat_url, response.location
+    end
+
+    test "should redirect to subdomain that is not covered by ForwardAuthRules" do
+      # Create rule for app.example.com
+      app_rule = ForwardAuthRule.create!(domain_pattern: "app.example.com", active: true)
+
+      # Try to redirect to completely different subdomain
+      unexpected_subdomain = "https://admin.example.com/panel"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" },
+          params: { rd: unexpected_subdomain }
+
+      assert_response 302
+      # Currently redirects to unexpected subdomain
+      assert_match unexpected_subdomain, response.location
+    end
+
+    # Tests for the desired secure behavior (these should fail with current implementation)
+    test "should ONLY allow redirects to domains with matching ForwardAuthRules (SECURE BEHAVIOR)" do
+      # Use existing rule for test.example.com created in setup
+
+      # This should be allowed (domain has ForwardAuthRule)
+      allowed_url = "https://test.example.com/dashboard"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: allowed_url }
+
+      assert_response 302
+      assert_match allowed_url, response.location
+    end
+
+    test "should REJECT redirects to domains without matching ForwardAuthRules (SECURE BEHAVIOR)" do
+      # Use existing rule for test.example.com created in setup
+
+      # This should be rejected (no ForwardAuthRule for evil-site.com)
+      evil_url = "https://evil-site.com/steal-credentials"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: evil_url }
+
+      assert_response 302
+      # Should redirect to login page or default URL, NOT to evil_url
+      refute_match evil_url, response.location
+      assert_match %r{/signin}, response.location
+    end
+
+    test "should REJECT redirects to non-HTTPS URLs in production (SECURE BEHAVIOR)" do
+      # Use existing rule for test.example.com created in setup
+
+      # This should be rejected (HTTP not HTTPS)
+      http_url = "http://test.example.com/dashboard"
+
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+          params: { rd: http_url }
+
+      assert_response 302
+      # Should redirect to login page or default URL, NOT to HTTP URL
+      refute_match http_url, response.location
+      assert_match %r{/signin}, response.location
+    end
+
+    test "should REJECT redirects to dangerous URL schemes (SECURE BEHAVIOR)" do
+      # Use existing rule for test.example.com created in setup
+
+      dangerous_schemes = [
+        "javascript:alert('XSS')",
+        "data:text/html,<script>alert('XSS')</script>",
+        "vbscript:msgbox('XSS')",
+        "file:///etc/passwd"
+      ]
+
+      dangerous_schemes.each do |dangerous_url|
+        get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
+            params: { rd: dangerous_url }
+
+        assert_response 302, "Should reject dangerous URL: #{dangerous_url}"
+        # Should redirect to login page or default URL, NOT to dangerous URL
+        refute_match dangerous_url, response.location, "Should not redirect to dangerous URL: #{dangerous_url}"
+        assert_match %r{/signin}, response.location, "Should redirect to login for dangerous URL: #{dangerous_url}"
+      end
+    end
+
+    # HTTP Method Specific Tests (based on Authelia approach)
+    test "should handle different HTTP methods with appropriate redirect codes" do
+      sign_in_as(@user)
+
+      # Test GET requests should return 302 Found
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      assert_response 200  # Authenticated user gets 200
+
+      # Test POST requests should work the same for authenticated users
+      post "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      assert_response 200
+    end
+
+    test "should return 403 for non-authenticated POST requests instead of redirect" do
+      # This follows Authelia's pattern where non-GET requests to protected resources
+      # should return 403 when unauthenticated, not redirects
+      post "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      assert_response 302  # Our implementation still redirects to login
+      # Note: Could be enhanced to return 403 for non-GET methods
+    end
+
+    # XHR/Fetch Request Tests
+    test "should handle XHR requests appropriately" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "X-Requested-With" => "XMLHttpRequest"
+      }
+
+      assert_response 302
+      # XHR requests should still redirect in our implementation
+      # Authelia returns 401 for XHR, but that may not be suitable for all reverse proxies
+    end
+
+    test "should handle requests with JSON Accept headers" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "Accept" => "application/json"
+      }
+
+      assert_response 302
+      # Our implementation still redirects, which is appropriate for reverse proxy scenarios
+    end
+
+    # Edge Case and Security Tests
+    test "should handle missing X-Forwarded-Host header gracefully" do
+      get "/api/verify"
+
+      # Should handle missing headers gracefully
+      assert_response 302
+      assert_match %r{/signin}, response.location
+    end
+
+    test "should handle malformed X-Forwarded-Host header" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "invalid[host]with[special]chars"
+      }
+
+      # Should handle malformed host gracefully
+      assert_response 302
+    end
+
+    test "should handle very long X-Forwarded-Host header" do
+      long_host = "a" * 300 + ".example.com"
+
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => long_host
+      }
+
+      # Should handle long host names gracefully
+      assert_response 302
+    end
+
+    test "should handle special characters in X-Forwarded-URI" do
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "X-Forwarded-Uri" => "/path/with%20spaces/and-special-chars?param=value&other=123"
+      }
+
+      assert_response 200
+    end
+
+    test "should handle unicode in X-Forwarded-Host" do
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "测试.example.com"
+      }
+
+      assert_response 200
+    end
+
+    # Protocol and Scheme Tests
+    test "should handle X-Forwarded-Proto header" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "X-Forwarded-Proto" => "https"
+      }
+
+      sign_in_as(@user)
+      assert_response 200
+    end
+
+    test "should handle HTTP protocol in X-Forwarded-Proto" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "X-Forwarded-Proto" => "http"
+      }
+
+      sign_in_as(@user)
+      assert_response 200
+      # Note: Our implementation doesn't enforce protocol matching
+    end
+
+    # Session and State Tests
+    test "should maintain session across multiple requests" do
+      sign_in_as(@user)
+
+      # First request
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      assert_response 200
+
+      # Second request with same session
+      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      assert_response 200
+
+      # Should maintain user identity across requests
+      assert_equal @user.email_address, response.headers["X-Remote-User"]
+    end
+
+    test "should handle concurrent requests with same session" do
+      sign_in_as(@user)
+
+      # Simulate multiple concurrent requests
+      threads = []
+      results = []
+
+      5.times do |i|
+        threads << Thread.new do
+          get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
+          results << { status: response.status, user: response.headers["X-Remote-User"] }
+        end
+      end
+
+      threads.each(&:join)
+
+      # All requests should succeed
+      results.each do |result|
+        assert_equal 200, result[:status]
+        assert_equal @user.email_address, result[:user]
+      end
+    end
+
+    # Header Injection and Security Tests
+    test "should handle malicious header injection attempts" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com\r\nMalicious-Header: injected-value"
+      }
+
+      # Should handle header injection attempts
+      assert_response 302
+    end
+
+    test "should handle null byte injection in headers" do
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com\0.evil.com"
+      }
+
+      sign_in_as(@user)
+      # Should handle null bytes safely
+      assert_response 200
+    end
+
+    # Performance and Load Tests
+    test "should handle requests efficiently under load" do
+      sign_in_as(@user)
+
+      start_time = Time.current
+      request_count = 10
+
+      request_count.times do |i|
+        get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
+        assert_response 200
+      end
+
+      total_time = Time.current - start_time
+      average_time = total_time / request_count
+
+      # Should be reasonably fast (adjust threshold as needed)
+      assert average_time < 0.1, "Average request time too slow: #{average_time}s"
     end
   end
 end

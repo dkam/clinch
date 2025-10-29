@@ -50,23 +50,23 @@ module Api
       if forwarded_host.present?
         # Load active rules with their associations for better performance
         # Preload groups to avoid N+1 queries in user_allowed? checks
-        rules = ForwardAuthRule.includes(:groups).active
+        rules = ForwardAuthRule.includes(:allowed_groups).active
 
         # Find matching forward auth rule for this domain
         rule = rules.find { |r| r.matches_domain?(forwarded_host) }
 
-        unless rule
-          Rails.logger.warn "ForwardAuth: No rule found for domain: #{forwarded_host}"
-          return render_forbidden("No authentication rule configured for this domain")
-        end
+        if rule
+          # Check if user is allowed by this rule
+          unless rule.user_allowed?(user)
+            Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by rule #{rule.domain_pattern}"
+            return render_forbidden("You do not have permission to access this domain")
+          end
 
-        # Check if user is allowed by this rule
-        unless rule.user_allowed?(user)
-          Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by rule #{rule.domain_pattern}"
-          return render_forbidden("You do not have permission to access this domain")
+          Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by rule #{rule.domain_pattern} (policy: #{rule.policy_for_user(user)})"
+        else
+          # No rule found - allow access with default headers (original behavior)
+          Rails.logger.info "ForwardAuth: No rule found for domain: #{forwarded_host}, allowing with default headers"
         end
-
-        Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by rule #{rule.domain_pattern} (policy: #{rule.policy_for_user(user)})"
       else
         Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no domain specified)"
       end
@@ -138,7 +138,8 @@ module Api
       response.headers["X-Auth-Reason"] = reason if reason
 
       # Get the redirect URL from query params or construct default
-      base_url = params[:rd] || "https://clinch.aapamilne.com"
+      redirect_url = validate_redirect_url(params[:rd])
+      base_url = redirect_url || "https://clinch.aapamilne.com"
 
       # Set the original URL that user was trying to access
       # This will be used after authentication
@@ -149,11 +150,11 @@ module Api
       Rails.logger.info "ForwardAuth Headers: Host=#{request.headers['Host']}, X-Forwarded-Host=#{original_host}, X-Forwarded-Uri=#{request.headers['X-Forwarded-Uri']}, X-Forwarded-Path=#{request.headers['X-Forwarded-Path']}"
 
       original_url = if original_host
-        # Use the forwarded host and URI
+        # Use the forwarded host and URI (original behavior)
         "https://#{original_host}#{original_uri}"
       else
-        # Fallback: just redirect to the root of the original host
-        "https://#{request.headers['Host']}"
+        # Fallback: use the validated redirect URL or default
+        redirect_url || "https://clinch.aapamilne.com"
       end
 
       # Debug: log what we're redirecting to after login
@@ -182,6 +183,41 @@ module Api
 
       # Return 403 Forbidden
       head :forbidden
+    end
+
+    def validate_redirect_url(url)
+      return nil unless url.present?
+
+      begin
+        uri = URI.parse(url)
+
+        # Only allow HTTP/HTTPS schemes
+        return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
+
+        # Only allow HTTPS in production
+        return nil unless Rails.env.development? || uri.scheme == 'https'
+
+        redirect_domain = uri.host.downcase
+        return nil unless redirect_domain.present?
+
+        # Check against our ForwardAuthRules
+        matching_rule = ForwardAuthRule.active.find do |rule|
+          rule.matches_domain?(redirect_domain)
+        end
+
+        matching_rule ? url : nil
+
+      rescue URI::InvalidURIError
+        nil
+      end
+    end
+
+    def domain_has_forward_auth_rule?(domain)
+      return false if domain.blank?
+
+      ForwardAuthRule.active.any? do |rule|
+        rule.matches_domain?(domain.downcase)
+      end
     end
   end
 end

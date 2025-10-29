@@ -1,5 +1,6 @@
 require 'uri'
 require 'public_suffix'
+require 'ipaddr'
 
 module Authentication
   extend ActiveSupport::Concern
@@ -61,7 +62,7 @@ module Authentication
         # Set domain for cross-subdomain authentication if we can extract it
         cookie_options[:domain] = domain if domain.present?
 
-                cookies.signed.permanent[:session_id] = cookie_options
+        cookies.signed.permanent[:session_id] = cookie_options
 
         # Create a one-time token for immediate forward auth after authentication
         # This solves the race condition where browser hasn't processed cookie yet
@@ -80,7 +81,7 @@ module Authentication
     # by setting cookies with the domain parameter (e.g., .example.com allows access from
     # both app.example.com and api.example.com).
     #
-    # CRITICAL: Returns nil for IP addresses and localhost - this is intentional!
+    # CRITICAL: Returns nil for IP addresses (IPv4 and IPv6) and localhost - this is intentional!
     # When accessing services by IP, there are no subdomains to share cookies with,
     # and setting a domain cookie would break authentication.
     #
@@ -102,8 +103,8 @@ module Authentication
       # Strip port number for domain parsing
       host_without_port = host.split(':').first
 
-      # Check if it's an IP address - if so, don't set domain cookie
-      return nil if host_without_port.match?(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)
+      # Check if it's an IP address (IPv4 or IPv6) - if so, don't set domain cookie
+      return nil if IPAddr.new(host_without_port) rescue false
 
       # Use Public Suffix List for accurate domain parsing
       domain = PublicSuffix.parse(host_without_port)
@@ -140,7 +141,6 @@ module Authentication
 
         # Update the session with the tokenized URL
         controller_session[:return_to_after_authenticating] = uri.to_s
-
-              end
+      end
     end
 end

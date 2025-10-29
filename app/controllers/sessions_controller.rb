@@ -16,9 +16,10 @@ class SessionsController < ApplicationController
       return
     end
 
-    # Store the redirect URL from forward auth if present
+    # Store the redirect URL from forward auth if present (after validation)
     if params[:rd].present?
-      session[:return_to_after_authenticating] = params[:rd]
+      validated_url = validate_redirect_url(params[:rd])
+      session[:return_to_after_authenticating] = validated_url if validated_url
     end
 
     # Check if user is active
@@ -35,9 +36,10 @@ class SessionsController < ApplicationController
     if user.totp_enabled?
       # Store user ID in session temporarily for TOTP verification
       session[:pending_totp_user_id] = user.id
-      # Preserve the redirect URL through TOTP verification
+      # Preserve the redirect URL through TOTP verification (after validation)
       if params[:rd].present?
-        session[:totp_redirect_url] = params[:rd]
+        validated_url = validate_redirect_url(params[:rd])
+        session[:totp_redirect_url] = validated_url if validated_url
       end
       redirect_to totp_verification_path(rd: params[:rd])
       return
@@ -114,5 +116,34 @@ class SessionsController < ApplicationController
     session = Current.session.user.sessions.find(params[:id])
     session.destroy
     redirect_to profile_path, notice: "Session revoked successfully."
+  end
+
+  private
+
+  def validate_redirect_url(url)
+    return nil unless url.present?
+
+    begin
+      uri = URI.parse(url)
+
+      # Only allow HTTP/HTTPS schemes
+      return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
+
+      # Only allow HTTPS in production
+      return nil unless Rails.env.development? || uri.scheme == 'https'
+
+      redirect_domain = uri.host.downcase
+      return nil unless redirect_domain.present?
+
+      # Check against our ForwardAuthRules
+      matching_rule = ForwardAuthRule.active.find do |rule|
+        rule.matches_domain?(redirect_domain)
+      end
+
+      matching_rule ? url : nil
+
+    rescue URI::InvalidURIError
+      nil
+    end
   end
 end
