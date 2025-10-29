@@ -31,6 +31,7 @@ Rails.application.routes.draw do
   # ForwardAuth / Trusted Header SSO
   namespace :api do
     get "/verify", to: "forward_auth#verify"
+    post "/csp-violation-report", to: "csp#violation_report"
   end
 
   # Authenticated routes

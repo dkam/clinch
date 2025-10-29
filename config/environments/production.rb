@@ -81,11 +81,37 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
+  # Configure allowed hosts based on deployment scenario
+  allowed_hosts = [
+    ENV.fetch('CLINCH_HOST', 'auth.aapamilne.com'),  # External domain
+    /.*#{ENV.fetch('CLINCH_HOST', 'aapamilne\.com').gsub('.', '\.')}/  # Subdomains
+  ]
+
+  # Allow Docker service names if running in same compose
+  if ENV['CLINCH_DOCKER_SERVICE_NAME']
+    allowed_hosts << ENV['CLINCH_DOCKER_SERVICE_NAME']
+  end
+
+  # Allow internal IP access for cross-compose or host networking
+  if ENV['CLINCH_ALLOW_INTERNAL_IPS'] == 'true'
+    # Specific host IP
+    allowed_hosts << '192.168.2.246'
+
+    # Private IP ranges for internal network access
+    allowed_hosts += [
+      /192\.168\.\d+\.\d+/,    # 192.168.0.0/16 private network
+      /10\.\d+\.\d+\.\d+/,     # 10.0.0.0/8 private network
+      /172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+/  # 172.16.0.0/12 private network
+    ]
+  end
+
+  # Local development fallbacks
+  if ENV['CLINCH_ALLOW_LOCALHOST'] == 'true'
+    allowed_hosts += ['localhost', '127.0.0.1', '0.0.0.0']
+  end
+
+  config.hosts = allowed_hosts
+
   # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

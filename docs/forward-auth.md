@@ -193,17 +193,179 @@ curl -v http://localhost:9000/api/verify?rd=https://clinch.example.com
 # Or 200 OK if you have a valid session cookie
 ```
 
+## Security Considerations
+
+### Content Security Policy (CSP)
+
+Clinch includes a comprehensive Content Security Policy to prevent Cross-Site Scripting (XSS) attacks by controlling which resources can be loaded by the browser.
+
+**What CSP Prevents:**
+- Malicious script injection attacks
+- Unauthorized resource loading
+- Clickjacking through iframe protection
+- Data exfiltration through unauthorized connections
+
+**CSP Features:**
+- **Strict script control**: Only allows scripts from same origin or HTTPS
+- **Nonce support**: Allows specific inline scripts with cryptographic nonces
+- **Frame protection**: Prevents clickjacking attacks
+- **Resource restrictions**: Controls images, fonts, styles, and media sources
+- **Violation reporting**: Monitors and logs attempted XSS attacks
+
+**Development vs Production:**
+- **Development**: Report-only mode for debugging CSP violations
+- **Production**: Full enforcement with violation logging
+
+### DNS Rebinding Protection
+
+Clinch includes built-in DNS rebinding protection for enhanced security in all deployment scenarios.
+
+**What is DNS Rebinding?**
+DNS rebinding attacks trick a victim's browser into accessing internal network resources by manipulating DNS responses, potentially allowing attackers to probe your authentication system.
+
+**Clinch's Protection Layers:**
+1. **Rails Host Validation**: Blocks unauthorized domains at the application level
+2. **Infrastructure Security**: Caddy/Reverse proxy provides additional protection
+3. **Environment-Specific Configuration**: Adapts to your deployment scenario
+
+### Deployment Scenarios
+
+#### Scenario 1: Same Docker Compose (Recommended)
+```yaml
+# docker-compose.yml
+services:
+  caddy:
+    # ... caddy configuration
+
+  clinch:
+    image: reg.tbdb.info/clinch:latest
+    environment:
+      - CLINCH_HOST=auth.aapamilne.com
+      - CLINCH_DOCKER_SERVICE_NAME=clinch  # Enable service name access
+      - CLINCH_ALLOW_INTERNAL_IPS=true     # Allow backup IP access
+      - CLINCH_ALLOW_LOCALHOST=false
+```
+
+**Caddy Configuration:**
+```caddyfile
+metube.aapamilne.com {
+    forward_auth clinch:3000 {  # Docker service name (preferred)
+        uri /api/verify
+        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+    }
+
+    handle {
+        reverse_proxy * {
+            to http://192.168.2.223:8081
+        }
+    }
+}
+```
+
+**Security Benefits:**
+- ✅ Docker network isolation prevents external access
+- ✅ Service names resolve to unpredictable internal IPs
+- ✅ Natural DNS rebinding protection
+- ✅ Application-level host validation as backup
+
+#### Scenario 2: Separate Docker Composes (Current Setup)
+```yaml
+# clinch-compose/.env
+CLINCH_HOST=auth.aapamilne.com
+CLINCH_ALLOW_INTERNAL_IPS=true
+CLINCH_ALLOW_LOCALHOST=false
+CLINCH_DOCKER_SERVICE_NAME=
+```
+
+**Caddy Configuration:**
+```caddyfile
+metube.aapamilne.com {
+    forward_auth 192.168.2.246:3000 {  # IP access across composes
+        uri /api/verify
+        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+    }
+}
+```
+
+**Security Benefits:**
+- ✅ Rails host validation blocks unauthorized domains
+- ✅ Only allows private IP ranges and your domain
+- ✅ Defense in depth (application + infrastructure security)
+
+#### Scenario 3: External Deployment
+```yaml
+# Production environment
+environment:
+  - CLINCH_HOST=auth.example.com
+  - CLINCH_ALLOW_INTERNAL_IPS=false  # Stricter for external
+  - CLINCH_ALLOW_LOCALHOST=false
+```
+
+**Caddy Configuration:**
+```caddyfile
+app.example.com {
+    forward_auth auth.example.com:3000 {  # External domain only
+        uri /api/verify
+        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+    }
+}
+```
+
+**Security Benefits:**
+- ✅ Only allows your external domain
+- ✅ Blocks internal IP access
+- ✅ Maximum security for public deployments
+
+### Host Validation Environment Variables
+
+| Variable | Default | Purpose | Recommended Setting |
+|----------|---------|---------|-------------------|
+| `CLINCH_HOST` | `auth.aapamilne.com` | Primary domain | Always set to your auth domain |
+| `CLINCH_DOCKER_SERVICE_NAME` | `nil` | Docker service name | Set to service name in same compose |
+| `CLINCH_ALLOW_INTERNAL_IPS` | `true` | Allow private IPs | `true` for internal, `false` for external |
+| `CLINCH_ALLOW_LOCALHOST` | `false` | Allow localhost access | `true` for development only |
+
+### Security Architecture
+
+Clinch provides **defense in depth** security with multiple protection layers:
+
+**Application-Level Security:**
+- Host validation prevents unauthorized domain access
+- Session-based authentication with secure cookies
+- Rate limiting on sensitive endpoints
+- Input validation and sanitization
+- Content Security Policy (CSP) prevents XSS attacks
+
+**Infrastructure Security:**
+- Docker network isolation
+- Reverse proxy access control
+- SSL/TLS encryption
+- Private network restrictions
+
+**Benefits of Multi-Layer Security:**
+- If infrastructure security fails, application security still protects
+- Flexible deployment options without compromising security
+- Environment-specific configuration for different threat models
+
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Authentication Loop**: Check that cookies are set on the root domain
 2. **Session Not Shared**: Verify `extract_root_domain` is working correctly
-3. **Caddy Connection**: Ensure `clinch:9000` resolves from your Caddy container
+3. **Caddy Connection**: Ensure service name/IP resolves from your Caddy container
 4. **Race Condition After Authentication**:
    - **Problem**: Forward auth fails immediately after login due to cookie timing
    - **Solution**: One-time tokens automatically bridge this gap
    - **Debug**: Look for "ForwardAuth: Valid one-time token used" in logs
+5. **Host Validation Errors**:
+   - **Problem**: "Blocked host: [host]" errors in logs
+   - **Solution**: Check `CLINCH_HOST` and other environment variables
+   - **Debug**: Verify your Caddy configuration matches allowed hosts
+6. **DNS Rebinding Protection**:
+   - **Problem**: Legitimate requests blocked as "unauthorized host"
+   - **Solution**: Ensure your deployment scenario matches environment variables
+   - **Debug**: Check Rails logs for host validation messages
 
 ### Debug Logging
 

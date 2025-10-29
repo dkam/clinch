@@ -135,9 +135,6 @@ module Api
     def render_unauthorized(reason = nil)
       Rails.logger.info "ForwardAuth: Unauthorized - #{reason}"
 
-      # Set header to help with debugging
-      response.headers["X-Auth-Reason"] = reason if reason
-
       # Get the redirect URL from query params or construct default
       redirect_url = validate_redirect_url(params[:rd])
       base_url = redirect_url || "https://clinch.aapamilne.com"
@@ -178,9 +175,6 @@ module Api
 
     def render_forbidden(reason = nil)
       Rails.logger.info "ForwardAuth: Forbidden - #{reason}"
-
-      # Set header to help with debugging
-      response.headers["X-Auth-Reason"] = reason if reason
 
       # Return 403 Forbidden
       head :forbidden
