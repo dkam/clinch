@@ -19,6 +19,10 @@ Rails.application.routes.draw do
   get "/totp-verification", to: "sessions#verify_totp", as: :totp_verification
   post "/totp-verification", to: "sessions#verify_totp"
 
+  # WebAuthn authentication routes
+  post "/sessions/webauthn/challenge", to: "sessions#webauthn_challenge"
+  post "/sessions/webauthn/verify", to: "sessions#webauthn_verify"
+
   # OIDC (OpenID Connect) routes
   get "/.well-known/openid-configuration", to: "oidc#discovery"
   get "/.well-known/jwks.json", to: "oidc#jwks"
@@ -60,6 +64,13 @@ Rails.application.routes.draw do
   delete '/totp', to: 'totp#destroy'
   get '/totp/backup_codes', to: 'totp#backup_codes', as: :backup_codes_totp
   post '/totp/verify_password', to: 'totp#verify_password', as: :verify_password_totp
+
+  # WebAuthn (Passkeys) routes
+  get '/webauthn/new', to: 'webauthn#new', as: :new_webauthn
+  post '/webauthn/challenge', to: 'webauthn#challenge'
+  post '/webauthn/create', to: 'webauthn#create'
+  delete '/webauthn/:id', to: 'webauthn#destroy', as: :webauthn_credential
+  get '/webauthn/check', to: 'webauthn#check'
 
   # Admin routes
   namespace :admin do

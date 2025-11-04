@@ -4,6 +4,7 @@ class User < ApplicationRecord
   has_many :user_groups, dependent: :destroy
   has_many :groups, through: :user_groups
   has_many :oidc_user_consents, dependent: :destroy
+  has_many :webauthn_credentials, dependent: :destroy
 
   # Token generation for passwordless flows
   generates_token_for :invitation_login, expires_in: 24.hours do
@@ -78,6 +79,54 @@ class User < ApplicationRecord
   def parsed_backup_codes
     return [] unless backup_codes.present?
     JSON.parse(backup_codes)
+  end
+
+  # WebAuthn methods
+  def webauthn_enabled?
+    webauthn_credentials.exists?
+  end
+
+  def can_authenticate_with_webauthn?
+    webauthn_enabled? && active?
+  end
+
+  def require_webauthn?
+    webauthn_required? || (webauthn_enabled? && !password_digest.present?)
+  end
+
+  # Generate stable WebAuthn user handle on first use
+  def webauthn_user_handle
+    return webauthn_id if webauthn_id.present?
+
+    # Generate random 64-byte opaque identifier (base64url encoded)
+    handle = SecureRandom.urlsafe_base64(64)
+    update_column(:webauthn_id, handle)
+    handle
+  end
+
+  def platform_authenticators
+    webauthn_credentials.platform_authenticators
+  end
+
+  def roaming_authenticators
+    webauthn_credentials.roaming_authenticators
+  end
+
+  def webauthn_credential_for(external_id)
+    webauthn_credentials.find_by(external_id: external_id)
+  end
+
+  # Check if user has any backed up (synced) passkeys
+  def has_synced_passkeys?
+    webauthn_credentials.exists?(backup_eligible: true, backup_state: true)
+  end
+
+  # Preferred authentication method for login flow
+  def preferred_authentication_method
+    return :webauthn if require_webauthn?
+    return :webauthn if can_authenticate_with_webauthn? && preferred_2fa_method == "webauthn"
+    return :password if password_digest.present?
+    :webauthn
   end
 
   def has_oidc_consent?(application, requested_scopes)

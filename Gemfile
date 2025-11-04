@@ -31,6 +31,9 @@ gem "rqrcode", "~> 3.1"
 # JWT for OIDC ID tokens
 gem "jwt", "~> 3.1"
 
+# WebAuthn for passkey support
+gem "webauthn", "~> 3.0"
+
 # Public Suffix List for domain parsing
 gem "public_suffix", "~> 6.0"
 

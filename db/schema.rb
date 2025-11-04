@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_04_022439) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_04_042206) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -130,12 +130,38 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_04_022439) do
     t.datetime "last_sign_in_at"
     t.string "name"
     t.string "password_digest", null: false
+    t.string "preferred_2fa_method"
     t.integer "status", default: 0, null: false
     t.boolean "totp_required", default: false, null: false
     t.string "totp_secret"
     t.datetime "updated_at", null: false
+    t.string "webauthn_id"
+    t.boolean "webauthn_required", default: false, null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["status"], name: "index_users_on_status"
+    t.index ["webauthn_id"], name: "index_users_on_webauthn_id", unique: true
+  end
+
+  create_table "webauthn_credentials", force: :cascade do |t|
+    t.string "authenticator_type"
+    t.boolean "backup_eligible", default: false
+    t.boolean "backup_state", default: false
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.datetime "last_used_at"
+    t.string "last_used_ip"
+    t.string "nickname"
+    t.string "public_key", null: false
+    t.integer "sign_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.integer "user_id", null: false
+    t.index ["authenticator_type"], name: "index_webauthn_credentials_on_authenticator_type"
+    t.index ["external_id"], name: "index_webauthn_credentials_on_external_id", unique: true
+    t.index ["last_used_at"], name: "index_webauthn_credentials_on_last_used_at"
+    t.index ["user_id", "external_id"], name: "index_webauthn_credentials_on_user_id_and_external_id", unique: true
+    t.index ["user_id", "last_used_at"], name: "index_webauthn_credentials_on_user_id_and_last_used_at"
+    t.index ["user_id"], name: "index_webauthn_credentials_on_user_id"
   end
 
   add_foreign_key "application_groups", "applications"
@@ -149,4 +175,5 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_04_022439) do
   add_foreign_key "sessions", "users"
   add_foreign_key "user_groups", "groups"
   add_foreign_key "user_groups", "users"
+  add_foreign_key "webauthn_credentials", "users"
 end
