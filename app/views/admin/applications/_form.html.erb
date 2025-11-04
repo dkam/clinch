@@ -65,8 +65,23 @@
 
     <div>
       <%= form.label :headers_config, "Custom Headers Configuration (JSON)", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_area :headers_config, rows: 8, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: '{"user": "X-Remote-User", "email": "X-Remote-Email"}' %>
-      <p class="mt-1 text-sm text-gray-500">Optional: Override default headers. Leave empty to use defaults: X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Groups, X-Remote-Admin</p>
+      <%= form.text_area :headers_config, rows: 10, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: '{"user": "Remote-User", "groups": "Remote-Groups"}' %>
+      <div class="mt-2 text-sm text-gray-600 space-y-1">
+        <p class="font-medium">Optional: Customize header names sent to your application.</p>
+        <p><strong>Default headers:</strong> X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Groups, X-Remote-Admin</p>
+        <details class="mt-2">
+          <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Show available header keys and what data they send</summary>
+          <div class="mt-2 ml-4 space-y-1 text-xs">
+            <p><code class="bg-gray-100 px-1 rounded">user</code> - User's email address</p>
+            <p><code class="bg-gray-100 px-1 rounded">email</code> - User's email address</p>
+            <p><code class="bg-gray-100 px-1 rounded">name</code> - User's display name (falls back to email if not set)</p>
+            <p><code class="bg-gray-100 px-1 rounded">groups</code> - Comma-separated list of group names (e.g., "admin,developers")</p>
+            <p><code class="bg-gray-100 px-1 rounded">admin</code> - "true" or "false" indicating admin status</p>
+            <p class="mt-2 italic">Example: <code class="bg-gray-100 px-1 rounded">{"user": "Remote-User", "groups": "Remote-Groups"}</code></p>
+            <p class="italic">Need custom user fields? Add them to user's custom_claims for OIDC tokens</p>
+          </div>
+        </details>
+      </div>
     </div>
   </div>
 

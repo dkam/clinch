@@ -115,7 +115,7 @@ class SessionsController < ApplicationController
   def destroy_other
     session = Current.session.user.sessions.find(params[:id])
     session.destroy
-    redirect_to profile_path, notice: "Session revoked successfully."
+    redirect_to active_sessions_path, notice: "Session revoked successfully."
   end
 
   private

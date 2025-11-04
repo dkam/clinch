@@ -13,7 +13,7 @@ class OidcJwtService
         email: user.email_address,
         email_verified: true,
         preferred_username: user.email_address,
-        name: user.email_address
+        name: user.name.presence || user.email_address
       }
 
       # Add nonce if provided (OIDC requires this for implicit flow)

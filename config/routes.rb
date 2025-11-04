@@ -42,6 +42,12 @@ Rails.application.routes.draw do
       delete :revoke_all_consents
     end
   end
+  resource :active_sessions, only: [:show] do
+    member do
+      delete :revoke_consent
+      delete :revoke_all_consents
+    end
+  end
   resources :sessions, only: [] do
     member do
       delete :destroy, action: :destroy_other

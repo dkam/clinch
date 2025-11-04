@@ -291,7 +291,7 @@ class OidcController < ApplicationController
       email: user.email_address,
       email_verified: true,
       preferred_username: user.email_address,
-      name: user.email_address
+      name: user.name.presence || user.email_address
     }
 
     # Add groups if user has any

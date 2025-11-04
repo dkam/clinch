@@ -123,8 +123,10 @@ class Application < ApplicationRecord
       next unless header_name.present?  # Skip disabled headers
 
       case key
-      when :user, :email, :name
+      when :user, :email
         headers[header_name] = user.email_address
+      when :name
+        headers[header_name] = user.name.presence || user.email_address
       when :groups
         headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
       when :admin
