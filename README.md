@@ -3,9 +3,25 @@
 > [!NOTE]
 > This software is experiemental. If you'd like to try it out, find bugs, security flaws and improvements, please do. 
 
-**A lightweight, self-hosted identity & SSO portal**
+**A lightweight, self-hosted identity & SSO / IpD portal**
 
-Clinch gives you one place to manage users and lets any web app authenticate against it without maintaining its own user table.
+Clinch gives you one place to manage users and lets any web app authenticate against it without maintaining its own user table. 
+
+I've completed all planned features: 
+
+* Create Admin user on first login
+* TOTP ( QR Code ) 2FA, with backup codes ( encrypted at rest )
+* Passkey generation and login, with detection of Passkey during login
+* Forward Auth configured and working
+* OIDC provider with auto discovery working
+* Invite users by email, assign to groups
+* Self managed password reset by email
+* Use Groups to assign Applications ( Family group can access Kavita, Developers can access Gitea )
+* Configurable Group and User custom claims for OIDC token
+* Display all Applications available to the user on their Dashboard
+* Display all logged in sessions and OIDC logged in sessions
+
+What remains now is ensure test coverage, 
 
 ## Why Clinch?
 
