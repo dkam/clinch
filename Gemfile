@@ -37,6 +37,10 @@ gem "webauthn", "~> 3.0"
 # Public Suffix List for domain parsing
 gem "public_suffix", "~> 6.0"
 
+# Error tracking and performance monitoring (optional, configured via SENTRY_DSN)
+gem "sentry-ruby", "~> 5.18"
+gem "sentry-rails", "~> 5.18"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

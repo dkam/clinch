@@ -50,4 +50,8 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Disable Sentry in test environment to avoid interference with tests
+  # Sentry can be explicitly enabled for integration testing if needed
+  config.sentry.enabled = false
 end

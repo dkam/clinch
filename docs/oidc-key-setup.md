@@ -44,10 +44,7 @@ Then set it securely:
 # Generate key
 bin/generate_oidc_key > oidc_private_key.pem
 
-# Option A: Using kamal env push (Kamal 2.0+)
-kamal env push OIDC_PRIVATE_KEY="$(cat oidc_private_key.pem)"
-
-# Option B: Add to .kamal/secrets
+# Add to .kamal/secrets
 echo "OIDC_PRIVATE_KEY=$(cat oidc_private_key.pem)" >> .kamal/secrets
 ```
 
@@ -56,57 +53,6 @@ echo "OIDC_PRIVATE_KEY=$(cat oidc_private_key.pem)" >> .kamal/secrets
 ```bash
 # In Rails console
 bin/rails runner "puts OidcJwtService.send(:private_key).present? ? 'Key loaded' : 'Key missing'"
-```
-
----
-
-## Option 2: Rails Credentials (Simpler but less flexible)
-
-### 1. Generate the key
-
-```bash
-openssl genrsa -out oidc_private_key.pem 2048
-```
-
-### 2. Add to Rails credentials
-
-```bash
-EDITOR="nano" bin/rails credentials:edit
-```
-
-Add this section:
-
-```yaml
-oidc_private_key: |
-  -----BEGIN RSA PRIVATE KEY-----
-  MIIEpAIBAAKCAQEAyZ0qaICMiLVWSFs+ef9Xok3fzy0p6k/7D5TQzmxf7C2vQG7s
-  2Odmi8iAHLoaUBaFj70qTbaconWyMr8s+ah+qZwrwolTLUe23VrceVXvInU57hBL
-  ...
-  -----END RSA PRIVATE KEY-----
-```
-
-**Important:** Use the `|` pipe character for multi-line, and indent the key content with 2 spaces.
-
-### 3. Save and verify
-
-```bash
-# Verify credentials file
-cat config/credentials.yml.enc  # Should show encrypted data
-
-# Test in console
-bin/rails runner "puts OidcJwtService.send(:private_key).present? ? 'Key loaded' : 'Key missing'"
-```
-
-### 4. For deployment
-
-The `config/credentials.yml.enc` file is committed to git. You need to:
-
-1. **Set RAILS_MASTER_KEY** env variable in production
-2. Get the key from `config/master.key` (don't commit this!)
-
-```bash
-# In Kamal
-kamal env push RAILS_MASTER_KEY="$(cat config/master.key)"
 ```
 
 ---
@@ -145,31 +91,7 @@ kamal env push RAILS_MASTER_KEY="$(cat config/master.key)"
 
 ## Key Rotation (Advanced)
 
-If you need to rotate keys (security incident, etc.):
-
-### 1. Generate new key
-
-```bash
-openssl genrsa -out oidc_private_key_new.pem 2048
-```
-
-### 2. Add NEW key alongside old (dual-key setup)
-
-This requires code changes to support multiple keys in JWKS. For now, rotation means:
-
-**Warning:** Rotating the key will **invalidate all existing OIDC sessions**. Users will need to log in again.
-
-### 3. Update OIDC_PRIVATE_KEY
-
-```bash
-kamal env push OIDC_PRIVATE_KEY="$(cat oidc_private_key_new.pem)"
-```
-
-### 4. Restart application
-
-```bash
-kamal deploy
-```
+Todo
 
 ---
 

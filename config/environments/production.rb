@@ -133,4 +133,18 @@ Rails.application.configure do
 
   # Skip DNS rebinding protection for the default health check endpoint.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Sentry configuration for production
+  # Only enabled if SENTRY_DSN environment variable is set
+  if ENV["SENTRY_DSN"].present?
+    config.sentry.enabled = true
+
+    # Performance monitoring: sample 20% of transactions for traces
+    # Adjust based on your traffic volume and Sentry plan limits
+    config.sentry.traces_sample_rate = ENV.fetch("SENTRY_TRACES_SAMPLE_RATE", 0.2).to_f
+
+    # Continuous profiling: disabled by default in production due to cost
+    # Enable temporarily for performance investigations if needed
+    config.sentry.profiles_sample_rate = ENV.fetch("SENTRY_PROFILES_SAMPLE_RATE", 0.0).to_f
+  end
 end

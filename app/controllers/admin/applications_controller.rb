@@ -100,7 +100,10 @@ module Admin
       params.require(:application).permit(
         :name, :slug, :app_type, :active, :redirect_uris, :description, :metadata,
         :domain_pattern, :landing_url, headers_config: {}
-      )
+      ).tap do |whitelisted|
+        # Remove client_secret from params if present (shouldn't be updated via form)
+        whitelisted.delete(:client_secret)
+      end
     end
   end
 end
