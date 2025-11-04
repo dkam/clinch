@@ -8,5 +8,10 @@ class DashboardController < ApplicationController
 
     # User must be authenticated
     @user = Current.session.user
+
+    # Load user's accessible applications
+    @applications = Application.active.select do |app|
+      app.user_allowed?(@user)
+    end
   end
 end

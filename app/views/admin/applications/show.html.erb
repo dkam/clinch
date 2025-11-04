@@ -59,6 +59,16 @@
             <% end %>
           </dd>
         </div>
+        <div class="sm:col-span-2">
+          <dt class="text-sm font-medium text-gray-500">Landing URL</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <% if @application.landing_url.present? %>
+              <%= link_to @application.landing_url, @application.landing_url, target: "_blank", rel: "noopener noreferrer", class: "text-blue-600 hover:text-blue-800 underline" %>
+            <% else %>
+              <span class="text-gray-400 italic">Not configured</span>
+            <% end %>
+          </dd>
+        </div>
       </dl>
     </div>
   </div>

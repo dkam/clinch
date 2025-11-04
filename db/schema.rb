@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_04_042206) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_04_054909) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -30,6 +30,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_04_042206) do
     t.text "description"
     t.string "domain_pattern"
     t.json "headers_config", default: {}, null: false
+    t.string "landing_url"
     t.text "metadata"
     t.string "name", null: false
     t.text "redirect_uris"

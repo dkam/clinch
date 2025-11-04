@@ -1,4 +1,4 @@
-<div class="mx-auto md:w-2/3 w-full" data-controller="webauthn" data-webauthn-check-url-value="/webauthn/check">
+<div class="mx-auto md:w-2/3 w-full" data-controller="webauthn login-form" data-webauthn-check-url-value="/webauthn/check">
   <div class="mb-8">
     <h1 class="font-bold text-4xl">Sign in to Clinch</h1>
   </div>
@@ -18,7 +18,7 @@
     </div>
 
     <!-- WebAuthn section - initially hidden -->
-    <div id="webauthn-section" class="my-5 hidden">
+    <div id="webauthn-section" data-login-form-target="webauthnSection" class="my-5 hidden">
       <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
         <div class="flex items-center">
           <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,7 +41,7 @@
     </div>
 
     <!-- Password section - shown by default, hidden if WebAuthn is required -->
-    <div id="password-section">
+    <div id="password-section" data-login-form-target="passwordSection">
       <div class="my-5">
         <%= form.label :password, class: "block font-medium text-sm text-gray-700" %>
         <%= form.password_field :password,
@@ -64,7 +64,7 @@
   <% end %>
 
   <!-- Loading overlay -->
-  <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+  <div id="loading-overlay" data-login-form-target="loadingOverlay" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 flex items-center">
       <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -75,76 +75,5 @@
   </div>
 
   <!-- Status messages -->
-  <div id="status-message" class="hidden mt-4 p-3 rounded-md"></div>
+  <div id="status-message" data-login-form-target="statusMessage" class="hidden mt-4 p-3 rounded-md"></div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const webauthnController = document.querySelector('[data-controller="webauthn"]');
-
-  if (webauthnController) {
-    // Listen for WebAuthn availability events
-    webauthnController.addEventListener('webauthn:webauthn-available', function(event) {
-      console.debug("Received webauthn-available event:", event.detail);
-      const detail = event.detail;
-      const webauthnSection = document.getElementById('webauthn-section');
-      const passwordSection = document.getElementById('password-section');
-
-      if (detail.hasWebauthn) {
-        console.debug("Showing WebAuthn section");
-        webauthnSection.classList.remove('hidden');
-
-        // If WebAuthn is required, hide password section
-        if (detail.requiresWebauthn) {
-          passwordSection.classList.add('hidden');
-        } else {
-          // Show both options
-          passwordSection.classList.add('border-t pt-4 mt-4');
-
-          // Add an "or" divider
-          const orDiv = document.createElement('div');
-          orDiv.className = 'relative my-4';
-          orDiv.innerHTML = `
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-300"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-gray-500">Or</span>
-            </div>
-          `;
-          webauthnSection.parentNode.insertBefore(orDiv, webauthnSection);
-        }
-      } else {
-        console.debug("WebAuthn not available, keeping section hidden");
-      }
-    });
-
-    // Listen for WebAuthn registration events (from profile page)
-    webauthnController.addEventListener('webauthn:passkey-registered', function(event) {
-      // Show success message
-      const statusMessage = document.getElementById('status-message');
-      statusMessage.className = 'mt-4 p-3 rounded-md bg-green-50 text-green-800 border border-green-200';
-      statusMessage.textContent = 'Passkey registered successfully!';
-      statusMessage.classList.remove('hidden');
-
-      // Hide after 3 seconds
-      setTimeout(() => {
-        statusMessage.classList.add('hidden');
-      }, 3000);
-    });
-  }
-
-  // Loading overlay management
-  function showLoading() {
-    document.getElementById('loading-overlay').classList.remove('hidden');
-  }
-
-  function hideLoading() {
-    document.getElementById('loading-overlay').classList.add('hidden');
-  }
-
-  // Show loading when WebAuthn authentication starts
-  document.addEventListener('webauthn:authenticate-start', showLoading);
-  document.addEventListener('webauthn:authenticate-end', hideLoading);
-});
-</script>

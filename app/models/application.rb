@@ -15,6 +15,7 @@ class Application < ApplicationRecord
   validates :client_id, uniqueness: { allow_nil: true }
   validates :client_secret, presence: true, if: :oidc?
   validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
+  validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
   normalizes :domain_pattern, with: ->(pattern) { pattern&.strip&.downcase }

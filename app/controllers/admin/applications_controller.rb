@@ -99,7 +99,7 @@ module Admin
     def application_params
       params.require(:application).permit(
         :name, :slug, :app_type, :active, :redirect_uris, :description, :metadata,
-        :domain_pattern, headers_config: {}
+        :domain_pattern, :landing_url, headers_config: {}
       )
     end
   end

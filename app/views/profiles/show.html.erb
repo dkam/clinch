@@ -102,10 +102,16 @@
             </div>
           </div>
           <div class="mt-4 flex gap-3">
-            <button type="button" onclick="showDisable2FAModal()" class="inline-flex items-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+            <button type="button"
+                    data-action="click->modal#show"
+                    data-modal-id="disable-2fa-modal"
+                    class="inline-flex items-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
               Disable 2FA
             </button>
-            <button type="button" onclick="showViewBackupCodesModal()" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <button type="button"
+                    data-action="click->modal#show"
+                    data-modal-id="view-backup-codes-modal"
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
               View Backup Codes
             </button>
           </div>
@@ -119,7 +125,10 @@
   </div>
 
   <!-- Disable 2FA Modal -->
-  <div id="disable-2fa-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+  <div id="disable-2fa-modal"
+       data-controller="modal"
+       data-action="click->modal#closeOnBackdrop keyup@window->modal#closeOnEscape"
+       class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg px-4 pt-5 pb-4 shadow-xl max-w-md w-full">
       <div class="sm:flex sm:items-start">
         <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -143,7 +152,9 @@
             <div class="mt-4 flex gap-3">
               <%= form.submit "Disable 2FA",
                   class: "inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2" %>
-              <button type="button" onclick="hideDisable2FAModal()" class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+              <button type="button"
+                      data-action="click->modal#hide"
+                      class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                 Cancel
               </button>
             </div>
@@ -154,7 +165,10 @@
   </div>
 
   <!-- View Backup Codes Modal -->
-  <div id="view-backup-codes-modal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+  <div id="view-backup-codes-modal"
+       data-controller="modal"
+       data-action="click->modal#closeOnBackdrop keyup@window->modal#closeOnEscape"
+       class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg px-4 pt-5 pb-4 shadow-xl max-w-md w-full">
       <div>
         <h3 class="text-lg font-medium leading-6 text-gray-900">View Backup Codes</h3>
@@ -172,7 +186,9 @@
           <div class="mt-4 flex gap-3">
             <%= form.submit "View Codes",
                 class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
-            <button type="button" onclick="hideViewBackupCodesModal()" class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <button type="button"
+                    data-action="click->modal#hide"
+                    class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
               Cancel
             </button>
           </div>
@@ -302,22 +318,4 @@
       </div>
     </div>
   </div>
-
-  <script>
-    function showDisable2FAModal() {
-      document.getElementById('disable-2fa-modal').classList.remove('hidden');
-    }
-
-    function hideDisable2FAModal() {
-      document.getElementById('disable-2fa-modal').classList.add('hidden');
-    }
-
-    function showViewBackupCodesModal() {
-      document.getElementById('view-backup-codes-modal').classList.remove('hidden');
-    }
-
-    function hideViewBackupCodesModal() {
-      document.getElementById('view-backup-codes-modal').classList.add('hidden');
-    }
-  </script>
 </div>
