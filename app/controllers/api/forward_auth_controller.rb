@@ -137,7 +137,7 @@ module Api
 
       # Get the redirect URL from query params or construct default
       redirect_url = validate_redirect_url(params[:rd])
-      base_url = redirect_url || "https://clinch.aapamilne.com"
+      base_url = determine_base_url(redirect_url)
 
       # Set the original URL that user was trying to access
       # This will be used after authentication
@@ -212,6 +212,26 @@ module Api
 
       Application.forward_auth.active.any? do |app|
         app.matches_domain?(domain.downcase)
+      end
+    end
+
+    def determine_base_url(redirect_url)
+      # If we have a valid redirect URL, use it
+      return redirect_url if redirect_url.present?
+
+      # Try CLINCH_HOST environment variable first
+      if ENV['CLINCH_HOST'].present?
+        "https://#{ENV['CLINCH_HOST']}"
+      else
+        # Fallback to the request host
+        request_host = request.host || request.headers['X-Forwarded-Host']
+        if request_host.present?
+          Rails.logger.warn "ForwardAuth: CLINCH_HOST not set, using request host: #{request_host}"
+          "https://#{request_host}"
+        else
+          # No host information available - raise exception to force proper configuration
+          raise StandardError, "ForwardAuth: CLINCH_HOST environment variable not set and no request host available. Please configure CLINCH_HOST properly."
+        end
       end
     end
   end
