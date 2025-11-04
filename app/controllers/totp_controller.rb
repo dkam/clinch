@@ -24,8 +24,11 @@ class TotpController < ApplicationController
     if totp.verify(code, drift_behind: 30, drift_ahead: 30)
       # Save the secret and generate backup codes
       @user.totp_secret = totp_secret
-      @user.backup_codes = generate_backup_codes
+      plain_codes = @user.send(:generate_backup_codes) # Use private method from User model
       @user.save!
+
+      # Store plain codes temporarily in session for display after redirect
+      session[:temp_backup_codes] = plain_codes
 
       # Redirect to backup codes page with success message
       redirect_to backup_codes_totp_path, notice: "Two-factor authentication has been enabled successfully! Save these backup codes now."
@@ -36,8 +39,15 @@ class TotpController < ApplicationController
 
   # GET /totp/backup_codes - Show backup codes (requires password)
   def backup_codes
-    # This will be shown after password verification
-    @backup_codes = @user.parsed_backup_codes
+    # Check if we have temporary codes from TOTP setup
+    if session[:temp_backup_codes].present?
+      @backup_codes = session[:temp_backup_codes]
+      session.delete(:temp_backup_codes) # Clear after use
+    else
+      # This will be shown after password verification for existing users
+      # Since we can't display BCrypt hashes, redirect to regenerate
+      redirect_to regenerate_backup_codes_totp_path
+    end
   end
 
   # POST /totp/verify_password - Verify password before showing backup codes
@@ -47,6 +57,28 @@ class TotpController < ApplicationController
     else
       redirect_to profile_path, alert: "Incorrect password."
     end
+  end
+
+  # GET /totp/regenerate_backup_codes - Regenerate backup codes (requires password)
+  def regenerate_backup_codes
+    # This will be shown after password verification
+  end
+
+  # POST /totp/regenerate_backup_codes - Actually regenerate backup codes
+  def create_new_backup_codes
+    unless @user.authenticate(params[:password])
+      redirect_to regenerate_backup_codes_totp_path, alert: "Incorrect password."
+      return
+    end
+
+    # Generate new backup codes and store BCrypt hashes
+    plain_codes = @user.send(:generate_backup_codes)
+    @user.save!
+
+    # Store plain codes temporarily in session for display
+    session[:temp_backup_codes] = plain_codes
+
+    redirect_to backup_codes_totp_path, notice: "New backup codes have been generated. Save them now!"
   end
 
   # DELETE /totp - Disable TOTP (requires password)
@@ -76,9 +108,5 @@ class TotpController < ApplicationController
     unless @user.totp_enabled?
       redirect_to profile_path, alert: "Two-factor authentication is not enabled."
     end
-  end
-
-  def generate_backup_codes
-    Array.new(10) { SecureRandom.alphanumeric(8).upcase }.to_json
   end
 end

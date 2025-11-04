@@ -1,4 +1,4 @@
-<%= form_with(model: [:admin, application], class: "space-y-6") do |form| %>
+<%= form_with(model: [:admin, application], class: "space-y-6", data: { controller: "application-form" }) do |form| %>
   <% if application.errors.any? %>
     <div class="rounded-md bg-red-50 p-4">
       <div class="flex">
@@ -42,14 +42,18 @@
 
   <div>
     <%= form.label :app_type, "Application Type", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["Forward Auth (Reverse Proxy)", "forward_auth"]], {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", disabled: application.persisted? %>
+    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["Forward Auth (Reverse Proxy)", "forward_auth"]], {}, {
+    class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
+    disabled: application.persisted?,
+    data: { action: "change->application-form#updateFieldVisibility", application_form_target: "appTypeSelect" }
+  } %>
     <% if application.persisted? %>
       <p class="mt-1 text-sm text-gray-500">Application type cannot be changed after creation.</p>
     <% end %>
   </div>
 
   <!-- OIDC-specific fields -->
-  <div id="oidc-fields" class="space-y-6 border-t border-gray-200 pt-6" style="<%= 'display: none;' unless application.oidc? || !application.persisted? %>">
+  <div id="oidc-fields" class="space-y-6 border-t border-gray-200 pt-6 <%= 'hidden' unless application.oidc? || !application.persisted? %>" data-application-form-target="oidcFields">
     <h3 class="text-base font-semibold text-gray-900">OIDC Configuration</h3>
 
     <div>
@@ -60,7 +64,7 @@
   </div>
 
   <!-- Forward Auth-specific fields -->
-  <div id="forward-auth-fields" class="space-y-6 border-t border-gray-200 pt-6" style="<%= 'display: none;' unless application.forward_auth? %>">
+  <div id="forward-auth-fields" class="space-y-6 border-t border-gray-200 pt-6 <%= 'hidden' unless application.forward_auth? %>" data-application-form-target="forwardAuthFields">
     <h3 class="text-base font-semibold text-gray-900">Forward Auth Configuration</h3>
 
     <div>
@@ -120,30 +124,3 @@
   </div>
 <% end %>
 
-<script>
-  // Show/hide type-specific fields based on app type selection
-  const appTypeSelect = document.querySelector('#application_app_type');
-  const oidcFields = document.querySelector('#oidc-fields');
-  const forwardAuthFields = document.querySelector('#forward-auth-fields');
-
-  function updateFieldVisibility() {
-    if (!appTypeSelect) return;
-
-    const appType = appTypeSelect.value;
-
-    if (oidcFields) {
-      oidcFields.style.display = appType === 'oidc' ? 'block' : 'none';
-    }
-
-    if (forwardAuthFields) {
-      forwardAuthFields.style.display = appType === 'forward_auth' ? 'block' : 'none';
-    }
-  }
-
-  if (appTypeSelect) {
-    appTypeSelect.addEventListener('change', updateFieldVisibility);
-  }
-
-  // Initialize visibility on page load
-  updateFieldVisibility();
-</script>

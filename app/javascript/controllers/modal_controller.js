@@ -3,6 +3,9 @@ import { Controller } from "@hotwired/stimulus"
 // Generic modal controller for showing/hiding modal dialogs
 export default class extends Controller {
   static targets = ["dialog"]
+  static values = {
+    refreshOnClose: { type: Boolean, default: false }
+  }
 
   show(event) {
     // If called from a button with data-modal-id, find and show that modal
@@ -11,6 +14,8 @@ export default class extends Controller {
       const modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.remove("hidden");
+        // Store the refresh preference from the button
+        this.refreshOnCloseValue = event.currentTarget?.dataset?.refreshOnClose === "true";
       }
     } else if (this.hasDialogTarget) {
       // Otherwise show the dialog target
@@ -22,10 +27,19 @@ export default class extends Controller {
   }
 
   hide() {
-    if (this.hasDialogTarget) {
+    // Find the currently visible modal to hide it
+    const visibleModal = document.querySelector('[data-controller="modal"] .fixed.inset-0:not(.hidden)');
+    if (visibleModal) {
+      visibleModal.classList.add("hidden");
+    } else if (this.hasDialogTarget) {
       this.dialogTarget.classList.add("hidden");
     } else {
       this.element.classList.add("hidden");
+    }
+
+    // Refresh page if requested
+    if (this.refreshOnCloseValue) {
+      window.location.reload();
     }
   }
 

@@ -66,19 +66,53 @@ class User < ApplicationRecord
   def verify_backup_code(code)
     return false unless backup_codes.present?
 
-    codes = JSON.parse(backup_codes)
-    if codes.include?(code)
-      codes.delete(code)
-      update(backup_codes: codes.to_json)
+    # Rate limiting: prevent brute force attacks on backup codes
+    if rate_limit_backup_code_verification?
+      Rails.logger.warn "Rate limit exceeded for backup code verification - User ID: #{id}"
+      return false
+    end
+
+    # backup_codes is now an Array (JSON column), no need to parse
+    # Find the matching hash by comparing with BCrypt
+    matching_hash = backup_codes.find do |hashed_code|
+      BCrypt::Password.new(hashed_code) == code
+    end
+
+    if matching_hash
+      # Remove the used hash from the array (single-use property)
+      backup_codes.delete(matching_hash)
+      save! # Save the updated array
+
+      # Log successful backup code usage for security monitoring
+      Rails.logger.info "Backup code used successfully - User ID: #{id}, IP: #{Current.session&.client_ip}"
       true
     else
+      # Increment failed attempt counter and log for security monitoring
+      increment_backup_code_failed_attempts
+      Rails.logger.warn "Failed backup code attempt - User ID: #{id}, IP: #{Current.session&.client_ip}"
       false
     end
   end
 
-  def parsed_backup_codes
-    return [] unless backup_codes.present?
-    JSON.parse(backup_codes)
+  # Rate limiting for backup code verification to prevent brute force attacks
+  def rate_limit_backup_code_verification?
+    # Use Rails.cache to track failed attempts
+    cache_key = "backup_code_failed_attempts_#{id}"
+    attempts = Rails.cache.read(cache_key) || 0
+
+    if attempts >= 5  # Allow max 5 failed attempts per hour
+      true
+    else
+      # Don't increment here - increment only on failed attempts
+      false
+    end
+  end
+
+  # Increment failed attempt counter
+  def increment_backup_code_failed_attempts
+    cache_key = "backup_code_failed_attempts_#{id}"
+    attempts = Rails.cache.read(cache_key) || 0
+    Rails.cache.write(cache_key, attempts + 1, expires_in: 1.hour)
   end
 
   # WebAuthn methods
@@ -152,6 +186,16 @@ class User < ApplicationRecord
   private
 
   def generate_backup_codes
-    Array.new(10) { SecureRandom.alphanumeric(8).upcase }.to_json
+    # Generate plain codes for user to see/save
+    plain_codes = Array.new(10) { SecureRandom.alphanumeric(8).upcase }
+
+    # Store BCrypt hashes of the codes
+    hashed_codes = plain_codes.map { |code| BCrypt::Password.create(code) }
+
+    # Return plain codes for display (will be shown to user once)
+    # Store only hashes in the database (as Array for JSON column)
+    self.backup_codes = hashed_codes
+
+    plain_codes
   end
 end

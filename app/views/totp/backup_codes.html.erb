@@ -1,4 +1,4 @@
-<div class="max-w-2xl mx-auto">
+<div class="max-w-2xl mx-auto" data-controller="backup-codes" data-backup-codes-codes-value="<%= @backup_codes.to_json %>">
   <div class="mb-8">
     <h1 class="text-3xl font-bold text-gray-900">Backup Codes</h1>
     <p class="mt-2 text-sm text-gray-600">
@@ -29,14 +29,14 @@
       </div>
 
       <div class="mt-6 flex gap-3">
-        <button onclick="downloadBackupCodes()" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <button data-action="click->backup-codes#download" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
           <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Download Codes
         </button>
 
-        <button onclick="printBackupCodes()" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <button data-action="click->backup-codes#print" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
           <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
@@ -52,27 +52,3 @@
   </div>
 </div>
 
-<script>
-  const backupCodes = <%= raw @backup_codes.to_json %>;
-
-  function downloadBackupCodes() {
-    const content = "Clinch Backup Codes\n" +
-                    "===================\n\n" +
-                    backupCodes.join("\n") +
-                    "\n\nSave these codes in a secure location.";
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'clinch-backup-codes.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  }
-
-  function printBackupCodes() {
-    window.print();
-  }
-</script>
