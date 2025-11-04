@@ -66,15 +66,9 @@ Rails.application.routes.draw do
     resources :applications do
       member do
         post :regenerate_credentials
-        get :roles
-        post :create_role
-        patch :update_role
-        post :assign_role
-        post :remove_role
       end
     end
     resources :groups
-    resources :forward_auth_rules
   end
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)

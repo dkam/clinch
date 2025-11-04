@@ -67,7 +67,7 @@ module Admin
     end
 
     def group_params
-      params.require(:group).permit(:name, :description)
+      params.require(:group).permit(:name, :description, custom_claims: {})
     end
   end
 end

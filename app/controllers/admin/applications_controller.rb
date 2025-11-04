@@ -1,6 +1,6 @@
 module Admin
   class ApplicationsController < BaseController
-    before_action :set_application, only: [:show, :edit, :update, :destroy, :regenerate_credentials, :roles, :create_role, :update_role, :assign_role, :remove_role]
+    before_action :set_application, only: [:show, :edit, :update, :destroy, :regenerate_credentials]
 
     def index
       @applications = Application.order(created_at: :desc)
@@ -90,53 +90,6 @@ module Admin
       end
     end
 
-    def roles
-      @application_roles = @application.application_roles.includes(:user_role_assignments)
-      @available_users = User.active.order(:email_address)
-    end
-
-    def create_role
-      @role = @application.application_roles.build(role_params)
-
-      if @role.save
-        redirect_to roles_admin_application_path(@application), notice: "Role created successfully."
-      else
-        @application_roles = @application.application_roles.includes(:user_role_assignments)
-        @available_users = User.active.order(:email_address)
-        render :roles, status: :unprocessable_entity
-      end
-    end
-
-    def update_role
-      @role = @application.application_roles.find(params[:role_id])
-
-      if @role.update(role_params)
-        redirect_to roles_admin_application_path(@application), notice: "Role updated successfully."
-      else
-        @application_roles = @application.application_roles.includes(:user_role_assignments)
-        @available_users = User.active.order(:email_address)
-        render :roles, status: :unprocessable_entity
-      end
-    end
-
-    def assign_role
-      user = User.find(params[:user_id])
-      role = @application.application_roles.find(params[:role_id])
-
-      @application.assign_role_to_user!(user, role.name, source: 'manual')
-
-      redirect_to roles_admin_application_path(@application), notice: "Role assigned successfully."
-    end
-
-    def remove_role
-      user = User.find(params[:user_id])
-      role = @application.application_roles.find(params[:role_id])
-
-      @application.remove_role_from_user!(user, role.name)
-
-      redirect_to roles_admin_application_path(@application), notice: "Role removed successfully."
-    end
-
     private
 
     def set_application
@@ -146,12 +99,8 @@ module Admin
     def application_params
       params.require(:application).permit(
         :name, :slug, :app_type, :active, :redirect_uris, :description, :metadata,
-        :role_mapping_mode, :role_prefix, :role_claim_name, managed_permissions: {}
+        :domain_pattern, headers_config: {}
       )
-    end
-
-    def role_params
-      params.require(:application_role).permit(:name, :display_name, :description, :active, permissions: {})
     end
   end
 end

@@ -9,7 +9,7 @@ module Api
     # This endpoint is called by reverse proxies (Traefik, Caddy, nginx)
     # to verify if a user is authenticated and authorized to access a domain
     def verify
-      # Note: app_slug parameter is no longer used - we match domains directly with ForwardAuthRule
+      # Note: app_slug parameter is no longer used - we match domains directly with Application (forward_auth type)
 
       # Check for one-time forward auth token first (to handle race condition)
       session_id = check_forward_auth_token
@@ -44,37 +44,37 @@ module Api
         return render_unauthorized("User account is not active")
       end
 
-      # Check for forward auth rule authorization
+      # Check for forward auth application authorization
       # Get the forwarded host for domain matching
       forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
 
       if forwarded_host.present?
-        # Load active rules with their associations for better performance
+        # Load active forward auth applications with their associations for better performance
         # Preload groups to avoid N+1 queries in user_allowed? checks
-        rules = ForwardAuthRule.includes(:allowed_groups).active
+        apps = Application.forward_auth.includes(:allowed_groups).active
 
-        # Find matching forward auth rule for this domain
-        rule = rules.find { |r| r.matches_domain?(forwarded_host) }
+        # Find matching forward auth application for this domain
+        app = apps.find { |a| a.matches_domain?(forwarded_host) }
 
-        if rule
-          # Check if user is allowed by this rule
-          unless rule.user_allowed?(user)
-            Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by rule #{rule.domain_pattern}"
+        if app
+          # Check if user is allowed by this application
+          unless app.user_allowed?(user)
+            Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by app #{app.domain_pattern}"
             return render_forbidden("You do not have permission to access this domain")
           end
 
-          Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by rule #{rule.domain_pattern} (policy: #{rule.policy_for_user(user)})"
+          Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by app #{app.domain_pattern} (policy: #{app.policy_for_user(user)})"
         else
-          # No rule found - allow access with default headers (original behavior)
-          Rails.logger.info "ForwardAuth: No rule found for domain: #{forwarded_host}, allowing with default headers"
+          # No application found - allow access with default headers (original behavior)
+          Rails.logger.info "ForwardAuth: No application found for domain: #{forwarded_host}, allowing with default headers"
         end
       else
         Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no domain specified)"
       end
 
       # User is authenticated and authorized
-      # Return 200 with user information headers using rule-specific configuration
-      headers = rule ? rule.headers_for_user(user) : ForwardAuthRule::DEFAULT_HEADERS.map { |key, header_name|
+      # Return 200 with user information headers using app-specific configuration
+      headers = app ? app.headers_for_user(user) : Application::DEFAULT_HEADERS.map { |key, header_name|
         case key
         when :user, :email, :name
           [header_name, user.email_address]
@@ -127,7 +127,7 @@ module Api
     end
 
     def extract_app_from_headers
-      # This method is deprecated since we now use ForwardAuthRule domain matching
+      # This method is deprecated since we now use Application (forward_auth type) domain matching
       # Keeping it for backward compatibility but it's no longer used
       nil
     end
@@ -195,12 +195,12 @@ module Api
         redirect_domain = uri.host.downcase
         return nil unless redirect_domain.present?
 
-        # Check against our ForwardAuthRules
-        matching_rule = ForwardAuthRule.active.find do |rule|
-          rule.matches_domain?(redirect_domain)
+        # Check against our ForwardAuth applications
+        matching_app = Application.forward_auth.active.find do |app|
+          app.matches_domain?(redirect_domain)
         end
 
-        matching_rule ? url : nil
+        matching_app ? url : nil
 
       rescue URI::InvalidURIError
         nil
@@ -210,8 +210,8 @@ module Api
     def domain_has_forward_auth_rule?(domain)
       return false if domain.blank?
 
-      ForwardAuthRule.active.any? do |rule|
-        rule.matches_domain?(domain.downcase)
+      Application.forward_auth.active.any? do |app|
+        app.matches_domain?(domain.downcase)
       end
     end
   end

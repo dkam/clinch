@@ -1,53 +1,48 @@
 class Application < ApplicationRecord
-  has_secure_password :client_secret
+  has_secure_password :client_secret, validations: false
 
   has_many :application_groups, dependent: :destroy
   has_many :allowed_groups, through: :application_groups, source: :group
   has_many :oidc_authorization_codes, dependent: :destroy
   has_many :oidc_access_tokens, dependent: :destroy
   has_many :oidc_user_consents, dependent: :destroy
-  has_many :application_roles, dependent: :destroy
-  has_many :user_role_assignments, through: :application_roles
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: { case_sensitive: false },
                   format: { with: /\A[a-z0-9\-]+\z/, message: "only lowercase letters, numbers, and hyphens" }
   validates :app_type, presence: true,
-                      inclusion: { in: %w[oidc saml] }
+                      inclusion: { in: %w[oidc forward_auth] }
   validates :client_id, uniqueness: { allow_nil: true }
-  validates :role_mapping_mode, inclusion: { in: %w[disabled oidc_managed hybrid] }, allow_blank: true
+  validates :client_secret, presence: true, if: :oidc?
+  validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
+  normalizes :domain_pattern, with: ->(pattern) { pattern&.strip&.downcase }
 
   before_validation :generate_client_credentials, on: :create, if: :oidc?
+
+  # Default header configuration for ForwardAuth
+  DEFAULT_HEADERS = {
+    user: 'X-Remote-User',
+    email: 'X-Remote-Email',
+    name: 'X-Remote-Name',
+    groups: 'X-Remote-Groups',
+    admin: 'X-Remote-Admin'
+  }.freeze
 
   # Scopes
   scope :active, -> { where(active: true) }
   scope :oidc, -> { where(app_type: "oidc") }
-  scope :saml, -> { where(app_type: "saml") }
-  scope :oidc_managed_roles, -> { where(role_mapping_mode: "oidc_managed") }
-  scope :hybrid_roles, -> { where(role_mapping_mode: "hybrid") }
+  scope :forward_auth, -> { where(app_type: "forward_auth") }
+  scope :ordered, -> { order(domain_pattern: :asc) }
 
   # Type checks
   def oidc?
     app_type == "oidc"
   end
 
-  def saml?
-    app_type == "saml"
-  end
-
-  # Role mapping checks
-  def role_mapping_enabled?
-    role_mapping_mode.in?(['oidc_managed', 'hybrid'])
-  end
-
-  def oidc_managed_roles?
-    role_mapping_mode == 'oidc_managed'
-  end
-
-  def hybrid_roles?
-    role_mapping_mode == 'hybrid'
+  def forward_auth?
+    app_type == "forward_auth"
   end
 
   # Access control
@@ -77,49 +72,72 @@ class Application < ApplicationRecord
     {}
   end
 
-  def parsed_managed_permissions
-    return {} unless managed_permissions.present?
-    managed_permissions.is_a?(Hash) ? managed_permissions : JSON.parse(managed_permissions)
+  # ForwardAuth helpers
+  def parsed_headers_config
+    return {} unless headers_config.present?
+    headers_config.is_a?(Hash) ? headers_config : JSON.parse(headers_config)
   rescue JSON::ParserError
     {}
   end
 
-  # Role management methods
-  def user_roles(user)
-    application_roles.joins(:user_role_assignments)
-                    .where(user_role_assignments: { user: user })
-                    .active
+  # Check if a domain matches this application's pattern (for ForwardAuth)
+  def matches_domain?(domain)
+    return false if domain.blank? || !forward_auth?
+
+    pattern = domain_pattern.gsub('.', '\.')
+    pattern = pattern.gsub('*', '[^.]*')
+
+    regex = Regexp.new("^#{pattern}$", Regexp::IGNORECASE)
+    regex.match?(domain.downcase)
   end
 
-  def user_has_role?(user, role_name)
-    user_roles(user).exists?(name: role_name)
+  # Policy determination based on user status (for ForwardAuth)
+  def policy_for_user(user)
+    return 'deny' unless active?
+    return 'deny' unless user.active?
+
+    # If no groups specified, bypass authentication
+    return 'bypass' if allowed_groups.empty?
+
+    # If user is in allowed groups, determine auth level
+    if user_allowed?(user)
+      # Require 2FA if user has TOTP configured, otherwise one factor
+      user.totp_enabled? ? 'two_factor' : 'one_factor'
+    else
+      'deny'
+    end
   end
 
-  def assign_role_to_user!(user, role_name, source: 'manual', metadata: {})
-    role = application_roles.active.find_by!(name: role_name)
-    role.assign_to_user!(user, source: source, metadata: metadata)
+  # Get effective header configuration (for ForwardAuth)
+  def effective_headers
+    DEFAULT_HEADERS.merge(parsed_headers_config.symbolize_keys)
   end
 
-  def remove_role_from_user!(user, role_name)
-    role = application_roles.find_by!(name: role_name)
-    role.remove_from_user!(user)
-  end
+  # Generate headers for a specific user (for ForwardAuth)
+  def headers_for_user(user)
+    headers = {}
+    effective = effective_headers
 
-  # Enhanced access control with roles
-  def user_allowed_with_roles?(user)
-    return user_allowed?(user) unless role_mapping_enabled?
+    # Only generate headers that are configured (not set to nil/false)
+    effective.each do |key, header_name|
+      next unless header_name.present?  # Skip disabled headers
 
-    # For OIDC managed roles, check if user has any roles assigned
-    if oidc_managed_roles?
-      return user_roles(user).exists?
+      case key
+      when :user, :email, :name
+        headers[header_name] = user.email_address
+      when :groups
+        headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
+      when :admin
+        headers[header_name] = user.admin? ? "true" : "false"
+      end
     end
 
-    # For hybrid mode, either group-based access or role-based access works
-    if hybrid_roles?
-      return user_allowed?(user) || user_roles(user).exists?
-    end
+    headers
+  end
 
-    user_allowed?(user)
+  # Check if all headers are disabled (for ForwardAuth)
+  def headers_disabled?
+    headers_config.present? && effective_headers.values.all?(&:blank?)
   end
 
   # Generate and return a new client secret

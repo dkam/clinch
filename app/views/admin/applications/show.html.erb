@@ -23,9 +23,6 @@
     </div>
     <div class="mt-4 sm:mt-0 flex gap-3">
       <%= link_to "Edit", edit_admin_application_path(@application), class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
-      <% if @application.oidc? %>
-        <%= link_to "Manage Roles", roles_admin_application_path(@application), class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500" %>
-      <% end %>
       <%= button_to "Delete", admin_application_path(@application), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500" %>
     </div>
   </div>
@@ -47,8 +44,8 @@
             <% case @application.app_type %>
             <% when "oidc" %>
               <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">OIDC</span>
-            <% when "saml" %>
-              <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">SAML</span>
+            <% when "forward_auth" %>
+              <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">Forward Auth</span>
             <% end %>
           </dd>
         </div>
@@ -101,6 +98,35 @@
                 <% end %>
               <% else %>
                 <span class="text-gray-400">No redirect URIs configured</span>
+              <% end %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Forward Auth Configuration (only for Forward Auth apps) -->
+  <% if @application.forward_auth? %>
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Forward Auth Configuration</h3>
+        <dl class="space-y-4">
+          <div>
+            <dt class="text-sm font-medium text-gray-500">Domain Pattern</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs"><%= @application.domain_pattern %></code>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500">Headers Configuration</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <% if @application.headers_config.present? && @application.headers_config.any? %>
+                <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs whitespace-pre-wrap"><%= JSON.pretty_generate(@application.headers_config) %></code>
+              <% else %>
+                <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500">
+                  Using default headers: X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Groups, X-Remote-Admin
+                </div>
               <% end %>
             </dd>
           </div>

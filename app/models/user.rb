@@ -3,8 +3,6 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
   has_many :user_groups, dependent: :destroy
   has_many :groups, through: :user_groups
-  has_many :user_role_assignments, dependent: :destroy
-  has_many :application_roles, through: :user_role_assignments
   has_many :oidc_user_consents, dependent: :destroy
 
   # Token generation for passwordless flows
@@ -95,6 +93,11 @@ class User < ApplicationRecord
 
   def revoke_all_consents!
     oidc_user_consents.destroy_all
+  end
+
+  # Parse custom_claims JSON field
+  def parsed_custom_claims
+    custom_claims || {}
   end
 
   private

@@ -46,6 +46,12 @@
     <% end %>
   </div>
 
+  <div>
+    <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700" %>
+    <%= form.text_area :custom_claims, value: (user.custom_claims.present? ? JSON.pretty_generate(user.custom_claims) : ""), rows: 8, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: '{"department": "engineering", "level": "senior"}' %>
+    <p class="mt-1 text-sm text-gray-500">Optional: User-specific custom claims to add to OIDC tokens. These override group-level claims.</p>
+  </div>
+
   <div class="flex gap-3">
     <%= form.submit user.persisted? ? "Update User" : "Create User", class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
     <%= link_to "Cancel", admin_users_path, class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>

@@ -36,7 +36,7 @@
 
   <div>
     <%= form.label :app_type, "Application Type", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["SAML (Coming Soon)", "saml", { disabled: true }]], {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", disabled: application.persisted? %>
+    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["Forward Auth (Reverse Proxy)", "forward_auth"]], {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", disabled: application.persisted? %>
     <% if application.persisted? %>
       <p class="mt-1 text-sm text-gray-500">Application type cannot be changed after creation.</p>
     <% end %>
@@ -51,51 +51,22 @@
       <%= form.text_area :redirect_uris, rows: 4, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://example.com/callback\nhttps://app.example.com/auth/callback" %>
       <p class="mt-1 text-sm text-gray-500">One URI per line. These are the allowed callback URLs for your application.</p>
     </div>
+  </div>
 
-    <!-- Role Mapping Configuration -->
-    <div class="border-t border-gray-200 pt-6">
-      <h4 class="text-base font-semibold text-gray-900 mb-4">Role Mapping Configuration</h4>
+  <!-- Forward Auth-specific fields -->
+  <div id="forward-auth-fields" class="space-y-6 border-t border-gray-200 pt-6" style="<%= 'display: none;' unless application.forward_auth? %>">
+    <h3 class="text-base font-semibold text-gray-900">Forward Auth Configuration</h3>
 
-      <div>
-        <%= form.label :role_mapping_mode, "Role Mapping Mode", class: "block text-sm font-medium text-gray-700" %>
-        <%= form.select :role_mapping_mode,
-            options_for_select([
-              ["Disabled", "disabled"],
-              ["OIDC Managed", "oidc_managed"],
-              ["Hybrid (Groups + Roles)", "hybrid"]
-            ], application.role_mapping_mode || "disabled"),
-            {},
-            { class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" } %>
-        <p class="mt-1 text-sm text-gray-500">Controls how external roles are mapped and synchronized.</p>
-      </div>
+    <div>
+      <%= form.label :domain_pattern, "Domain Pattern", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.text_field :domain_pattern, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "*.example.com or app.example.com" %>
+      <p class="mt-1 text-sm text-gray-500">Domain pattern to match. Use * for wildcard subdomains (e.g., *.example.com matches app.example.com, api.example.com, etc.)</p>
+    </div>
 
-      <div id="role-mapping-advanced" class="mt-4 space-y-4 border-t border-gray-200 pt-4" style="<%= 'display: none;' unless application.role_mapping_enabled? %>">
-        <div>
-          <%= form.label :role_claim_name, "Role Claim Name", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.text_field :role_claim_name, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "roles" %>
-          <p class="mt-1 text-sm text-gray-500">Name of the claim that contains role information (default: 'roles').</p>
-        </div>
-
-        <div>
-          <%= form.label :role_prefix, "Role Prefix (Optional)", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.text_field :role_prefix, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "app-" %>
-          <p class="mt-1 text-sm text-gray-500">Only roles starting with this prefix will be mapped. Useful for multi-tenant scenarios.</p>
-        </div>
-
-        <div class="space-y-3">
-          <label class="block text-sm font-medium text-gray-700">Managed Permissions</label>
-
-          <div class="flex items-center">
-            <%= form.check_box :managed_permissions, { multiple: true, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" }, "include_permissions", "" %>
-            <%= form.label :managed_permissions_include_permissions, "Include role permissions in tokens", class: "ml-2 block text-sm text-gray-900" %>
-          </div>
-
-          <div class="flex items-center">
-            <%= form.check_box :managed_permissions, { multiple: true, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" }, "include_metadata", "" %>
-            <%= form.label :managed_permissions_include_metadata, "Include role metadata in tokens", class: "ml-2 block text-sm text-gray-900" %>
-          </div>
-        </div>
-      </div>
+    <div>
+      <%= form.label :headers_config, "Custom Headers Configuration (JSON)", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.text_area :headers_config, rows: 8, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: '{"user": "X-Remote-User", "email": "X-Remote-Email"}' %>
+      <p class="mt-1 text-sm text-gray-500">Optional: Override default headers. Leave empty to use defaults: X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Groups, X-Remote-Admin</p>
     </div>
   </div>
 
@@ -129,31 +100,27 @@
 <% end %>
 
 <script>
-  // Show/hide OIDC fields based on app type selection
+  // Show/hide type-specific fields based on app type selection
   const appTypeSelect = document.querySelector('#application_app_type');
   const oidcFields = document.querySelector('#oidc-fields');
-  const roleMappingMode = document.querySelector('#application_role_mapping_mode');
-  const roleMappingAdvanced = document.querySelector('#role-mapping-advanced');
+  const forwardAuthFields = document.querySelector('#forward-auth-fields');
 
   function updateFieldVisibility() {
-    const isOidc = appTypeSelect.value === 'oidc';
-    const roleMappingEnabled = roleMappingMode && ['oidc_managed', 'hybrid'].includes(roleMappingMode.value);
+    if (!appTypeSelect) return;
+
+    const appType = appTypeSelect.value;
 
     if (oidcFields) {
-      oidcFields.style.display = isOidc ? 'block' : 'none';
+      oidcFields.style.display = appType === 'oidc' ? 'block' : 'none';
     }
 
-    if (roleMappingAdvanced) {
-      roleMappingAdvanced.style.display = isOidc && roleMappingEnabled ? 'block' : 'none';
+    if (forwardAuthFields) {
+      forwardAuthFields.style.display = appType === 'forward_auth' ? 'block' : 'none';
     }
   }
 
-  if (appTypeSelect && oidcFields) {
+  if (appTypeSelect) {
     appTypeSelect.addEventListener('change', updateFieldVisibility);
-  }
-
-  if (roleMappingMode) {
-    roleMappingMode.addEventListener('change', updateFieldVisibility);
   }
 
   // Initialize visibility on page load

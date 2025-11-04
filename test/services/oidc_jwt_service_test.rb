@@ -207,5 +207,4 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     end
     assert_match /no key found/, error.message, "Should warn about missing private key"
   end
-  end
 end

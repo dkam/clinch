@@ -101,6 +101,7 @@ Send emails for:
 - **Group-based allowlists** - Restrict applications to specific user groups
 - **Per-application access** - Each app defines which groups can access it
 - **Automatic enforcement** - Access checks during OIDC authorization and ForwardAuth
+- **Custom claims** - Add arbitrary claims to OIDC tokens via groups and users (perfect for app-specific roles)
 
 ---
 
@@ -115,11 +116,13 @@ Send emails for:
 - TOTP secret and backup codes (encrypted)
 - TOTP enforcement flag
 - Status (active, disabled, pending_invitation)
+- Custom claims (JSON) - arbitrary key-value pairs added to OIDC tokens
 - Token generation for invitations, password resets, and magic logins
 
 **Group**
 - Name (unique, normalized to lowercase)
 - Description
+- Custom claims (JSON) - shared claims for all members (merged with user claims)
 - Many-to-many with Users and Applications
 
 **Session**
@@ -132,9 +135,11 @@ Send emails for:
 
 **Application**
 - Name and slug (URL-safe identifier)
-- Type (oidc, trusted_header, saml)
-- Client ID and secret (for OIDC)
-- Redirect URIs (JSON array)
+- Type (oidc or forward_auth)
+- Client ID and secret (for OIDC apps)
+- Redirect URIs (for OIDC apps)
+- Domain pattern (for ForwardAuth apps, supports wildcards like *.example.com)
+- Headers config (for ForwardAuth apps, JSON configuration for custom header names)
 - Metadata (flexible JSON storage)
 - Active flag
 - Many-to-many with Groups (allowlist)

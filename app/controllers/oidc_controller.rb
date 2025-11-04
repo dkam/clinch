@@ -302,6 +302,14 @@ class OidcController < ApplicationController
     # Add admin claim if user is admin
     claims[:admin] = true if user.admin?
 
+    # Merge custom claims from groups
+    user.groups.each do |group|
+      claims.merge!(group.parsed_custom_claims)
+    end
+
+    # Merge custom claims from user (overrides group claims)
+    claims.merge!(user.parsed_custom_claims)
+
     render json: claims
   end
 
