@@ -4,10 +4,14 @@
 Rails.application.config.after_initialize do
   # Create a dedicated logger for CSP violations
   csp_log_path = Rails.root.join("log", "csp_violations.log")
-  csp_logger = Logger.new(csp_log_path)
 
-  # Rotate logs daily, keep 30 days
-  csp_logger.keep = 30
+  # Configure log rotation
+  csp_logger = Logger.new(
+    csp_log_path,
+    'daily',  # Rotate daily
+    30        # Keep 30 old log files
+  )
+
   csp_logger.level = Logger::INFO
 
   # Format: [TIMESTAMP] LEVEL MESSAGE
@@ -16,8 +20,8 @@ Rails.application.config.after_initialize do
   end
 
   module CspViolationLocalLogger
-    def self.emit(event_data)
-      csp_data = event_data[:data] || {}
+    def self.emit(event)
+      csp_data = event[:payload] || {}
 
       # Build a structured log message
       violated_directive = csp_data[:violated_directive] || "unknown"
@@ -83,7 +87,7 @@ Rails.application.config.after_initialize do
   end
 
   # Register the local logger subscriber
-  Rails.event.subscribe("csp.violation", CspViolationLocalLogger)
+  Rails.event.subscribe(CspViolationLocalLogger)
 
   Rails.logger.info "CSP violation local logger registered - logging to: #{csp_log_path}"
 

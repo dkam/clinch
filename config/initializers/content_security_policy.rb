@@ -53,7 +53,7 @@ Rails.application.configure do
     # Additional security headers for WebAuthn
     # Required for WebAuthn to work properly
     policy.require_trusted_types_for :none
-    policy.report_uri  = "/api/csp-violation-report"
+    policy.report_uri  "/api/csp-violation-report"
   end
 
   # Start with CSP in report-only mode for testing

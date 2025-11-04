@@ -6,9 +6,9 @@ Rails.application.config.after_initialize do
   if defined?(Sentry) && Sentry.initialized?
 
     module CspViolationSentrySubscriber
-      def self.emit(event_data)
+      def self.emit(event)
         # Extract relevant CSP violation data
-        csp_data = event_data[:data] || {}
+        csp_data = event[:payload] || {}
 
         # Build a descriptive message for Sentry
         violated_directive = csp_data[:violated_directive]
@@ -111,7 +111,7 @@ Rails.application.config.after_initialize do
     end
 
     # Register the subscriber for CSP violation events
-    Rails.event.subscribe("csp.violation", CspViolationSentrySubscriber)
+    Rails.event.subscribe(CspViolationSentrySubscriber)
 
     Rails.logger.info "CSP violation Sentry subscriber registered"
   else
