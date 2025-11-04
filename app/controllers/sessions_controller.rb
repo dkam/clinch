@@ -146,9 +146,13 @@ class SessionsController < ApplicationController
 
     begin
       # Generate authentication options
-      # The WebAuthn gem will handle base64url encoding automatically
+      # Decode the stored base64url credential IDs before passing to the gem
+      credential_ids = user.webauthn_credentials.pluck(:external_id).map do |encoded_id|
+        Base64.urlsafe_decode64(encoded_id)
+      end
+
       options = WebAuthn::Credential.options_for_get(
-        allow: user.webauthn_credentials.pluck(:external_id),
+        allow: credential_ids,
         user_verification: "preferred"
       )
 
