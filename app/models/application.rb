@@ -13,7 +13,7 @@ class Application < ApplicationRecord
   validates :app_type, presence: true,
                       inclusion: { in: %w[oidc forward_auth] }
   validates :client_id, uniqueness: { allow_nil: true }
-  validates :client_secret, presence: true, if: -> { oidc? && client_secret_changed? }
+  validates :client_secret, presence: true, if: -> { oidc? && will_save_change_to_client_secret? }
   validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
   validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
 
