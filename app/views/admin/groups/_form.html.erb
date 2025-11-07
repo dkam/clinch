@@ -1,22 +1,5 @@
-<%= form_with(model: [:admin, group], class: "space-y-6") do |form| %>
-  <% if group.errors.any? %>
-    <div class="rounded-md bg-red-50 p-4">
-      <div class="flex">
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800">
-            <%= pluralize(group.errors.count, "error") %> prohibited this group from being saved:
-          </h3>
-          <div class="mt-2 text-sm text-red-700">
-            <ul class="list-disc pl-5 space-y-1">
-              <% group.errors.full_messages.each do |message| %>
-                <li><%= message %></li>
-              <% end %>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  <% end %>
+<%= form_with(model: [:admin, group], class: "space-y-6", data: { controller: "form-errors" }) do |form| %>
+  <%= render "shared/form_errors", form: form %>
 
   <div>
     <%= form.label :name, class: "block text-sm font-medium text-gray-700" %>
@@ -49,10 +32,25 @@
     <p class="mt-1 text-sm text-gray-500">Select which users should be members of this group.</p>
   </div>
 
-  <div>
+  <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
     <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_area :custom_claims, value: (group.custom_claims.present? ? JSON.pretty_generate(group.custom_claims) : ""), rows: 8, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: '{"roles": ["admin", "editor"]}' %>
-    <p class="mt-1 text-sm text-gray-500">Optional: Custom claims to add to OIDC tokens for all members. These will be merged with user-level claims.</p>
+    <%= form.text_area :custom_claims, value: (group.custom_claims.present? ? JSON.pretty_generate(group.custom_claims) : ""), rows: 8,
+        class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
+        placeholder: '{"roles": ["admin", "editor"]}',
+        data: {
+          action: "input->json-validator#validate blur->json-validator#format",
+          json_validator_target: "textarea"
+        } %>
+    <div class="mt-2 text-sm text-gray-600 space-y-1">
+      <div class="flex items-center justify-between">
+        <p>Optional: Custom claims to add to OIDC tokens for all members. These will be merged with user-level claims.</p>
+        <div class="flex items-center gap-2">
+          <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Format JSON</button>
+          <button type="button" data-action="json-validator#insertSample" data-json-sample='{"roles": ["admin", "editor"], "permissions": ["read", "write"], "team": "backend"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
+        </div>
+      </div>
+      <div data-json-validator-target="status" class="text-xs font-medium"></div>
+    </div>
   </div>
 
   <div class="flex gap-3">

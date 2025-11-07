@@ -4,17 +4,8 @@
     <p class="mt-2 text-gray-600">Create your admin account to get started</p>
   </div>
 
-  <%= form_with model: @user, url: signup_path, class: "contents" do |form| %>
-    <% if @user.errors.any? %>
-      <div class="bg-red-50 text-red-500 px-3 py-2 font-medium rounded-lg mt-3">
-        <h2><%= pluralize(@user.errors.count, "error") %> prohibited this account from being saved:</h2>
-        <ul class="list-disc list-inside">
-          <% @user.errors.each do |error| %>
-            <li><%= error.full_message %></li>
-          <% end %>
-        </ul>
-      </div>
-    <% end %>
+  <%= form_with model: @user, url: signup_path, class: "contents", data: { controller: "form-errors" } do |form| %>
+    <%= render "shared/form_errors", form: form %>
 
     <div class="my-5">
       <%= form.label :email_address, class: "block font-medium text-sm text-gray-700" %>

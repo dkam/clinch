@@ -1,29 +1,86 @@
-<% if flash[:alert] %>
-  <div class="mb-4 rounded-lg bg-red-50 p-4" role="alert">
+<%# Enhanced Flash Messages with Support for Multiple Types and Auto-Dismiss %>
+<% flash.each do |type, message| %>
+  <% next if message.blank? %>
+
+  <%
+    # Map flash types to styling
+    case type.to_s
+    when 'notice'
+      bg_class = 'bg-green-50'
+      text_class = 'text-green-800'
+      icon_class = 'text-green-400'
+      icon_path = 'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+      auto_dismiss = true
+    when 'alert', 'error'
+      bg_class = 'bg-red-50'
+      text_class = 'text-red-800'
+      icon_class = 'text-red-400'
+      icon_path = 'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
+      auto_dismiss = false
+    when 'warning'
+      bg_class = 'bg-yellow-50'
+      text_class = 'text-yellow-800'
+      icon_class = 'text-yellow-400'
+      icon_path = 'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z'
+      auto_dismiss = false
+    when 'info'
+      bg_class = 'bg-blue-50'
+      text_class = 'text-blue-800'
+      icon_class = 'text-blue-400'
+      icon_path = 'M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+      auto_dismiss = true
+    else
+      # Default styling for unknown types
+      bg_class = 'bg-gray-50'
+      text_class = 'text-gray-800'
+      icon_class = 'text-gray-400'
+      icon_path = 'M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+      auto_dismiss = false
+    end
+  %>
+
+  <div class="mb-4 rounded-lg <%= bg_class %> p-4 border border-opacity-20 <%= border_class_for(type) %>"
+       role="alert"
+       data-controller="flash"
+       data-flash-auto-dismiss-value="<%= auto_dismiss ? '5000' : 'false' %>"
+       data-flash-type-value="<%= type %>">
     <div class="flex">
-      <div class="flex-shrink-0">
-        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      <div class="shrink-0">
+        <svg class="h-5 w-5 <%= icon_class %>" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="<%= icon_path %>" clip-rule="evenodd"/>
         </svg>
       </div>
-      <div class="ml-3">
-        <p class="text-sm font-medium text-red-800"><%= flash[:alert] %></p>
+      <div class="ml-3 flex-1">
+        <p class="text-sm font-medium <%= text_class %>"><%= message %></p>
       </div>
+      <% if auto_dismiss || type.to_s != 'alert' %>
+        <div class="ml-auto pl-3">
+          <div class="-mx-1.5 -my-1.5">
+            <button type="button"
+                    data-action="click->flash#dismiss"
+                    class="inline-flex rounded-md <%= bg_class %> p-1.5 <%= icon_class %> hover:bg-opacity-70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-<%= bg_class.gsub('bg-', '') %>"
+                    aria-label="Dismiss">
+              <span class="sr-only">Dismiss</span>
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      <% end %>
     </div>
   </div>
 <% end %>
 
-<% if flash[:notice] %>
-  <div class="mb-4 rounded-lg bg-green-50 p-4" role="alert">
-    <div class="flex">
-      <div class="flex-shrink-0">
-        <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-      </div>
-      <div class="ml-3">
-        <p class="text-sm font-medium text-green-800"><%= flash[:notice] %></p>
-      </div>
-    </div>
-  </div>
-<% end %>
+<%# Helper method for border colors %>
+<%
+def border_class_for(type)
+  case type.to_s
+  when 'notice' then 'border-green-200'
+  when 'alert', 'error' then 'border-red-200'
+  when 'warning' then 'border-yellow-200'
+  when 'info' then 'border-blue-200'
+  else 'border-gray-200'
+  end
+end
+%>
