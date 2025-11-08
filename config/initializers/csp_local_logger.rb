@@ -59,7 +59,7 @@ Rails.application.config.after_initialize do
       # Determine severity for log level
       level = determine_log_level(csp_data[:violated_directive])
 
-      csp_logger.log(level, log_message)
+      self.csp_logger.log(level, log_message)
 
       # Also log to main Rails logger for visibility
       Rails.logger.info "CSP violation logged to csp_violations.log: #{violated_directive} - #{blocked_uri}"
@@ -68,6 +68,22 @@ Rails.application.config.after_initialize do
       # Ensure logger errors don't break the CSP reporting flow
       Rails.logger.error "Failed to log CSP violation to file: #{e.message}"
       Rails.logger.error e.backtrace.join("\n") if Rails.env.development?
+    end
+
+    def self.csp_logger
+      @csp_logger ||= begin
+        csp_log_path = Rails.root.join("log", "csp_violations.log")
+        logger = Logger.new(
+          csp_log_path,
+          'daily',  # Rotate daily
+          30        # Keep 30 old log files
+        )
+        logger.level = Logger::INFO
+        logger.formatter = proc do |severity, datetime, progname, msg|
+          "[#{datetime.strftime('%Y-%m-%d %H:%M:%S')}] #{severity} #{msg}\n"
+        end
+        logger
+      end
     end
 
     private
