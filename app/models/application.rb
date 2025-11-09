@@ -18,7 +18,10 @@ class Application < ApplicationRecord
   validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
-  normalizes :domain_pattern, with: ->(pattern) { pattern&.strip&.downcase }
+  normalizes :domain_pattern, with: ->(pattern) {
+    normalized = pattern&.strip&.downcase
+    normalized.blank? ? nil : normalized
+  }
 
   before_validation :generate_client_credentials, on: :create, if: :oidc?
 

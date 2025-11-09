@@ -408,9 +408,7 @@ class OidcController < ApplicationController
                         when "plain"
                           code_verifier
                         when "S256"
-                          Digest::SHA256.base64digest(code_verifier)
-                            .tr("+/", "-_")
-                            .tr("=", "")
+                          Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
                         else
                           return {
                             valid: false,

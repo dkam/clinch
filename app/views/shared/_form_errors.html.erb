@@ -1,5 +1,5 @@
-<%# Usage: <%= render "shared/form_errors", object: @user %> %>
-<%# Usage: <%= render "shared/form_errors", form: form %> %>
+<%# Usage: render "shared/form_errors", object: @user %>
+<%# Usage: render "shared/form_errors", form: form %>
 
 <% form_object = form.respond_to?(:object) ? form.object : (object || form) %>
 <% if form_object&.errors&.any? %>
