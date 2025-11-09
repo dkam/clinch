@@ -46,20 +46,20 @@ class OidcController < ApplicationController
 
     # Validate required parameters
     unless client_id.present? && redirect_uri.present? && response_type == "code"
-      render plain: "Invalid request: missing required parameters", status: :bad_request
+      render plain: "Invalid request", status: :bad_request
       return
     end
 
     # Validate PKCE parameters if present
     if code_challenge.present?
       unless %w[plain S256].include?(code_challenge_method)
-        render plain: "Invalid code_challenge_method. Supported: plain, S256", status: :bad_request
+        render plain: "Invalid request", status: :bad_request
         return
       end
 
       # Validate code challenge format (base64url-encoded, 43-128 characters)
       unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
-        render plain: "Invalid code_challenge format. Must be 43-128 characters of base64url encoding", status: :bad_request
+        render plain: "Invalid request", status: :bad_request
         return
       end
     end
@@ -67,13 +67,13 @@ class OidcController < ApplicationController
     # Find the application
     @application = Application.find_by(client_id: client_id, app_type: "oidc")
     unless @application
-      render plain: "Invalid client_id", status: :bad_request
+      render plain: "Invalid request", status: :bad_request
       return
     end
 
     # Validate redirect URI
     unless @application.parsed_redirect_uris.include?(redirect_uri)
-      render plain: "Invalid redirect_uri", status: :bad_request
+      render plain: "Invalid request", status: :bad_request
       return
     end
 

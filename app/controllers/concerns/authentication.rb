@@ -120,11 +120,11 @@ module Authentication
       # Generate a secure random token
       token = SecureRandom.urlsafe_base64(32)
 
-      # Store it with an expiry of 30 seconds
+      # Store it with an expiry of 60 seconds
       Rails.cache.write(
         "forward_auth_token:#{token}",
         session_obj.id,
-        expires_in: 30.seconds
+        expires_in: 60.seconds
       )
 
       # Set the token as a query parameter on the redirect URL
