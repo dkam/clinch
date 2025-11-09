@@ -15,11 +15,13 @@ class OidcController < ApplicationController
       jwks_uri: "#{base_url}/.well-known/jwks.json",
       end_session_endpoint: "#{base_url}/logout",
       response_types_supported: ["code"],
+      response_modes_supported: ["query"],
       subject_types_supported: ["public"],
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: ["openid", "profile", "email", "groups"],
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
-      claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin"]
+      claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin"],
+      code_challenge_methods_supported: ["plain", "S256"]
     }
 
     render json: config
@@ -39,11 +41,27 @@ class OidcController < ApplicationController
     nonce = params[:nonce]
     scope = params[:scope] || "openid"
     response_type = params[:response_type]
+    code_challenge = params[:code_challenge]
+    code_challenge_method = params[:code_challenge_method] || "plain"
 
     # Validate required parameters
     unless client_id.present? && redirect_uri.present? && response_type == "code"
       render plain: "Invalid request: missing required parameters", status: :bad_request
       return
+    end
+
+    # Validate PKCE parameters if present
+    if code_challenge.present?
+      unless %w[plain S256].include?(code_challenge_method)
+        render plain: "Invalid code_challenge_method. Supported: plain, S256", status: :bad_request
+        return
+      end
+
+      # Validate code challenge format (base64url-encoded, 43-128 characters)
+      unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
+        render plain: "Invalid code_challenge format. Must be 43-128 characters of base64url encoding", status: :bad_request
+        return
+      end
     end
 
     # Find the application
@@ -67,7 +85,9 @@ class OidcController < ApplicationController
         redirect_uri: redirect_uri,
         state: state,
         nonce: nonce,
-        scope: scope
+        scope: scope,
+        code_challenge: code_challenge,
+        code_challenge_method: code_challenge_method
       }
       redirect_to signin_path, alert: "Please sign in to continue"
       return
@@ -96,6 +116,8 @@ class OidcController < ApplicationController
         redirect_uri: redirect_uri,
         scope: scope,
         nonce: nonce,
+        code_challenge: code_challenge,
+        code_challenge_method: code_challenge_method,
         expires_at: 10.minutes.from_now
       )
 
@@ -112,7 +134,9 @@ class OidcController < ApplicationController
       redirect_uri: redirect_uri,
       state: state,
       nonce: nonce,
-      scope: scope
+      scope: scope,
+      code_challenge: code_challenge,
+      code_challenge_method: code_challenge_method
     }
 
     # Render consent page
@@ -165,6 +189,8 @@ class OidcController < ApplicationController
       redirect_uri: oauth_params['redirect_uri'],
       scope: oauth_params['scope'],
       nonce: oauth_params['nonce'],
+      code_challenge: oauth_params['code_challenge'],
+      code_challenge_method: oauth_params['code_challenge_method'],
       expires_at: 10.minutes.from_now
     )
 
@@ -205,6 +231,7 @@ class OidcController < ApplicationController
     # Get the authorization code
     code = params[:code]
     redirect_uri = params[:redirect_uri]
+    code_verifier = params[:code_verifier]
 
     auth_code = OidcAuthorizationCode.find_by(
       application: application,
@@ -226,6 +253,11 @@ class OidcController < ApplicationController
     # Validate redirect URI matches
     unless auth_code.redirect_uri == redirect_uri
       render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
+      return
+    end
+
+    # Validate PKCE if code challenge is present
+    unless validate_pkce(auth_code, code_verifier)
       return
     end
 
@@ -341,6 +373,56 @@ class OidcController < ApplicationController
   end
 
   private
+
+  def validate_pkce(auth_code, code_verifier)
+    # Skip PKCE validation if no code challenge was stored (legacy clients)
+    return true unless auth_code.code_challenge.present?
+
+    # PKCE is required but no verifier provided
+    unless code_verifier.present?
+      render json: {
+        error: "invalid_request",
+        error_description: "code_verifier is required when code_challenge was provided"
+      }, status: :bad_request
+      return false
+    end
+
+    # Validate code verifier format (base64url-encoded, 43-128 characters)
+    unless code_verifier.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
+      render json: {
+        error: "invalid_request",
+        error_description: "Invalid code_verifier format. Must be 43-128 characters of base64url encoding"
+      }, status: :bad_request
+      return false
+    end
+
+    # Recreate code challenge based on method
+    expected_challenge = case auth_code.code_challenge_method
+                        when "plain"
+                          code_verifier
+                        when "S256"
+                          Digest::SHA256.base64digest(code_verifier)
+                            .tr("+/", "-_")
+                            .tr("=", "")
+                        else
+                          render json: {
+                            error: "server_error",
+                            error_description: "Unsupported code challenge method"
+                          }, status: :internal_server_error
+                          return false
+                        end
+
+    # Validate the code challenge
+    unless auth_code.code_challenge == expected_challenge
+      render json: {
+        error: "invalid_grant",
+        error_description: "Invalid code verifier"
+      }, status: :bad_request
+      return false
+    end
+
+    true
+  end
 
   def extract_client_credentials
     # Try Authorization header first (Basic auth)

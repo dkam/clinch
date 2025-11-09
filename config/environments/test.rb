@@ -53,5 +53,5 @@ Rails.application.configure do
 
   # Disable Sentry in test environment to avoid interference with tests
   # Sentry can be explicitly enabled for integration testing if needed
-  config.sentry.enabled = false
+  ENV["SENTRY_ENABLED_IN_DEVELOPMENT"] = "false"
 end

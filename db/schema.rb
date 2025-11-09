@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_04_064114) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_08_090123) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -69,6 +69,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_04_064114) do
   create_table "oidc_authorization_codes", force: :cascade do |t|
     t.integer "application_id", null: false
     t.string "code", null: false
+    t.string "code_challenge"
+    t.string "code_challenge_method"
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.string "nonce"
@@ -80,6 +82,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_04_064114) do
     t.index ["application_id", "user_id"], name: "index_oidc_authorization_codes_on_application_id_and_user_id"
     t.index ["application_id"], name: "index_oidc_authorization_codes_on_application_id"
     t.index ["code"], name: "index_oidc_authorization_codes_on_code", unique: true
+    t.index ["code_challenge"], name: "index_oidc_authorization_codes_on_code_challenge"
     t.index ["expires_at"], name: "index_oidc_authorization_codes_on_expires_at"
     t.index ["user_id"], name: "index_oidc_authorization_codes_on_user_id"
   end
