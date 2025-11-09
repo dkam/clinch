@@ -257,7 +257,12 @@ class OidcController < ApplicationController
     end
 
     # Validate PKCE if code challenge is present
-    unless validate_pkce(auth_code, code_verifier)
+    pkce_result = validate_pkce(auth_code, code_verifier)
+    unless pkce_result[:valid]
+      render json: {
+        error: pkce_result[:error],
+        error_description: pkce_result[:error_description]
+      }, status: pkce_result[:status]
       return
     end
 
@@ -376,24 +381,26 @@ class OidcController < ApplicationController
 
   def validate_pkce(auth_code, code_verifier)
     # Skip PKCE validation if no code challenge was stored (legacy clients)
-    return true unless auth_code.code_challenge.present?
+    return { valid: true } unless auth_code.code_challenge.present?
 
     # PKCE is required but no verifier provided
     unless code_verifier.present?
-      render json: {
+      return {
+        valid: false,
         error: "invalid_request",
-        error_description: "code_verifier is required when code_challenge was provided"
-      }, status: :bad_request
-      return false
+        error_description: "code_verifier is required when code_challenge was provided",
+        status: :bad_request
+      }
     end
 
     # Validate code verifier format (base64url-encoded, 43-128 characters)
     unless code_verifier.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
-      render json: {
+      return {
+        valid: false,
         error: "invalid_request",
-        error_description: "Invalid code_verifier format. Must be 43-128 characters of base64url encoding"
-      }, status: :bad_request
-      return false
+        error_description: "Invalid code_verifier format. Must be 43-128 characters of base64url encoding",
+        status: :bad_request
+      }
     end
 
     # Recreate code challenge based on method
@@ -405,23 +412,25 @@ class OidcController < ApplicationController
                             .tr("+/", "-_")
                             .tr("=", "")
                         else
-                          render json: {
+                          return {
+                            valid: false,
                             error: "server_error",
-                            error_description: "Unsupported code challenge method"
-                          }, status: :internal_server_error
-                          return false
+                            error_description: "Unsupported code challenge method",
+                            status: :internal_server_error
+                          }
                         end
 
     # Validate the code challenge
     unless auth_code.code_challenge == expected_challenge
-      render json: {
+      return {
+        valid: false,
         error: "invalid_grant",
-        error_description: "Invalid code verifier"
-      }, status: :bad_request
-      return false
+        error_description: "Invalid code verifier",
+        status: :bad_request
+      }
     end
 
-    true
+    { valid: true }
   end
 
   def extract_client_credentials
