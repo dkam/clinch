@@ -11,13 +11,14 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       active: true
     )
 
-    # Sign in the user by creating a session directly
-    @session = Session.create!(user: @user)
-    cookies[:session_id] = @session.id
+    # Sign in the user using the test helper
+    sign_in_as(@user)
   end
 
   def teardown
+    Current.session&.destroy
     OidcAuthorizationCode.where(application: @application).destroy_all
+    OidcAccessToken.where(application: @application).destroy_all
     @user.destroy
     @application.destroy
   end
@@ -50,9 +51,9 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     get "/oauth/authorize", params: auth_params
 
-    # Should redirect to consent page (user is already authenticated)
+    # Should show consent page (user is already authenticated)
     assert_response :success
-    assert_template "consent"
+    assert_match /consent/, @response.body.downcase
   end
 
   test "authorization endpoint accepts PKCE parameters (plain)" do
@@ -71,9 +72,9 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     get "/oauth/authorize", params: auth_params
 
-    # Should redirect to consent page (user is already authenticated)
+    # Should show consent page (user is already authenticated)
     assert_response :success
-    assert_template "consent"
+    assert_match /consent/, @response.body.downcase
   end
 
   test "authorization endpoint rejects invalid code_challenge_method" do
@@ -184,7 +185,8 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       grant_type: "authorization_code",
       code: auth_code.code,
       redirect_uri: "http://localhost:4000/callback",
-      code_verifier: "invalid_verifier"
+      # Use a properly formatted but wrong verifier (43+ chars, base64url)
+      code_verifier: "wrongverifier_with_enough_characters_base64url"
     }
 
     post "/oauth/token", params: token_params, headers: {

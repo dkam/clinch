@@ -58,13 +58,13 @@ class OidcController < ApplicationController
     # Validate PKCE parameters if present
     if code_challenge.present?
       unless %w[plain S256].include?(code_challenge_method)
-        render plain: "Invalid request", status: :bad_request
+        render plain: "Invalid code_challenge_method: must be 'plain' or 'S256'", status: :bad_request
         return
       end
 
       # Validate code challenge format (base64url-encoded, 43-128 characters)
       unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
-        render plain: "Invalid request", status: :bad_request
+        render plain: "Invalid code_challenge format: must be 43-128 characters of base64url encoding", status: :bad_request
         return
       end
     end
@@ -170,9 +170,21 @@ class OidcController < ApplicationController
 
     # Add the redirect URI to CSP form-action for this specific request
     # This allows the OAuth redirect to work while maintaining security
+    # CSP must allow the OAuth client's redirect_uri as a form submission target
     if redirect_uri.present?
-      redirect_host = URI.parse(redirect_uri).host
-      request.content_security_policy.form_action << "https://#{redirect_host}" if redirect_host
+      begin
+        redirect_host = URI.parse(redirect_uri).host
+        csp = request.content_security_policy
+        if csp && redirect_host
+          # Only modify if form_action is available and mutable
+          if csp.respond_to?(:form_action) && csp.form_action.respond_to?(:<<)
+            csp.form_action << "https://#{redirect_host}"
+          end
+        end
+      rescue => e
+        # Log CSP modification errors but don't fail the request
+        Rails.logger.warn "OAuth: Could not modify CSP for redirect_uri #{redirect_uri}: #{e.message}"
+      end
     end
 
     render :consent
@@ -268,8 +280,7 @@ class OidcController < ApplicationController
 
     auth_code = OidcAuthorizationCode.find_by(
       application: application,
-      code: code,
-      used: false
+      code: code
     )
 
     unless auth_code
@@ -277,55 +288,84 @@ class OidcController < ApplicationController
       return
     end
 
-    # Check if code is expired
-    if auth_code.expires_at < Time.current
-      render json: { error: "invalid_grant", error_description: "Authorization code expired" }, status: :bad_request
-      return
+    # Use a transaction with pessimistic locking to prevent code reuse
+    begin
+      OidcAuthorizationCode.transaction do
+        # Lock the record to prevent concurrent access
+        auth_code.lock!
+
+        # Check if code has already been used (CRITICAL: check AFTER locking)
+        if auth_code.used?
+          # Per OAuth 2.0 spec, if an auth code is reused, revoke all tokens issued from it
+          Rails.logger.warn "OAuth Security: Authorization code reuse detected for code #{auth_code.id}"
+
+          # Revoke all access tokens issued from this authorization code
+          OidcAccessToken.where(
+            application: application,
+            user: auth_code.user,
+            created_at: auth_code.created_at..Time.current
+          ).update_all(expires_at: Time.current)
+
+          render json: {
+            error: "invalid_grant",
+            error_description: "Authorization code has already been used"
+          }, status: :bad_request
+          return
+        end
+
+        # Check if code is expired
+        if auth_code.expires_at < Time.current
+          render json: { error: "invalid_grant", error_description: "Authorization code expired" }, status: :bad_request
+          return
+        end
+
+        # Validate redirect URI matches
+        unless auth_code.redirect_uri == redirect_uri
+          render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
+          return
+        end
+
+        # Validate PKCE if code challenge is present
+        pkce_result = validate_pkce(auth_code, code_verifier)
+        unless pkce_result[:valid]
+          render json: {
+            error: pkce_result[:error],
+            error_description: pkce_result[:error_description]
+          }, status: pkce_result[:status]
+          return
+        end
+
+        # Mark code as used BEFORE generating tokens (prevents reuse)
+        auth_code.update!(used: true)
+
+        # Get the user
+        user = auth_code.user
+
+        # Generate access token
+        access_token = SecureRandom.urlsafe_base64(32)
+        OidcAccessToken.create!(
+          application: application,
+          user: user,
+          token: access_token,
+          scope: auth_code.scope,
+          expires_at: 1.hour.from_now
+        )
+
+        # Generate ID token
+        id_token = OidcJwtService.generate_id_token(user, application, nonce: auth_code.nonce)
+
+        # Return tokens
+        render json: {
+          access_token: access_token,
+          token_type: "Bearer",
+          expires_in: 3600,
+          id_token: id_token,
+          scope: auth_code.scope
+        }
+      end
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: "invalid_grant" }, status: :bad_request
     end
-
-    # Validate redirect URI matches
-    unless auth_code.redirect_uri == redirect_uri
-      render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
-      return
-    end
-
-    # Validate PKCE if code challenge is present
-    pkce_result = validate_pkce(auth_code, code_verifier)
-    unless pkce_result[:valid]
-      render json: {
-        error: pkce_result[:error],
-        error_description: pkce_result[:error_description]
-      }, status: pkce_result[:status]
-      return
-    end
-
-    # Mark code as used
-    auth_code.update!(used: true)
-
-    # Get the user
-    user = auth_code.user
-
-    # Generate access token
-    access_token = SecureRandom.urlsafe_base64(32)
-    OidcAccessToken.create!(
-      application: application,
-      user: user,
-      token: access_token,
-      scope: auth_code.scope,
-      expires_at: 1.hour.from_now
-    )
-
-    # Generate ID token
-    id_token = OidcJwtService.generate_id_token(user, application, nonce: auth_code.nonce)
-
-    # Return tokens
-    render json: {
-      access_token: access_token,
-      token_type: "Bearer",
-      expires_in: 3600,
-      id_token: id_token,
-      scope: auth_code.scope
-    }
   end
 
   # GET /oauth/userinfo

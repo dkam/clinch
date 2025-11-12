@@ -63,7 +63,9 @@ class OidcJwtService
     def issuer_url
       # In production, this should come from ENV or config
       # For now, we'll use a placeholder that can be overridden
-      "https://#{ENV.fetch("CLINCH_HOST", "localhost:3000")}"
+      host = ENV.fetch("CLINCH_HOST", "localhost:3000")
+        # Ensure URL has https:// protocol
+        host.match?(/^https?:\/\//) ? host : "https://#{host}"
     end
 
     private
