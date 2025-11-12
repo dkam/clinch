@@ -39,6 +39,7 @@ Rails.application.configure do
     policy.base_uri :self
 
     # Form actions: Allow self for all form submissions
+    # Note: OAuth redirects will be handled dynamically in the consent page
     policy.form_action :self
 
     # Manifest sources: Allow self for PWA manifest
@@ -53,9 +54,12 @@ Rails.application.configure do
     # Additional security headers for WebAuthn
     # Required for WebAuthn to work properly
     policy.require_trusted_types_for :none
+
+    # CSP reporting using report_uri (supported method)
     policy.report_uri  "/api/csp-violation-report"
   end
 
+  
   # Start with CSP in report-only mode for testing
   # Set to false after verifying everything works in production
   config.content_security_policy_report_only = Rails.env.development?

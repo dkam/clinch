@@ -23,6 +23,12 @@ Rails.application.config.after_initialize do
     def self.emit(event)
       csp_data = event[:payload] || {}
 
+      # Skip logging if there's no meaningful violation data
+      return if csp_data.empty? ||
+                (csp_data[:violated_directive].nil? &&
+                 csp_data[:blocked_uri].nil? &&
+                 csp_data[:document_uri].nil?)
+
       # Build a structured log message
       violated_directive = csp_data[:violated_directive] || "unknown"
       blocked_uri = csp_data[:blocked_uri] || "unknown"

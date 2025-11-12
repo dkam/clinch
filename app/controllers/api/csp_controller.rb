@@ -10,6 +10,13 @@ module Api
       report_data = JSON.parse(request.body.read)
       csp_report = report_data['csp-report']
 
+      # Validate that we have a proper CSP report
+      unless csp_report.is_a?(Hash) && csp_report.present?
+        Rails.logger.warn "Received empty or invalid CSP violation report"
+        head :bad_request
+        return
+      end
+
       # Log the violation for security monitoring
       Rails.logger.warn "CSP Violation Report:"
       Rails.logger.warn "  Blocked URI: #{csp_report['blocked-uri']}"

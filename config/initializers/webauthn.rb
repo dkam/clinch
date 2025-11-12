@@ -1,14 +1,31 @@
 # WebAuthn configuration for Clinch Identity Provider
 WebAuthn.configure do |config|
   # Relying Party name (displayed in authenticator prompts)
-  # For development, use http://localhost to match passkey in Passwords app
+  # CLINCH_HOST should include protocol (https://) for WebAuthn
   origin_host = ENV.fetch("CLINCH_HOST", "http://localhost")
   config.allowed_origins = [origin_host]
 
-  # Relying Party ID (must match origin domain)
-  # Extract domain from origin for RP ID
-  origin_uri = URI.parse(origin_host)
-  config.rp_id = ENV.fetch("CLINCH_RP_ID", "localhost")
+  # Relying Party ID (must match origin domain without protocol)
+  # Extract domain from origin for RP ID if CLINCH_RP_ID not set
+  if ENV["CLINCH_RP_ID"].present?
+    config.rp_id = ENV["CLINCH_RP_ID"]
+  else
+    # Extract registrable domain from CLINCH_HOST using PublicSuffix
+    origin_uri = URI.parse(origin_host)
+    if origin_uri.host
+      begin
+        # Use PublicSuffix to get the registrable domain (e.g., "aapamilne.com" from "auth.aapamilne.com")
+        domain = PublicSuffix.parse(origin_uri.host)
+        config.rp_id = domain.domain || origin_uri.host
+      rescue PublicSuffix::DomainInvalid => e
+        Rails.logger.warn "WebAuthn: Failed to parse domain '#{origin_uri.host}': #{e.message}, using host as fallback"
+        config.rp_id = origin_uri.host
+      end
+    else
+      Rails.logger.error "WebAuthn: Could not extract host from CLINCH_HOST '#{origin_host}'"
+      config.rp_id = "localhost"
+    end
+  end
 
   # For development, we also allow localhost with common ports and without port
   if Rails.env.development?

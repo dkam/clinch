@@ -34,7 +34,7 @@ class OidcController < ApplicationController
 
   # GET /oauth/authorize
   def authorize
-    # Get parameters
+    # Get parameters (ignore forward auth tokens and other unknown params)
     client_id = params[:client_id]
     redirect_uri = params[:redirect_uri]
     state = params[:state]
@@ -46,7 +46,12 @@ class OidcController < ApplicationController
 
     # Validate required parameters
     unless client_id.present? && redirect_uri.present? && response_type == "code"
-      render plain: "Invalid request", status: :bad_request
+      error_details = []
+      error_details << "client_id is required" unless client_id.present?
+      error_details << "redirect_uri is required" unless redirect_uri.present?
+      error_details << "response_type must be 'code'" unless response_type == "code"
+
+      render plain: "Invalid request: #{error_details.join(', ')}", status: :bad_request
       return
     end
 
@@ -67,13 +72,33 @@ class OidcController < ApplicationController
     # Find the application
     @application = Application.find_by(client_id: client_id, app_type: "oidc")
     unless @application
-      render plain: "Invalid request", status: :bad_request
+      # Log all OIDC applications for debugging
+      all_oidc_apps = Application.where(app_type: "oidc")
+      Rails.logger.error "OAuth: Invalid request - application not found for client_id: #{client_id}"
+      Rails.logger.error "OAuth: Available OIDC applications: #{all_oidc_apps.pluck(:id, :client_id, :name)}"
+
+      error_msg = if Rails.env.development?
+        "Invalid request: Application not found for client_id '#{client_id}'. Available OIDC applications: #{all_oidc_apps.pluck(:name, :client_id).map { |name, id| "#{name} (#{id})" }.join(', ')}"
+      else
+        "Invalid request: Application not found"
+      end
+
+      render plain: error_msg, status: :bad_request
       return
     end
 
     # Validate redirect URI
     unless @application.parsed_redirect_uris.include?(redirect_uri)
-      render plain: "Invalid request", status: :bad_request
+      Rails.logger.error "OAuth: Invalid request - redirect URI mismatch. Expected: #{@application.parsed_redirect_uris}, Got: #{redirect_uri}"
+
+      # For development, show detailed error
+      error_msg = if Rails.env.development?
+        "Invalid request: Redirect URI mismatch. Application is configured for: #{@application.parsed_redirect_uris.join(', ')}, but received: #{redirect_uri}"
+      else
+        "Invalid request: Redirect URI not registered for this application"
+      end
+
+      render plain: error_msg, status: :bad_request
       return
     end
 
@@ -139,9 +164,17 @@ class OidcController < ApplicationController
       code_challenge_method: code_challenge_method
     }
 
-    # Render consent page
+    # Render consent page with dynamic CSP for OAuth redirect
     @redirect_uri = redirect_uri
     @scopes = requested_scopes
+
+    # Add the redirect URI to CSP form-action for this specific request
+    # This allows the OAuth redirect to work while maintaining security
+    if redirect_uri.present?
+      redirect_host = URI.parse(redirect_uri).host
+      request.content_security_policy.form_action << "https://#{redirect_host}" if redirect_host
+    end
+
     render :consent
   end
 

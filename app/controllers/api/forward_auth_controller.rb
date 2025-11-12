@@ -221,7 +221,9 @@ module Api
 
       # Try CLINCH_HOST environment variable first
       if ENV['CLINCH_HOST'].present?
-        "https://#{ENV['CLINCH_HOST']}"
+        host = ENV['CLINCH_HOST']
+        # Ensure URL has https:// protocol
+        host.match?(/^https?:\/\//) ? host : "https://#{host}"
       else
         # Fallback to the request host
         request_host = request.host || request.headers['X-Forwarded-Host']

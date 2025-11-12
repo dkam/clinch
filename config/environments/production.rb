@@ -80,14 +80,28 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
+  # Helper method to extract domain from CLINCH_HOST (removes protocol if present)
+  def self.extract_domain(host)
+    return host if host.blank?
+    # Remove protocol (http:// or https://) if present
+    host.gsub(/^https?:\/\//, '')
+  end
+
+  # Helper method to ensure URL has https:// protocol
+  def self.ensure_https(url)
+    return url if url.blank?
+    # Add https:// if no protocol is present
+    url.match?(/^https?:\/\//) ? url : "https://#{url}"
+  end
+
   # Enable DNS rebinding protection and other `Host` header attacks.
   # Configure allowed hosts based on deployment scenario
   allowed_hosts = [
-    ENV.fetch('CLINCH_HOST', 'auth.example.com'),  # External domain (auth service itself)
+    extract_domain(ENV.fetch('CLINCH_HOST', 'auth.example.com')),  # External domain (auth service itself)
   ]
 
   # Use PublicSuffix to extract registrable domain and allow all subdomains
-  host_domain = ENV.fetch('CLINCH_HOST', 'auth.example.com')
+  host_domain = extract_domain(ENV.fetch('CLINCH_HOST', 'auth.example.com'))
   if host_domain.present?
     begin
       # Use PublicSuffix to properly extract the domain

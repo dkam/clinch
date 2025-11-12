@@ -134,13 +134,16 @@ module Authentication
         original_url = controller_session[:return_to_after_authenticating]
         uri = URI.parse(original_url)
 
-        # Add token as query parameter
-        query_params = URI.decode_www_form(uri.query || "").to_h
-        query_params['fa_token'] = token
-        uri.query = URI.encode_www_form(query_params)
+        # Skip adding fa_token for OAuth URLs (OAuth flow should not have forward auth tokens)
+        unless uri.path&.start_with?("/oauth/")
+          # Add token as query parameter
+          query_params = URI.decode_www_form(uri.query || "").to_h
+          query_params['fa_token'] = token
+          uri.query = URI.encode_www_form(query_params)
 
-        # Update the session with the tokenized URL
-        controller_session[:return_to_after_authenticating] = uri.to_s
+          # Update the session with the tokenized URL
+          controller_session[:return_to_after_authenticating] = uri.to_s
+        end
       end
     end
 end

@@ -37,6 +37,8 @@
                 <% case application.app_type %>
                 <% when "oidc" %>
                   <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">OIDC</span>
+                <% when "forward_auth" %>
+                  <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">Forward Auth</span>
                 <% when "saml" %>
                   <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">SAML</span>
                 <% end %>
