@@ -1,7 +1,7 @@
 class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
-  allow_unauthenticated_access only: [:discovery, :jwks, :token, :userinfo, :logout]
-  skip_before_action :verify_authenticity_token, only: [:token, :logout]
+  allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout]
+  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :logout]
 
   # GET /.well-known/openid-configuration
   def discovery
@@ -11,11 +11,13 @@ class OidcController < ApplicationController
       issuer: base_url,
       authorization_endpoint: "#{base_url}/oauth/authorize",
       token_endpoint: "#{base_url}/oauth/token",
+      revocation_endpoint: "#{base_url}/oauth/revoke",
       userinfo_endpoint: "#{base_url}/oauth/userinfo",
       jwks_uri: "#{base_url}/.well-known/jwks.json",
       end_session_endpoint: "#{base_url}/logout",
       response_types_supported: ["code"],
       response_modes_supported: ["query"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
       subject_types_supported: ["public"],
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: ["openid", "profile", "email", "groups"],
@@ -253,10 +255,17 @@ class OidcController < ApplicationController
   def token
     grant_type = params[:grant_type]
 
-    unless grant_type == "authorization_code"
+    case grant_type
+    when "authorization_code"
+      handle_authorization_code_grant
+    when "refresh_token"
+      handle_refresh_token_grant
+    else
       render json: { error: "unsupported_grant_type" }, status: :bad_request
-      return
     end
+  end
+
+  def handle_authorization_code_grant
 
     # Get client credentials from Authorization header or params
     client_id, client_secret = extract_client_credentials
@@ -341,31 +350,127 @@ class OidcController < ApplicationController
         # Get the user
         user = auth_code.user
 
-        # Generate access token
-        access_token = SecureRandom.urlsafe_base64(32)
-        OidcAccessToken.create!(
+        # Generate access token record (opaque token with BCrypt hashing)
+        access_token_record = OidcAccessToken.create!(
           application: application,
           user: user,
-          token: access_token,
-          scope: auth_code.scope,
-          expires_at: 1.hour.from_now
+          scope: auth_code.scope
         )
 
-        # Generate ID token
+        # Generate refresh token (opaque, with hashing)
+        refresh_token_record = OidcRefreshToken.create!(
+          application: application,
+          user: user,
+          oidc_access_token: access_token_record,
+          scope: auth_code.scope
+        )
+
+        # Generate ID token (JWT)
         id_token = OidcJwtService.generate_id_token(user, application, nonce: auth_code.nonce)
 
         # Return tokens
         render json: {
-          access_token: access_token,
+          access_token: access_token_record.plaintext_token,  # Opaque token
           token_type: "Bearer",
-          expires_in: 3600,
-          id_token: id_token,
+          expires_in: application.access_token_ttl || 3600,
+          id_token: id_token,  # JWT
+          refresh_token: refresh_token_record.token,  # Opaque token
           scope: auth_code.scope
         }
       end
     rescue ActiveRecord::RecordNotFound
       render json: { error: "invalid_grant" }, status: :bad_request
     end
+  end
+
+  def handle_refresh_token_grant
+    # Get client credentials from Authorization header or params
+    client_id, client_secret = extract_client_credentials
+
+    unless client_id && client_secret
+      render json: { error: "invalid_client" }, status: :unauthorized
+      return
+    end
+
+    # Find and validate the application
+    application = Application.find_by(client_id: client_id)
+    unless application && application.authenticate_client_secret(client_secret)
+      render json: { error: "invalid_client" }, status: :unauthorized
+      return
+    end
+
+    # Get the refresh token
+    refresh_token = params[:refresh_token]
+    unless refresh_token.present?
+      render json: { error: "invalid_request", error_description: "refresh_token is required" }, status: :bad_request
+      return
+    end
+
+    # Find the refresh token record
+    # Note: This is inefficient with BCrypt hashing, but necessary for security
+    # In production, consider adding a token prefix for faster lookup
+    refresh_token_record = OidcRefreshToken.where(application: application).find do |rt|
+      rt.token_matches?(refresh_token)
+    end
+
+    unless refresh_token_record
+      render json: { error: "invalid_grant", error_description: "Invalid refresh token" }, status: :bad_request
+      return
+    end
+
+    # Check if refresh token is expired
+    if refresh_token_record.expired?
+      render json: { error: "invalid_grant", error_description: "Refresh token expired" }, status: :bad_request
+      return
+    end
+
+    # Check if refresh token is revoked
+    if refresh_token_record.revoked?
+      # If a revoked refresh token is used, it's a security issue
+      # Revoke all tokens in the family (token rotation attack detection)
+      Rails.logger.warn "OAuth Security: Revoked refresh token reuse detected for token family #{refresh_token_record.token_family_id}"
+      refresh_token_record.revoke_family!
+
+      render json: { error: "invalid_grant", error_description: "Refresh token has been revoked" }, status: :bad_request
+      return
+    end
+
+    # Get the user
+    user = refresh_token_record.user
+
+    # Revoke the old refresh token (token rotation)
+    refresh_token_record.revoke!
+
+    # Generate new access token record (opaque token with BCrypt hashing)
+    new_access_token = OidcAccessToken.create!(
+      application: application,
+      user: user,
+      scope: refresh_token_record.scope
+    )
+
+    # Generate new refresh token (token rotation)
+    new_refresh_token = OidcRefreshToken.create!(
+      application: application,
+      user: user,
+      oidc_access_token: new_access_token,
+      scope: refresh_token_record.scope,
+      token_family_id: refresh_token_record.token_family_id  # Keep same family for rotation tracking
+    )
+
+    # Generate new ID token (JWT, no nonce for refresh grants)
+    id_token = OidcJwtService.generate_id_token(user, application)
+
+    # Return new tokens
+    render json: {
+      access_token: new_access_token.plaintext_token,  # Opaque token
+      token_type: "Bearer",
+      expires_in: application.access_token_ttl || 3600,
+      id_token: id_token,  # JWT
+      refresh_token: new_refresh_token.token,  # Opaque token
+      scope: refresh_token_record.scope
+    }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "invalid_grant" }, status: :bad_request
   end
 
   # GET /oauth/userinfo
@@ -377,23 +482,21 @@ class OidcController < ApplicationController
       return
     end
 
-    access_token = auth_header.sub("Bearer ", "")
+    token = auth_header.sub("Bearer ", "")
 
-    # Find the access token
-    token_record = OidcAccessToken.find_by(token: access_token)
-    unless token_record
+    # Find and validate access token (opaque token with BCrypt hashing)
+    access_token = OidcAccessToken.find_by_token(token)
+    unless access_token&.active?
       head :unauthorized
       return
     end
 
-    # Check if token is expired
-    if token_record.expires_at < Time.current
+    # Get the user (with fresh data from database)
+    user = access_token.user
+    unless user
       head :unauthorized
       return
     end
-
-    # Get the user
-    user = token_record.user
 
     # Return user claims
     claims = {
@@ -421,6 +524,73 @@ class OidcController < ApplicationController
     claims.merge!(user.parsed_custom_claims)
 
     render json: claims
+  end
+
+  # POST /oauth/revoke
+  # RFC 7009 - Token Revocation
+  def revoke
+    # Get client credentials
+    client_id, client_secret = extract_client_credentials
+
+    unless client_id && client_secret
+      # RFC 7009 says we should return 200 OK even for invalid client
+      # But log the attempt for security monitoring
+      Rails.logger.warn "OAuth: Token revocation attempted with invalid client credentials"
+      head :ok
+      return
+    end
+
+    # Find and validate the application
+    application = Application.find_by(client_id: client_id)
+    unless application && application.authenticate_client_secret(client_secret)
+      Rails.logger.warn "OAuth: Token revocation attempted for invalid application: #{client_id}"
+      head :ok
+      return
+    end
+
+    # Get the token to revoke
+    token = params[:token]
+    token_type_hint = params[:token_type_hint]  # Optional hint: "access_token" or "refresh_token"
+
+    unless token.present?
+      # RFC 7009: Missing token parameter is an error
+      render json: { error: "invalid_request", error_description: "token parameter is required" }, status: :bad_request
+      return
+    end
+
+    # Try to find and revoke the token
+    # Check token type hint first for efficiency, otherwise try both
+    revoked = false
+
+    if token_type_hint == "refresh_token" || token_type_hint.nil?
+      # Try to find as refresh token
+      refresh_token_record = OidcRefreshToken.where(application: application).find do |rt|
+        rt.token_matches?(token)
+      end
+
+      if refresh_token_record
+        refresh_token_record.revoke!
+        Rails.logger.info "OAuth: Refresh token revoked for application #{application.name}"
+        revoked = true
+      end
+    end
+
+    if !revoked && (token_type_hint == "access_token" || token_type_hint.nil?)
+      # Try to find as access token
+      access_token_record = OidcAccessToken.where(application: application).find do |at|
+        at.token_matches?(token)
+      end
+
+      if access_token_record
+        access_token_record.revoke!
+        Rails.logger.info "OAuth: Access token revoked for application #{application.name}"
+        revoked = true
+      end
+    end
+
+    # RFC 7009: Always return 200 OK, even if token was not found
+    # This prevents token scanning attacks
+    head :ok
   end
 
   # GET /logout

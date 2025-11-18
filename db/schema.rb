@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_12_120314) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -22,6 +22,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
   end
 
   create_table "applications", force: :cascade do |t|
+    t.integer "access_token_ttl", default: 3600
     t.boolean "active", default: true, null: false
     t.string "app_type", null: false
     t.string "client_id"
@@ -30,10 +31,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
     t.text "description"
     t.string "domain_pattern"
     t.json "headers_config", default: {}, null: false
+    t.integer "id_token_ttl", default: 3600
     t.string "landing_url"
     t.text "metadata"
     t.string "name", null: false
     t.text "redirect_uris"
+    t.integer "refresh_token_ttl", default: 2592000
     t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_applications_on_active"
@@ -55,14 +58,18 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
+    t.datetime "revoked_at"
     t.string "scope"
-    t.string "token", null: false
+    t.string "token"
+    t.string "token_digest"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_access_tokens_on_application_id_and_user_id"
     t.index ["application_id"], name: "index_oidc_access_tokens_on_application_id"
     t.index ["expires_at"], name: "index_oidc_access_tokens_on_expires_at"
+    t.index ["revoked_at"], name: "index_oidc_access_tokens_on_revoked_at"
     t.index ["token"], name: "index_oidc_access_tokens_on_token", unique: true
+    t.index ["token_digest"], name: "index_oidc_access_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_oidc_access_tokens_on_user_id"
   end
 
@@ -85,6 +92,27 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
     t.index ["code_challenge"], name: "index_oidc_authorization_codes_on_code_challenge"
     t.index ["expires_at"], name: "index_oidc_authorization_codes_on_expires_at"
     t.index ["user_id"], name: "index_oidc_authorization_codes_on_user_id"
+  end
+
+  create_table "oidc_refresh_tokens", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.integer "oidc_access_token_id", null: false
+    t.datetime "revoked_at"
+    t.string "scope"
+    t.string "token_digest", null: false
+    t.integer "token_family_id"
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["application_id", "user_id"], name: "index_oidc_refresh_tokens_on_application_id_and_user_id"
+    t.index ["application_id"], name: "index_oidc_refresh_tokens_on_application_id"
+    t.index ["expires_at"], name: "index_oidc_refresh_tokens_on_expires_at"
+    t.index ["oidc_access_token_id"], name: "index_oidc_refresh_tokens_on_oidc_access_token_id"
+    t.index ["revoked_at"], name: "index_oidc_refresh_tokens_on_revoked_at"
+    t.index ["token_digest"], name: "index_oidc_refresh_tokens_on_token_digest", unique: true
+    t.index ["token_family_id"], name: "index_oidc_refresh_tokens_on_token_family_id"
+    t.index ["user_id"], name: "index_oidc_refresh_tokens_on_user_id"
   end
 
   create_table "oidc_user_consents", force: :cascade do |t|
@@ -174,6 +202,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_09_011443) do
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
+  add_foreign_key "oidc_refresh_tokens", "applications"
+  add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
+  add_foreign_key "oidc_refresh_tokens", "users"
   add_foreign_key "oidc_user_consents", "applications"
   add_foreign_key "oidc_user_consents", "users"
   add_foreign_key "sessions", "users"

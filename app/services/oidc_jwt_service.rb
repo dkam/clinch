@@ -3,12 +3,14 @@ class OidcJwtService
     # Generate an ID token (JWT) for the user
     def generate_id_token(user, application, nonce: nil)
       now = Time.current.to_i
+      # Use application's configured ID token TTL (defaults to 1 hour)
+      ttl = application.id_token_expiry_seconds
 
       payload = {
         iss: issuer_url,
         sub: user.id.to_s,
         aud: application.client_id,
-        exp: now + 3600, # 1 hour
+        exp: now + ttl,
         iat: now,
         email: user.email_address,
         email_verified: true,

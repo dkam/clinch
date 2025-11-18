@@ -5,6 +5,7 @@ class Application < ApplicationRecord
   has_many :allowed_groups, through: :application_groups, source: :group
   has_many :oidc_authorization_codes, dependent: :destroy
   has_many :oidc_access_tokens, dependent: :destroy
+  has_many :oidc_refresh_tokens, dependent: :destroy
   has_many :oidc_user_consents, dependent: :destroy
 
   validates :name, presence: true
@@ -16,6 +17,11 @@ class Application < ApplicationRecord
   validates :client_secret, presence: true, on: :create, if: -> { oidc? }
   validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
   validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
+
+  # Token TTL validations (for OIDC apps)
+  validates :access_token_ttl, numericality: { greater_than_or_equal_to: 300, less_than_or_equal_to: 86400 }, if: :oidc?  # 5 min - 24 hours
+  validates :refresh_token_ttl, numericality: { greater_than_or_equal_to: 86400, less_than_or_equal_to: 7776000 }, if: :oidc?  # 1 day - 90 days
+  validates :id_token_ttl, numericality: { greater_than_or_equal_to: 300, less_than_or_equal_to: 86400 }, if: :oidc?  # 5 min - 24 hours
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
   normalizes :domain_pattern, with: ->(pattern) {
@@ -154,7 +160,43 @@ class Application < ApplicationRecord
     secret
   end
 
+  # Token TTL helper methods (for OIDC)
+  def access_token_expiry
+    (access_token_ttl || 3600).seconds.from_now
+  end
+
+  def refresh_token_expiry
+    (refresh_token_ttl || 2592000).seconds.from_now
+  end
+
+  def id_token_expiry_seconds
+    id_token_ttl || 3600
+  end
+
+  # Human-readable TTL for display
+  def access_token_ttl_human
+    duration_to_human(access_token_ttl || 3600)
+  end
+
+  def refresh_token_ttl_human
+    duration_to_human(refresh_token_ttl || 2592000)
+  end
+
+  def id_token_ttl_human
+    duration_to_human(id_token_ttl || 3600)
+  end
+
   private
+
+  def duration_to_human(seconds)
+    if seconds < 3600
+      "#{seconds / 60} minutes"
+    elsif seconds < 86400
+      "#{seconds / 3600} hours"
+    else
+      "#{seconds / 86400} days"
+    end
+  end
 
   def generate_client_credentials
     self.client_id ||= SecureRandom.urlsafe_base64(32)

@@ -7,13 +7,14 @@
 
 Clinch gives you one place to manage users and lets any web app authenticate against it without maintaining its own user table. 
 
-I've completed all planned features: 
+I've completed all planned features:
 
 * Create Admin user on first login
 * TOTP ( QR Code ) 2FA, with backup codes ( encrypted at rest )
 * Passkey generation and login, with detection of Passkey during login
 * Forward Auth configured and working
-* OIDC provider with auto discovery working
+* OIDC provider with auto discovery, refresh tokens, and token revocation
+* Configurable token expiry per application (access, refresh, ID tokens)
 * Invite users by email, assign to groups
 * Self managed password reset by email
 * Use Groups to assign Applications ( Family group can access Kavita, Developers can access Gitea )
@@ -86,11 +87,17 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 #### OpenID Connect (OIDC)
 Standard OAuth2/OIDC provider with endpoints:
 - `/.well-known/openid-configuration` - Discovery endpoint
-- `/authorize` - Authorization endpoint
-- `/token` - Token endpoint
+- `/authorize` - Authorization endpoint with PKCE support
+- `/token` - Token endpoint (authorization_code and refresh_token grants)
 - `/userinfo` - User info endpoint
+- `/revoke` - Token revocation endpoint (RFC 7009)
 
-Client apps (Audiobookshelf, Kavita, Grafana, etc.) redirect to Clinch for login and receive ID tokens and access tokens.
+Features:
+- **Refresh tokens** - Long-lived tokens (30 days default) with automatic rotation and revocation
+- **Configurable token expiry** - Set access token (5min-24hr), refresh token (1-90 days), and ID token TTL per application
+- **Token security** - BCrypt-hashed tokens, automatic cleanup of expired tokens
+
+Client apps (Audiobookshelf, Kavita, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
 
 #### Trusted-Header SSO (ForwardAuth)
 Works with reverse proxies (Caddy, Traefik, Nginx):
@@ -156,25 +163,29 @@ Send emails for:
 - Redirect URIs (for OIDC apps)
 - Domain pattern (for ForwardAuth apps, supports wildcards like *.example.com)
 - Headers config (for ForwardAuth apps, JSON configuration for custom header names)
+- Token TTL configuration (access_token_ttl, refresh_token_ttl, id_token_ttl)
 - Metadata (flexible JSON storage)
 - Active flag
 - Many-to-many with Groups (allowlist)
 
 **OIDC Tokens**
-- Authorization codes (10-minute expiry, one-time use)
-- Access tokens (1-hour expiry, revocable)
+- Authorization codes (10-minute expiry, one-time use, PKCE support)
+- Access tokens (opaque, BCrypt-hashed, configurable expiry 5min-24hr, revocable)
+- Refresh tokens (opaque, BCrypt-hashed, configurable expiry 1-90 days, single-use with rotation)
+- ID tokens (JWT, signed with RS256, configurable expiry 5min-24hr)
 
 ---
 
 ## Authentication Flows
 
 ### OIDC Authorization Flow
-1. Client redirects user to `/authorize` with client_id, redirect_uri, scope
+1. Client redirects user to `/authorize` with client_id, redirect_uri, scope (optional PKCE)
 2. User authenticates with Clinch (username/password + optional TOTP)
 3. Access control check: Is user in an allowed group for this app?
 4. If allowed, generate authorization code and redirect to client
-5. Client exchanges code for access token at `/token`
-6. Client uses access token to fetch user info from `/userinfo`
+5. Client exchanges code at `/token` for ID token, access token, and refresh token
+6. Client uses access token to fetch fresh user info from `/userinfo`
+7. When access token expires, client uses refresh token to get new tokens (no re-authentication)
 
 ### ForwardAuth Flow
 1. User requests protected resource at `https://app.example.com/dashboard`
@@ -258,6 +269,10 @@ SMTP_ENABLE_STARTTLS=true
 # Application
 CLINCH_HOST=https://auth.example.com
 CLINCH_FROM_EMAIL=noreply@example.com
+
+# OIDC (optional - generates temporary key in development)
+# Generate with: openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+OIDC_PRIVATE_KEY=<contents-of-private-key.pem>
 ```
 
 ### First Run

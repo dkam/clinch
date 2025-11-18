@@ -29,6 +29,7 @@ Rails.application.routes.draw do
   get "/oauth/authorize", to: "oidc#authorize"
   post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
   post "/oauth/token", to: "oidc#token"
+  post "/oauth/revoke", to: "oidc#revoke"
   get "/oauth/userinfo", to: "oidc#userinfo"
   get "/logout", to: "oidc#logout"
 
