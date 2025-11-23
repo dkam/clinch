@@ -6,7 +6,18 @@ class SessionsController < ApplicationController
 
   def new
     # Redirect to signup if this is first run
-    redirect_to signup_path if User.count.zero?
+    if User.count.zero?
+      respond_to do |format|
+        format.html { redirect_to signup_path }
+        format.json { render json: { error: "No users exist. Please complete initial setup." }, status: :service_unavailable }
+      end
+      return
+    end
+
+    respond_to do |format|
+      format.html # render HTML login page
+      format.json { render json: { error: "Authentication required" }, status: :unauthorized }
+    end
   end
 
   def create
@@ -33,8 +44,22 @@ class SessionsController < ApplicationController
       return
     end
 
-    # Check if TOTP is required
-    if user.totp_enabled?
+    # Check if TOTP is required or enabled
+    if user.totp_required? || user.totp_enabled?
+      # If TOTP is required but not yet set up, redirect to setup
+      if user.totp_required? && !user.totp_enabled?
+        # Store user ID in session for TOTP setup
+        session[:pending_totp_setup_user_id] = user.id
+        # Preserve the redirect URL through TOTP setup
+        if params[:rd].present?
+          validated_url = validate_redirect_url(params[:rd])
+          session[:totp_redirect_url] = validated_url if validated_url
+        end
+        redirect_to new_totp_path, alert: "Your administrator requires two-factor authentication. Please set it up now to continue."
+        return
+      end
+
+      # TOTP is enabled, proceed to verification
       # Store user ID in session temporarily for TOTP verification
       session[:pending_totp_user_id] = user.id
       # Preserve the redirect URL through TOTP verification (after validation)
@@ -275,12 +300,12 @@ class SessionsController < ApplicationController
       redirect_domain = uri.host.downcase
       return nil unless redirect_domain.present?
 
-      # Check against our ForwardAuthRules
-      matching_rule = ForwardAuthRule.active.find do |rule|
-        rule.matches_domain?(redirect_domain)
+      # Check against our forward auth applications
+      matching_app = Application.forward_auth.active.find do |app|
+        app.matches_domain?(redirect_domain)
       end
 
-      matching_rule ? url : nil
+      matching_app ? url : nil
 
     rescue URI::InvalidURIError
       nil

@@ -76,11 +76,11 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 - **User statuses** - Active, disabled, or pending invitation
 
 ### Authentication Methods
+- **WebAuthn/Passkeys** - Modern passwordless authentication using FIDO2 standards
 - **Password authentication** - Secure bcrypt-based password storage
-- **Magic login links** - Passwordless login via email (15-minute expiry)
 - **TOTP 2FA** - Optional time-based one-time passwords with QR code setup
 - **Backup codes** - 10 single-use recovery codes per user
-- **Configurable 2FA enforcement** - Admins can require TOTP for specific users/groups
+- **Configurable 2FA enforcement** - Admins can require TOTP for specific users
 
 ### SSO Protocols
 
@@ -96,6 +96,7 @@ Features:
 - **Refresh tokens** - Long-lived tokens (30 days default) with automatic rotation and revocation
 - **Configurable token expiry** - Set access token (5min-24hr), refresh token (1-90 days), and ID token TTL per application
 - **Token security** - BCrypt-hashed tokens, automatic cleanup of expired tokens
+- **Pairwise subject identifiers** - Each user gets a unique, stable `sub` claim per application for enhanced privacy
 
 Client apps (Audiobookshelf, Kavita, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
 

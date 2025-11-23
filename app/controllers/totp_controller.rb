@@ -5,6 +5,9 @@ class TotpController < ApplicationController
 
   # GET /totp/new - Show QR code to set up TOTP
   def new
+    # Check if user is being forced to set up TOTP by admin
+    @totp_setup_required = session[:pending_totp_setup_user_id].present?
+
     # Generate TOTP secret but don't save yet
     @totp_secret = ROTP::Base32.random
     @provisioning_uri = ROTP::TOTP.new(@totp_secret, issuer: "Clinch").provisioning_uri(@user.email_address)
@@ -30,8 +33,16 @@ class TotpController < ApplicationController
       # Store plain codes temporarily in session for display after redirect
       session[:temp_backup_codes] = plain_codes
 
-      # Redirect to backup codes page with success message
-      redirect_to backup_codes_totp_path, notice: "Two-factor authentication has been enabled successfully! Save these backup codes now."
+      # Check if this was a required setup from login
+      if session[:pending_totp_setup_user_id].present?
+        session.delete(:pending_totp_setup_user_id)
+        # Mark that user should be auto-signed in after viewing backup codes
+        session[:auto_signin_after_forced_totp] = true
+        redirect_to backup_codes_totp_path, notice: "Two-factor authentication has been enabled successfully! Save these backup codes, then you'll be signed in."
+      else
+        # Regular setup from profile
+        redirect_to backup_codes_totp_path, notice: "Two-factor authentication has been enabled successfully! Save these backup codes now."
+      end
     else
       redirect_to new_totp_path, alert: "Invalid verification code. Please try again."
     end
@@ -43,6 +54,12 @@ class TotpController < ApplicationController
     if session[:temp_backup_codes].present?
       @backup_codes = session[:temp_backup_codes]
       session.delete(:temp_backup_codes) # Clear after use
+
+      # Check if this was a forced TOTP setup during login
+      @auto_signin_pending = session[:auto_signin_after_forced_totp].present?
+      if @auto_signin_pending
+        session.delete(:auto_signin_after_forced_totp)
+      end
     else
       # This will be shown after password verification for existing users
       # Since we can't display BCrypt hashes, redirect to regenerate
@@ -81,10 +98,28 @@ class TotpController < ApplicationController
     redirect_to backup_codes_totp_path, notice: "New backup codes have been generated. Save them now!"
   end
 
+  # POST /totp/complete_setup - Complete forced TOTP setup and sign in
+  def complete_setup
+    # Sign in the user after they've saved their backup codes
+    # This is only used when admin requires TOTP and user just set it up during login
+    if session[:totp_redirect_url].present?
+      session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
+    end
+
+    start_new_session_for @user
+    redirect_to after_authentication_url, notice: "Two-factor authentication enabled. Signed in successfully.", allow_other_host: true
+  end
+
   # DELETE /totp - Disable TOTP (requires password)
   def destroy
     unless @user.authenticate(params[:password])
       redirect_to profile_path, alert: "Incorrect password. Could not disable 2FA."
+      return
+    end
+
+    # Prevent disabling if admin requires TOTP
+    if @user.totp_required?
+      redirect_to profile_path, alert: "Two-factor authentication is required by your administrator and cannot be disabled."
       return
     end
 
@@ -99,7 +134,8 @@ class TotpController < ApplicationController
   end
 
   def redirect_if_totp_enabled
-    if @user.totp_enabled?
+    # Allow setup if admin requires it, even if already enabled (for regeneration)
+    if @user.totp_enabled? && !session[:pending_totp_setup_user_id].present?
       redirect_to profile_path, alert: "Two-factor authentication is already enabled."
     end
   end

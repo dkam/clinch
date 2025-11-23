@@ -35,6 +35,25 @@
     <% end %>
   </div>
 
+  <div>
+    <div class="flex items-center">
+      <%= form.check_box :totp_required, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :totp_required, "Require Two-Factor Authentication", class: "ml-2 block text-sm text-gray-900" %>
+      <% if user.totp_required? && !user.totp_enabled? %>
+        <span class="ml-2 text-xs text-amber-600">(User has not set up 2FA yet)</span>
+      <% end %>
+    </div>
+    <% if user.totp_required? && !user.totp_enabled? %>
+      <p class="mt-1 text-sm text-amber-600">
+        <svg class="inline h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        </svg>
+        Warning: This user will be prompted to set up 2FA on their next login.
+      </p>
+    <% end %>
+    <p class="mt-1 text-sm text-gray-500">When enabled, this user must use two-factor authentication to sign in.</p>
+  </div>
+
   <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
     <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700" %>
     <%= form.text_area :custom_claims, value: (user.custom_claims.present? ? JSON.pretty_generate(user.custom_claims) : ""), rows: 8,

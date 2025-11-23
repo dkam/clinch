@@ -1,14 +1,17 @@
 class OidcJwtService
   class << self
     # Generate an ID token (JWT) for the user
-    def generate_id_token(user, application, nonce: nil)
+    def generate_id_token(user, application, consent: nil, nonce: nil)
       now = Time.current.to_i
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
 
+      # Use pairwise SID from consent if available, fallback to user ID
+      subject = consent&.sid || user.id.to_s
+
       payload = {
         iss: issuer_url,
-        sub: user.id.to_s,
+        sub: subject,
         aud: application.client_id,
         exp: now + ttl,
         iat: now,
@@ -66,8 +69,13 @@ class OidcJwtService
       # In production, this should come from ENV or config
       # For now, we'll use a placeholder that can be overridden
       host = ENV.fetch("CLINCH_HOST", "localhost:3000")
-        # Ensure URL has https:// protocol
-        host.match?(/^https?:\/\//) ? host : "https://#{host}"
+      # Ensure URL has protocol - use https:// in production, http:// in development
+      if host.match?(/^https?:\/\//)
+        host
+      else
+        protocol = Rails.env.production? ? "https" : "http"
+        "#{protocol}://#{host}"
+      end
     end
 
     private
@@ -75,17 +83,37 @@ class OidcJwtService
     # Get or generate RSA private key
     def private_key
       @private_key ||= begin
+        key_source = nil
+
         # Try ENV variable first (best for Docker/Kamal)
         if ENV["OIDC_PRIVATE_KEY"].present?
-          OpenSSL::PKey::RSA.new(ENV["OIDC_PRIVATE_KEY"])
+          key_source = ENV["OIDC_PRIVATE_KEY"]
         # Then try Rails credentials
         elsif Rails.application.credentials.oidc_private_key.present?
-          OpenSSL::PKey::RSA.new(Rails.application.credentials.oidc_private_key)
+          key_source = Rails.application.credentials.oidc_private_key
+        end
+
+        if key_source.present?
+          begin
+            # Handle both actual newlines and escaped \n sequences
+            # Some .env loaders may escape newlines, so we need to convert them back
+            key_data = key_source.gsub("\\n", "\n")
+            OpenSSL::PKey::RSA.new(key_data)
+          rescue OpenSSL::PKey::RSAError => e
+            Rails.logger.error "OIDC: Failed to load private key: #{e.message}"
+            Rails.logger.error "OIDC: Key source length: #{key_source.length}, starts with: #{key_source[0..50]}"
+            raise "Invalid OIDC private key format. Please ensure the key is in PEM format with proper newlines."
+          end
         else
-          # Generate a new key for development
-          # In production, you MUST set OIDC_PRIVATE_KEY env var or add to credentials
+          # In production, we should never generate a key on the fly
+          # because it would be different across servers/deployments
+          if Rails.env.production?
+            raise "OIDC private key not configured. Set OIDC_PRIVATE_KEY environment variable or add to Rails credentials."
+          end
+
+          # Generate a new key for development/test only
           Rails.logger.warn "OIDC: No private key found in ENV or credentials, generating new key (development only)"
-          Rails.logger.warn "OIDC: Set OIDC_PRIVATE_KEY environment variable in production!"
+          Rails.logger.warn "OIDC: Set OIDC_PRIVATE_KEY environment variable for consistency across restarts"
           OpenSSL::PKey::RSA.new(2048)
         end
       end

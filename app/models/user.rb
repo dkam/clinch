@@ -44,7 +44,9 @@ class User < ApplicationRecord
   end
 
   def disable_totp!
-    update!(totp_secret: nil, totp_required: false, backup_codes: nil)
+    # Note: This does NOT clear totp_required flag
+    # Admins control that flag via admin panel, users cannot remove admin-required 2FA
+    update!(totp_secret: nil, backup_codes: nil)
   end
 
   def totp_provisioning_uri(issuer: "Clinch")

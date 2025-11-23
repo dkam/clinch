@@ -111,11 +111,95 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     refute_includes decoded, 'roles', "Should not have roles when not configured"
   end
 
-  test "should use RSA private key from environment" do
-    ENV.stub(:fetch, "OIDC_PRIVATE_KEY") { "test-private-key" }
+  test "should load RSA private key from environment with escaped newlines" do
+    # Simulate how direnv exports multi-line strings with \n escape sequences
+    key_with_escaped_newlines = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDg3SfOR4UW6wV2\\nyKnE/pN5/tvUC7Fpol5/NjJQHm24F8+r6iipdLWJrJ3T2oEzaKw/RTGYPBQvjj6c\\nz3+tc7QkJLOESJCA0WqgawE1WdKSx5ug3sP0Y7woTPipt+afGaV58YvV/sqFD1ft\\nU+2w8olBHqWphUCd/LakfvqHbwrmF58IASk4IbGceqQ7f98d/8C8TrR6k3SKQAto\\n0OWo+xuyJg0RoSS8S220/qyIukXxtHS89NQj3dgJI06fGCSATCu8uVdsKwBDNw3F\\nBSQEX3xhk8E/JXXZfwRFR1K3zUIVQu8haQ3YA52b0jkzE2xI6TaHVbuGdifmGAmX\\nb5jsJ/eNAgMBAAECggEAAWJb3PwlOUANWTe630Pp1OegV5M1Tn2vi+oQPosPl1iX\\nFlbymrj80EfaRPWo84oKnq0t1/RnogrbDa3txgdpSVCsEWk9N2SyoJXy8+MZu6Er\\nQHka8qfBVfe4PbHyRj3FSeQKvZOEvvOgNJkYpIFeb5zkHa1ISyloEWvAxr0njJbQ\\n0F2jML4sUeduYulCWI9dSJdB+yp8BsmOPu8VzUFthW/GPPuw4a4ngzoGtPV6f/kp\\ncjPa2YT8L8z6zXE0IiDU8bc5abC++QBNLJrMy55tM+zfgGyShandITbcpuWptIqT\\n2yhMulifOMw0hdV0cYRqetkWkevz07nrwnh/1FGjYQKBgQD9C/Ls720tULS7SIdh\\nuDWnrtMG4sidSbxWJTOqPUNZ9a0vaHnx/FwlmvURyCojn5leLByY8ZNN08DxKBVq\\nwH6ZJe7KGOik5wMtFV1zrhyHNpa/H/RrLaYAZqCVlGYyOVqNa7mA7oOIeqtbv9x+\\nOaEz3BnoXHOJOwM10h20Nos6bQKBgQDjfQCSQXcrkV8hKf+F65N7Kcf7JMlZQAA3\\n9dvJxxek683bhYTLZhubY/tegfhxlZGkgP3eHKI1XyUYBCNBnztn3t1zD0ovcqRX\\no21m5TaJ0fGW4X3iyi1IWioMBPXffR8tXk5+LnWVZ26RgmaBG1rgOJEQ5bHYMtHj\\n+jo9JLV9oQKBgQDt1nNHm2qEcxzMAsmsYVWc+8bA7BsfKxTn6yN6WQaa4T0cGBi2\\nBzoc5l59jiN9RB8E0nU2k6ieN+9bOw+WPMNA8tRUA8F2bOMhVrl1ZyrNM9PQZBp5\\nOniSW+OHc+nyPtILpjq/Im9isdmp7NUzlrsbYT7AlVTKoTrNNWZR4gpOqQKBgQC3\\nIWwSUS00H4TrV7nh/zDsl0fr/0Mv2/vRENTsbJ+2HjXMIII0k3Bp+WTkQdDU70kd\\nmtHDul1CheOAn+QZ8auLBLhU5dwcsjdmbaOmj6MF88J+aexDY+psMlli76NXVIyC\\no0ahAZmaunciIE2QZYsUsbTmW2J93vtkgY3cpu6LwQKBgDigl7dCQl38Vt7FhxjJ\\naC6wmmM8YX6y5f5t3caVVBizVhx8xOXQla96zB0nW6ibTpaIKCSdORxMGAoajTZ9\\n8Ww2gOfZpZeojU2YHTV/KFd7wHGYE8QaBKqP6DuibLnP5farjuwPeGvbjZW6e9cy\\nntHkSPI0VmhqsUQEMgPnYuCg\\n-----END PRIVATE KEY-----"
 
-    private_key = @service.private_key
-    assert_equal "test-private-key", private_key.to_s, "Should use private key from environment"
+    # Clear any cached keys
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+
+    # Stub ENV to return the test key
+    original_value = ENV["OIDC_PRIVATE_KEY"]
+    ENV["OIDC_PRIVATE_KEY"] = key_with_escaped_newlines
+
+    # The service should convert \n to actual newlines and load successfully
+    private_key = OidcJwtService.send(:private_key)
+
+    assert_not_nil private_key
+    assert_kind_of OpenSSL::PKey::RSA, private_key
+    assert_equal 2048, private_key.n.num_bits
+  ensure
+    # Restore original value and clear cached key
+    ENV["OIDC_PRIVATE_KEY"] = original_value
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+  end
+
+  test "should handle key with actual newlines" do
+    # Generate a real test key
+    test_key = OpenSSL::PKey::RSA.new(2048)
+    key_pem = test_key.to_pem
+
+    # Clear any cached keys
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+
+    # Stub ENV to return the test key
+    original_value = ENV["OIDC_PRIVATE_KEY"]
+    ENV["OIDC_PRIVATE_KEY"] = key_pem
+
+    private_key = OidcJwtService.send(:private_key)
+
+    assert_not_nil private_key
+    assert_kind_of OpenSSL::PKey::RSA, private_key
+    assert_equal 2048, private_key.n.num_bits
+  ensure
+    # Restore original value and clear cached key
+    ENV["OIDC_PRIVATE_KEY"] = original_value
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+  end
+
+  test "should raise error for invalid key format" do
+    # Clear any cached keys
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+
+    # Stub ENV to return invalid key
+    original_value = ENV["OIDC_PRIVATE_KEY"]
+    ENV["OIDC_PRIVATE_KEY"] = "invalid-key-data"
+
+    error = assert_raises RuntimeError do
+      OidcJwtService.send(:private_key)
+    end
+
+    assert_match /Invalid OIDC private key format/, error.message
+  ensure
+    # Restore original value and clear cached key
+    ENV["OIDC_PRIVATE_KEY"] = original_value
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+  end
+
+  test "should raise error in production when no key configured" do
+    # Skip this test if we can't properly stub Rails.env
+    skip "Skipping production env test" unless Rails.env.development? || Rails.env.test?
+
+    # Clear any cached keys
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+
+    # Temporarily remove the key
+    original_value = ENV["OIDC_PRIVATE_KEY"]
+    ENV.delete("OIDC_PRIVATE_KEY")
+
+    # Stub Rails.env to be production
+    Rails.env = ActiveSupport::StringInquirer.new("production")
+
+    error = assert_raises RuntimeError do
+      OidcJwtService.send(:private_key)
+    end
+
+    assert_match /OIDC private key not configured/, error.message
+  ensure
+    # Restore original environment and clear cached key
+    ENV["OIDC_PRIVATE_KEY"] = original_value if original_value
+    Rails.env = ActiveSupport::StringInquirer.new(ENV.fetch("RAILS_ENV", "test"))
+    OidcJwtService.instance_variable_set(:@private_key, nil)
   end
 
   test "should generate RSA private key when missing" do

@@ -45,8 +45,13 @@
       </div>
 
       <div class="mt-8">
-        <%= link_to "Done", profile_path,
-            class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+        <% if @auto_signin_pending %>
+          <%= button_to "Continue to Sign In", complete_totp_setup_path, method: :post,
+              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+        <% else %>
+          <%= link_to "Done", profile_path,
+              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+        <% end %>
       </div>
     </div>
   </div>

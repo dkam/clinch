@@ -67,6 +67,7 @@ Rails.application.routes.draw do
   post '/totp/verify_password', to: 'totp#verify_password', as: :verify_password_totp
   get '/totp/regenerate_backup_codes', to: 'totp#regenerate_backup_codes', as: :regenerate_backup_codes_totp
   post '/totp/regenerate_backup_codes', to: 'totp#create_new_backup_codes', as: :create_new_backup_codes_totp
+  post '/totp/complete_setup', to: 'totp#complete_setup', as: :complete_totp_setup
 
   # WebAuthn (Passkeys) routes
   get '/webauthn/new', to: 'webauthn#new', as: :new_webauthn

@@ -30,13 +30,7 @@ module Admin
     end
 
     def update
-      # Prevent changing params for the current user's email and admin status
-      # to avoid locking themselves out
-      update_params = user_params.dup
-
-      if @user == Current.session.user
-        update_params.delete(:admin)
-      end
+      update_params = user_params
 
       # Only update password if provided
       update_params.delete(:password) if update_params[:password].blank?
@@ -76,7 +70,15 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:email_address, :name, :password, :admin, :status, custom_claims: {})
+      # Base attributes that all admins can modify
+      base_params = params.require(:user).permit(:email_address, :name, :password, :status, :totp_required, custom_claims: {})
+
+      # Only allow modifying admin status when editing other users (prevent self-demotion)
+      if params[:id] != Current.session.user.id.to_s
+        base_params[:admin] = params[:user][:admin] if params[:user][:admin].present?
+      end
+
+      base_params
     end
   end
 end

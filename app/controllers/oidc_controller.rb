@@ -365,8 +365,17 @@ class OidcController < ApplicationController
           scope: auth_code.scope
         )
 
-        # Generate ID token (JWT)
-        id_token = OidcJwtService.generate_id_token(user, application, nonce: auth_code.nonce)
+        # Find user consent for this application
+        consent = OidcUserConsent.find_by(user: user, application: application)
+
+        unless consent
+          Rails.logger.error "OIDC Security: Token requested without consent record (user: #{user.id}, app: #{application.id})"
+          render json: { error: "invalid_grant", error_description: "Authorization consent not found" }, status: :bad_request
+          return
+        end
+
+        # Generate ID token (JWT) with pairwise SID
+        id_token = OidcJwtService.generate_id_token(user, application, consent: consent, nonce: auth_code.nonce)
 
         # Return tokens
         render json: {
@@ -457,8 +466,17 @@ class OidcController < ApplicationController
       token_family_id: refresh_token_record.token_family_id  # Keep same family for rotation tracking
     )
 
-    # Generate new ID token (JWT, no nonce for refresh grants)
-    id_token = OidcJwtService.generate_id_token(user, application)
+    # Find user consent for this application
+    consent = OidcUserConsent.find_by(user: user, application: application)
+
+    unless consent
+      Rails.logger.error "OIDC Security: Refresh token used without consent record (user: #{user.id}, app: #{application.id})"
+      render json: { error: "invalid_grant", error_description: "Authorization consent not found" }, status: :bad_request
+      return
+    end
+
+    # Generate new ID token (JWT with pairwise SID, no nonce for refresh grants)
+    id_token = OidcJwtService.generate_id_token(user, application, consent: consent)
 
     # Return new tokens
     render json: {
@@ -498,9 +516,13 @@ class OidcController < ApplicationController
       return
     end
 
+    # Find user consent for this application to get pairwise SID
+    consent = OidcUserConsent.find_by(user: user, application: access_token.application)
+    subject = consent&.sid || user.id.to_s
+
     # Return user claims
     claims = {
-      sub: user.id.to_s,
+      sub: subject,
       email: user.email_address,
       email_verified: true,
       preferred_username: user.email_address,
@@ -609,11 +631,19 @@ class OidcController < ApplicationController
       reset_session
     end
 
-    # If post_logout_redirect_uri is provided, redirect there
+    # If post_logout_redirect_uri is provided, validate and redirect
     if post_logout_redirect_uri.present?
-      redirect_uri = post_logout_redirect_uri
-      redirect_uri += "?state=#{state}" if state.present?
-      redirect_to redirect_uri, allow_other_host: true
+      validated_uri = validate_logout_redirect_uri(post_logout_redirect_uri)
+
+      if validated_uri
+        redirect_uri = validated_uri
+        redirect_uri += "?state=#{state}" if state.present?
+        redirect_to redirect_uri, allow_other_host: true
+      else
+        # Invalid redirect URI - log warning and go to default
+        Rails.logger.warn "OIDC Logout: Invalid post_logout_redirect_uri attempted: #{post_logout_redirect_uri}"
+        redirect_to root_path
+      end
     else
       # Default redirect to home page
       redirect_to root_path
@@ -683,6 +713,56 @@ class OidcController < ApplicationController
     else
       # Fall back to POST parameters
       [params[:client_id], params[:client_secret]]
+    end
+  end
+
+  def validate_logout_redirect_uri(uri)
+    return nil unless uri.present?
+
+    begin
+      parsed_uri = URI.parse(uri)
+
+      # Only allow HTTP/HTTPS schemes (prevent javascript:, data:, etc.)
+      return nil unless parsed_uri.is_a?(URI::HTTP) || parsed_uri.is_a?(URI::HTTPS)
+
+      # Only allow HTTPS in production
+      return nil if Rails.env.production? && parsed_uri.scheme != 'https'
+
+      # Check if URI matches any registered OIDC application's redirect URIs
+      # According to OIDC spec, post_logout_redirect_uri should be pre-registered
+      Application.oidc.active.find_each do |app|
+        # Check if this URI matches any of the app's registered redirect URIs
+        if app.parsed_redirect_uris.any? { |registered_uri| logout_uri_matches?(uri, registered_uri) }
+          return uri
+        end
+      end
+
+      # No matching application found
+      nil
+    rescue URI::InvalidURIError
+      nil
+    end
+  end
+
+  # Check if logout URI matches a registered redirect URI
+  # More lenient than exact match - allows same host/path with different query params
+  def logout_uri_matches?(provided, registered)
+    # Exact match is always valid
+    return true if provided == registered
+
+    # Parse both URIs to compare components
+    begin
+      provided_parsed = URI.parse(provided)
+      registered_parsed = URI.parse(registered)
+
+      # Match if scheme, host, port, and path are the same
+      # (allows different query params which is common for logout redirects)
+      provided_parsed.scheme == registered_parsed.scheme &&
+        provided_parsed.host == registered_parsed.host &&
+        provided_parsed.port == registered_parsed.port &&
+        provided_parsed.path == registered_parsed.path
+    rescue URI::InvalidURIError
+      false
     end
   end
 end

@@ -6,6 +6,7 @@ class OidcUserConsent < ApplicationRecord
   validates :user_id, uniqueness: { scope: :application_id }
 
   before_validation :set_granted_at, on: :create
+  before_validation :set_sid, on: :create
 
   # Parse scopes_granted into an array
   def scopes
@@ -44,9 +45,18 @@ class OidcUserConsent < ApplicationRecord
     end.join(', ')
   end
 
+  # Find consent by SID
+  def self.find_by_sid(sid)
+    find_by(sid: sid)
+  end
+
   private
 
   def set_granted_at
     self.granted_at ||= Time.current
+  end
+
+  def set_sid
+    self.sid ||= SecureRandom.uuid
   end
 end
