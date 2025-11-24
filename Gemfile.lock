@@ -336,7 +336,7 @@ GEM
     sentry-rails (5.28.0)
       railties (>= 5.0)
       sentry-ruby (~> 5.28.0)
-    sentry-ruby (5.28.0)
+    sentry-ruby (5.28.1)
       bigdecimal
       concurrent-ruby (~> 1.0, >= 1.0.2)
     solid_cable (3.0.12)
@@ -450,7 +450,7 @@ DEPENDENCIES
   rubocop-rails-omakase
   selenium-webdriver
   sentry-rails (~> 5.18)
-  sentry-ruby (~> 5.18)
+  sentry-ruby (~> 5.28)
   solid_cable
   solid_cache
   sqlite3 (>= 2.1)
