@@ -35,7 +35,7 @@ gem "jwt", "~> 3.1"
 gem "webauthn", "~> 3.0"
 
 # Public Suffix List for domain parsing
-gem "public_suffix", "~> 6.0"
+gem "public_suffix", "~> 7.0"
 
 # Error tracking and performance monitoring (optional, configured via SENTRY_DSN)
 gem "sentry-ruby", "~> 5.18"
