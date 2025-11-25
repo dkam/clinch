@@ -25,8 +25,8 @@ class InvitationsMailerTest < ActionMailer::TestCase
 
     assert_equal "You're invited to join Clinch", email.subject
     assert_equal [@user.email_address], email.to
-    assert_equal [], email.cc
-    assert_equal [], email.bcc
+    assert_equal [], email.cc || []
+    assert_equal [], email.bcc || []
     # From address is configured in ApplicationMailer
     assert_not_nil email.from
     assert email.from.is_a?(Array)

@@ -534,9 +534,6 @@ class OidcController < ApplicationController
       claims[:groups] = user.groups.pluck(:name)
     end
 
-    # Add admin claim if user is admin
-    claims[:admin] = true if user.admin?
-
     # Merge custom claims from groups
     user.groups.each do |group|
       claims.merge!(group.parsed_custom_claims)
@@ -544,6 +541,10 @@ class OidcController < ApplicationController
 
     # Merge custom claims from user (overrides group claims)
     claims.merge!(user.parsed_custom_claims)
+
+    # Merge app-specific custom claims (highest priority)
+    application = access_token.application
+    claims.merge!(application.custom_claims_for_user(user))
 
     render json: claims
   end

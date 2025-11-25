@@ -1,0 +1,17 @@
+# Solid Queue Recurring Jobs Configuration
+# This file defines scheduled/cron-like jobs that run periodically
+
+production:
+  oidc_token_cleanup:
+    class: OidcTokenCleanupJob
+    schedule: "0 3 * * *"  # Run daily at 3:00 AM
+    queue: default
+
+development:
+  oidc_token_cleanup:
+    class: OidcTokenCleanupJob
+    schedule: "0 3 * * *"  # Run daily at 3:00 AM
+    queue: default
+
+test:
+  # No recurring jobs in test environment

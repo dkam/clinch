@@ -18,7 +18,25 @@ module Admin
     end
 
     def create
-      @group = Group.new(group_params)
+      create_params = group_params
+
+      # Parse custom_claims JSON if provided
+      if create_params[:custom_claims].present?
+        begin
+          create_params[:custom_claims] = JSON.parse(create_params[:custom_claims])
+        rescue JSON::ParserError
+          @group = Group.new
+          @group.errors.add(:custom_claims, "must be valid JSON")
+          @available_users = User.order(:email_address)
+          render :new, status: :unprocessable_entity
+          return
+        end
+      else
+        # If empty or blank, set to empty hash (NOT NULL constraint)
+        create_params[:custom_claims] = {}
+      end
+
+      @group = Group.new(create_params)
 
       if @group.save
         # Handle user assignments
@@ -39,7 +57,24 @@ module Admin
     end
 
     def update
-      if @group.update(group_params)
+      update_params = group_params
+
+      # Parse custom_claims JSON if provided
+      if update_params[:custom_claims].present?
+        begin
+          update_params[:custom_claims] = JSON.parse(update_params[:custom_claims])
+        rescue JSON::ParserError
+          @group.errors.add(:custom_claims, "must be valid JSON")
+          @available_users = User.order(:email_address)
+          render :edit, status: :unprocessable_entity
+          return
+        end
+      else
+        # If empty or blank, set to empty hash (NOT NULL constraint)
+        update_params[:custom_claims] = {}
+      end
+
+      if @group.update(update_params)
         # Handle user assignments
         if params[:group][:user_ids].present?
           user_ids = params[:group][:user_ids].reject(&:blank?)
@@ -67,7 +102,7 @@ module Admin
     end
 
     def group_params
-      params.require(:group).permit(:name, :description, custom_claims: {})
+      params.require(:group).permit(:name, :description, :custom_claims)
     end
   end
 end

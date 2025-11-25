@@ -1,5 +1,12 @@
-<div class="max-w-2xl">
+<div class="max-w-4xl">
   <h1 class="text-2xl font-semibold text-gray-900 mb-6">Edit User</h1>
   <p class="text-sm text-gray-600 mb-6">Editing: <%= @user.email_address %></p>
-  <%= render "form", user: @user %>
+
+  <div class="max-w-2xl">
+    <%= render "form", user: @user %>
+  </div>
+
+  <% if @user.persisted? %>
+    <%= render "application_claims", user: @user, applications: @applications %>
+  <% end %>
 </div>

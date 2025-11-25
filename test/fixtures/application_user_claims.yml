@@ -1,0 +1,11 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+kavita_alice_claims:
+  application: kavita_app
+  user: alice
+  custom_claims: { "kavita_groups": ["admin"], "library_access": "all" }
+
+abs_alice_claims:
+  application: audiobookshelf_app
+  user: alice
+  custom_claims: { "abs_groups": ["user"], "abs_permissions": { "canDownload": true, "canUpload": false } }

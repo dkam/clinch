@@ -122,10 +122,54 @@ Send emails for:
 - **Session revocation** - Users and admins can revoke individual sessions
 
 ### Access Control
-- **Group-based allowlists** - Restrict applications to specific user groups
-- **Per-application access** - Each app defines which groups can access it
-- **Automatic enforcement** - Access checks during OIDC authorization and ForwardAuth
-- **Custom claims** - Add arbitrary claims to OIDC tokens via groups and users (perfect for app-specific roles)
+
+#### Group-Based Application Access
+Clinch uses groups to control which users can access which applications:
+
+- **Create groups** - Organize users into logical groups (readers, editors, family, developers, etc.)
+- **Assign groups to applications** - Each app defines which groups are allowed to access it
+  - Example: Kavita app allows the "readers" group → only users in the "readers" group can sign in
+  - If no groups are assigned to an app → all active users can access it
+- **Automatic enforcement** - Access checks happen automatically:
+  - During OIDC authorization flow (before consent)
+  - During ForwardAuth verification (before proxying requests)
+  - Users not in allowed groups receive a "You do not have permission" error
+
+#### Group Claims in Tokens
+- **OIDC tokens include group membership** - ID tokens contain a `groups` claim with all user's groups
+- **Custom claims** - Add arbitrary key-value pairs to tokens via groups and users
+  - Group claims apply to all members (e.g., `{"role": "viewer"}`)
+  - User claims override group claims for fine-grained control
+  - Perfect for app-specific authorization (e.g., admin vs. read-only roles)
+
+#### Custom Claims Merging
+Custom claims from groups and users are merged into OIDC ID tokens with the following precedence:
+
+1. **Default OIDC claims** - Standard claims (`iss`, `sub`, `aud`, `exp`, `email`, etc.)
+2. **Standard Clinch claims** - `groups` array (list of user's group names)
+3. **Group custom claims** - Merged in order; later groups override earlier ones
+4. **User custom claims** - Override all group claims
+5. **Application-specific claims** - Highest priority; override all other claims
+
+**Example:**
+- Group "readers" has `{"role": "viewer", "max_items": 10}`
+- Group "premium" has `{"role": "subscriber", "max_items": 100}`
+- User (in both groups) has `{"max_items": 500}`
+- **Result:** `{"role": "subscriber", "max_items": 500}` (user overrides max_items, premium overrides role)
+
+#### Application-Specific Claims
+Configure different claims for different applications on a per-user basis:
+
+- **Per-app customization** - Each application can have unique claims for each user
+- **Highest precedence** - App-specific claims override group and user global claims
+- **Use case** - Different roles in different apps (e.g., admin in Kavita, user in Audiobookshelf)
+- **Admin UI** - Configure via Admin → Users → Edit User → App-Specific Claim Overrides
+
+**Example:**
+- User Alice, global claims: `{"theme": "dark"}`
+- Kavita app-specific: `{"kavita_groups": ["admin"]}`
+- Audiobookshelf app-specific: `{"abs_groups": ["user"]}`
+- **Result:** Kavita receives `{"theme": "dark", "kavita_groups": ["admin"]}`, Audiobookshelf receives `{"theme": "dark", "abs_groups": ["user"]}`
 
 ---
 

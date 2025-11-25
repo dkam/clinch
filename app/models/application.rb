@@ -3,6 +3,7 @@ class Application < ApplicationRecord
 
   has_many :application_groups, dependent: :destroy
   has_many :allowed_groups, through: :application_groups, source: :group
+  has_many :application_user_claims, dependent: :destroy
   has_many :oidc_authorization_codes, dependent: :destroy
   has_many :oidc_access_tokens, dependent: :destroy
   has_many :oidc_refresh_tokens, dependent: :destroy
@@ -184,6 +185,12 @@ class Application < ApplicationRecord
 
   def id_token_ttl_human
     duration_to_human(id_token_ttl || 3600)
+  end
+
+  # Get app-specific custom claims for a user
+  def custom_claims_for_user(user)
+    app_claim = application_user_claims.find_by(user: user)
+    app_claim&.parsed_custom_claims || {}
   end
 
   private

@@ -1,6 +1,6 @@
 module Admin
   class UsersController < BaseController
-    before_action :set_user, only: [:show, :edit, :update, :destroy, :resend_invitation]
+    before_action :set_user, only: [:show, :edit, :update, :destroy, :resend_invitation, :update_application_claims, :delete_application_claims]
 
     def index
       @users = User.order(created_at: :desc)
@@ -27,6 +27,7 @@ module Admin
     end
 
     def edit
+      @applications = Application.active.order(:name)
     end
 
     def update
@@ -35,9 +36,25 @@ module Admin
       # Only update password if provided
       update_params.delete(:password) if update_params[:password].blank?
 
+      # Parse custom_claims JSON if provided
+      if update_params[:custom_claims].present?
+        begin
+          update_params[:custom_claims] = JSON.parse(update_params[:custom_claims])
+        rescue JSON::ParserError
+          @user.errors.add(:custom_claims, "must be valid JSON")
+          @applications = Application.active.order(:name)
+          render :edit, status: :unprocessable_entity
+          return
+        end
+      else
+        # If empty or blank, set to empty hash (NOT NULL constraint)
+        update_params[:custom_claims] = {}
+      end
+
       if @user.update(update_params)
         redirect_to admin_users_path, notice: "User updated successfully."
       else
+        @applications = Application.active.order(:name)
         render :edit, status: :unprocessable_entity
       end
     end
@@ -63,6 +80,41 @@ module Admin
       redirect_to admin_users_path, notice: "User deleted successfully."
     end
 
+    # POST /admin/users/:id/update_application_claims
+    def update_application_claims
+      application = Application.find(params[:application_id])
+
+      claims_json = params[:custom_claims].presence || "{}"
+      begin
+        claims = JSON.parse(claims_json)
+      rescue JSON::ParserError
+        redirect_to edit_admin_user_path(@user), alert: "Invalid JSON format for claims."
+        return
+      end
+
+      app_claim = @user.application_user_claims.find_or_initialize_by(application: application)
+      app_claim.custom_claims = claims
+
+      if app_claim.save
+        redirect_to edit_admin_user_path(@user), notice: "App-specific claims updated for #{application.name}."
+      else
+        error_message = app_claim.errors.full_messages.join(", ")
+        redirect_to edit_admin_user_path(@user), alert: "Failed to update claims: #{error_message}"
+      end
+    end
+
+    # DELETE /admin/users/:id/delete_application_claims
+    def delete_application_claims
+      application = Application.find(params[:application_id])
+      app_claim = @user.application_user_claims.find_by(application: application)
+
+      if app_claim&.destroy
+        redirect_to edit_admin_user_path(@user), notice: "App-specific claims removed for #{application.name}."
+      else
+        redirect_to edit_admin_user_path(@user), alert: "No claims found to remove."
+      end
+    end
+
     private
 
     def set_user
@@ -71,7 +123,7 @@ module Admin
 
     def user_params
       # Base attributes that all admins can modify
-      base_params = params.require(:user).permit(:email_address, :name, :password, :status, :totp_required, custom_claims: {})
+      base_params = params.require(:user).permit(:email_address, :username, :name, :password, :status, :totp_required, :custom_claims)
 
       # Only allow modifying admin status when editing other users (prevent self-demotion)
       if params[:id] != Current.session.user.id.to_s

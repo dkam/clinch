@@ -1,0 +1,185 @@
+<% oidc_apps = applications.select(&:oidc?) %>
+<% forward_auth_apps = applications.select(&:forward_auth?) %>
+
+<!-- OIDC Apps: Custom Claims -->
+<% if oidc_apps.any? %>
+  <div class="mt-12 border-t pt-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">OIDC App-Specific Claims</h2>
+    <p class="text-sm text-gray-600 mb-6">
+      Configure custom claims that apply only to specific OIDC applications. These override both group and user global claims and are included in ID tokens.
+    </p>
+
+    <div class="space-y-6">
+      <% oidc_apps.each do |app| %>
+        <% app_claim = user.application_user_claims.find_by(application: app) %>
+        <details class="border rounded-lg" <%= "open" if app_claim&.custom_claims&.any? %>>
+          <summary class="cursor-pointer bg-gray-50 px-4 py-3 hover:bg-gray-100 rounded-t-lg flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="font-medium text-gray-900"><%= app.name %></span>
+              <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                OIDC
+              </span>
+              <% if app_claim&.custom_claims&.any? %>
+                <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                  <%= app_claim.custom_claims.keys.count %> claim(s)
+                </span>
+              <% end %>
+            </div>
+            <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+
+          <div class="p-4 space-y-4">
+            <%= form_with url: update_application_claims_admin_user_path(user), method: :post, class: "space-y-4", data: { controller: "json-validator" } do |form| %>
+              <%= hidden_field_tag :application_id, app.id %>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Claims (JSON)</label>
+                <%= text_area_tag :custom_claims,
+                    (app_claim&.custom_claims.present? ? JSON.pretty_generate(app_claim.custom_claims) : ""),
+                    rows: 8,
+                    class: "w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
+                    placeholder: '{"kavita_groups": ["admin"], "library_access": "all"}',
+                    data: {
+                      action: "input->json-validator#validate blur->json-validator#format",
+                      json_validator_target: "textarea"
+                    } %>
+                <div class="mt-2 space-y-1">
+                  <p class="text-xs text-gray-600">
+                    Example for <%= app.name %>: Add claims that this app specifically needs to read.
+                  </p>
+                  <p class="text-xs text-amber-600">
+                    <strong>Note:</strong> Do not use reserved claim names (<code class="bg-amber-50 px-1 rounded">groups</code>, <code class="bg-amber-50 px-1 rounded">email</code>, <code class="bg-amber-50 px-1 rounded">name</code>, etc.). Use app-specific names like <code class="bg-amber-50 px-1 rounded">kavita_groups</code> instead.
+                  </p>
+                  <div data-json-validator-target="status" class="text-xs font-medium"></div>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <%= button_tag type: :submit, class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500" do %>
+                  <%= app_claim ? "Update" : "Add" %> Claims
+                <% end %>
+
+                <% if app_claim %>
+                  <%= button_to "Remove Override",
+                      delete_application_claims_admin_user_path(user, application_id: app.id),
+                      method: :delete,
+                      data: { turbo_confirm: "Remove app-specific claims for #{app.name}?" },
+                      class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+                <% end %>
+              </div>
+            <% end %>
+
+            <!-- Preview merged claims -->
+            <div class="mt-4 border-t pt-4">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Preview: Final ID Token Claims for <%= app.name %></h4>
+              <div class="bg-gray-50 rounded-lg p-3">
+                <pre class="text-xs font-mono text-gray-800 overflow-x-auto"><%= JSON.pretty_generate(preview_user_claims(user, app)) %></pre>
+              </div>
+
+              <details class="mt-2">
+                <summary class="cursor-pointer text-xs text-gray-600 hover:text-gray-900">Show claim sources</summary>
+                <div class="mt-2 space-y-1">
+                  <% claim_sources(user, app).each do |source| %>
+                    <div class="flex gap-2 items-start text-xs">
+                      <span class="px-2 py-1 rounded <%= source[:type] == :group ? 'bg-blue-100 text-blue-700' : (source[:type] == :user ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700') %>">
+                        <%= source[:name] %>
+                      </span>
+                      <code class="text-gray-700"><%= source[:claims].to_json %></code>
+                    </div>
+                  <% end %>
+                </div>
+              </details>
+            </div>
+          </div>
+        </details>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<!-- ForwardAuth Apps: Headers Preview -->
+<% if forward_auth_apps.any? %>
+  <div class="mt-12 border-t pt-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">ForwardAuth Headers Preview</h2>
+    <p class="text-sm text-gray-600 mb-6">
+      ForwardAuth applications receive HTTP headers (not OIDC tokens). Headers are based on user's email, name, groups, and admin status.
+    </p>
+
+    <div class="space-y-6">
+      <% forward_auth_apps.each do |app| %>
+        <details class="border rounded-lg">
+          <summary class="cursor-pointer bg-gray-50 px-4 py-3 hover:bg-gray-100 rounded-t-lg flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="font-medium text-gray-900"><%= app.name %></span>
+              <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                FORWARD AUTH
+              </span>
+              <span class="text-xs text-gray-500">
+                <%= app.domain_pattern %>
+              </span>
+            </div>
+            <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+
+          <div class="p-4 space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div class="flex items-start">
+                <svg class="h-5 w-5 text-blue-400 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Headers Sent to <%= app.name %></h4>
+              <div class="bg-gray-50 rounded-lg p-3 border">
+                <% headers = app.headers_for_user(user) %>
+                <% if headers.any? %>
+                  <dl class="space-y-2 text-xs font-mono">
+                    <% headers.each do |header_name, value| %>
+                      <div class="flex">
+                        <dt class="text-blue-600 font-semibold w-48"><%= header_name %>:</dt>
+                        <dd class="text-gray-800 flex-1"><%= value %></dd>
+                      </div>
+                    <% end %>
+                  </dl>
+                <% else %>
+                  <p class="text-xs text-gray-500 italic">All headers disabled for this application.</p>
+                <% end %>
+              </div>
+              <p class="mt-2 text-xs text-gray-500">
+                These headers are configured in the application settings and sent by your reverse proxy (Caddy/Traefik) to the upstream application.
+              </p>
+            </div>
+
+            <% if user.groups.any? %>
+              <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2">User's Groups</h4>
+                <div class="flex flex-wrap gap-2">
+                  <% user.groups.each do |group| %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <%= group.name %>
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </details>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<% if oidc_apps.empty? && forward_auth_apps.empty? %>
+  <div class="mt-12 border-t pt-8">
+    <div class="text-center py-12 bg-gray-50 rounded-lg">
+      <p class="text-gray-500">No active applications found.</p>
+      <p class="text-sm text-gray-400 mt-1">Create applications in the Admin panel first.</p>
+    </div>
+  </div>
+<% end %>

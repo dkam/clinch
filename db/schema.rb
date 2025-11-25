@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_22_235519) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_25_012446) do
   create_table "application_groups", force: :cascade do |t|
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
@@ -19,6 +19,17 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_22_235519) do
     t.index ["application_id", "group_id"], name: "index_application_groups_on_application_id_and_group_id", unique: true
     t.index ["application_id"], name: "index_application_groups_on_application_id"
     t.index ["group_id"], name: "index_application_groups_on_group_id"
+  end
+
+  create_table "application_user_claims", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.json "custom_claims", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["application_id", "user_id"], name: "index_app_user_claims_unique", unique: true
+    t.index ["application_id"], name: "index_application_user_claims_on_application_id"
+    t.index ["user_id"], name: "index_application_user_claims_on_user_id"
   end
 
   create_table "applications", force: :cascade do |t|
@@ -169,10 +180,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_22_235519) do
     t.boolean "totp_required", default: false, null: false
     t.string "totp_secret"
     t.datetime "updated_at", null: false
+    t.string "username"
     t.string "webauthn_id"
     t.boolean "webauthn_required", default: false, null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["status"], name: "index_users_on_status"
+    t.index ["username"], name: "index_users_on_username", unique: true
     t.index ["webauthn_id"], name: "index_users_on_webauthn_id", unique: true
   end
 
@@ -200,6 +213,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_22_235519) do
 
   add_foreign_key "application_groups", "applications"
   add_foreign_key "application_groups", "groups"
+  add_foreign_key "application_user_claims", "applications", on_delete: :cascade
+  add_foreign_key "application_user_claims", "users", on_delete: :cascade
   add_foreign_key "oidc_access_tokens", "applications"
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"

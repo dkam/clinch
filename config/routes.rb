@@ -82,6 +82,8 @@ Rails.application.routes.draw do
     resources :users do
       member do
         post :resend_invitation
+        post :update_application_claims
+        delete :delete_application_claims
       end
     end
     resources :applications do

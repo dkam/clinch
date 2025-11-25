@@ -19,8 +19,9 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   def teardown
-    OidcAuthorizationCode.where(application: @application).destroy_all
-    OidcAccessToken.where(application: @application).destroy_all
+    OidcAuthorizationCode.where(application: @application).delete_all
+    # Use delete_all to avoid triggering callbacks that might have issues with the schema
+    OidcAccessToken.where(application: @application).delete_all
     @user.destroy
     @application.destroy
   end

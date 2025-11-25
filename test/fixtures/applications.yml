@@ -24,3 +24,14 @@ another_app:
     https://app.example.com/auth/callback
   metadata: "{}"
   active: true
+
+audiobookshelf_app:
+  name: Audiobookshelf
+  slug: audiobookshelf
+  app_type: oidc
+  client_id: <%= SecureRandom.urlsafe_base64(32) %>
+  client_secret_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
+  redirect_uris: |
+    https://abs.example.com/auth/openid/callback
+  metadata: "{}"
+  active: true

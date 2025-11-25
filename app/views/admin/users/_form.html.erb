@@ -7,9 +7,15 @@
   </div>
 
   <div>
+    <%= form.label :username, "Username (Optional)", class: "block text-sm font-medium text-gray-700" %>
+    <%= form.text_field :username, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "jsmith" %>
+    <p class="mt-1 text-sm text-gray-500">Optional: Short username/handle for login. Can only contain letters, numbers, underscores, and hyphens.</p>
+  </div>
+
+  <div>
     <%= form.label :name, "Display Name (Optional)", class: "block text-sm font-medium text-gray-700" %>
     <%= form.text_field :name, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "John Smith" %>
-    <p class="mt-1 text-sm text-gray-500">Optional: Name shown in applications. Defaults to email address if not set.</p>
+    <p class="mt-1 text-sm text-gray-500">Optional: Full name shown in applications. Defaults to email address if not set.</p>
   </div>
 
   <div>

@@ -1,4 +1,6 @@
 class OidcJwtService
+  extend ClaimsMerger
+
   class << self
     # Generate an ID token (JWT) for the user
     def generate_id_token(user, application, consent: nil, nonce: nil)
@@ -17,7 +19,7 @@ class OidcJwtService
         iat: now,
         email: user.email_address,
         email_verified: true,
-        preferred_username: user.email_address,
+        preferred_username: user.username.presence || user.email_address,
         name: user.name.presence || user.email_address
       }
 
@@ -29,16 +31,16 @@ class OidcJwtService
         payload[:groups] = user.groups.pluck(:name)
       end
 
-      # Add admin claim if user is admin
-      payload[:admin] = true if user.admin?
-
-      # Merge custom claims from groups
+      # Merge custom claims from groups (arrays are combined, not overwritten)
       user.groups.each do |group|
-        payload.merge!(group.parsed_custom_claims)
+        payload = deep_merge_claims(payload, group.parsed_custom_claims)
       end
 
-      # Merge custom claims from user (overrides group claims)
-      payload.merge!(user.parsed_custom_claims)
+      # Merge custom claims from user (arrays are combined, other values override)
+      payload = deep_merge_claims(payload, user.parsed_custom_claims)
+
+      # Merge app-specific custom claims (highest priority, arrays are combined)
+      payload = deep_merge_claims(payload, application.custom_claims_for_user(user))
 
       JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
     end

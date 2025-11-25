@@ -58,8 +58,8 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Domain and Rule Integration Tests
   test "different domain patterns with same session" do
     # Create test rules
-    wildcard_rule = ForwardAuthRule.create!(domain_pattern: "*.example.com", active: true)
-    exact_rule = ForwardAuthRule.create!(domain_pattern: "api.example.com", active: true)
+    wildcard_rule = Application.create!(domain_pattern: "*.example.com", active: true)
+    exact_rule = Application.create!(domain_pattern: "api.example.com", active: true)
 
     # Sign in
     post "/signin", params: { email_address: @user.email_address, password: "password" }
@@ -82,7 +82,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
 
   test "group-based access control integration" do
     # Create restricted rule
-    restricted_rule = ForwardAuthRule.create!(domain_pattern: "restricted.example.com", active: true)
+    restricted_rule = Application.create!(domain_pattern: "restricted.example.com", active: true)
     restricted_rule.allowed_groups << @group
 
     # Sign in user without group
@@ -104,17 +104,19 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
 
   # Header Configuration Integration Tests
   test "different header configurations with same user" do
-    # Create rules with different header configs
-    default_rule = ForwardAuthRule.create!(domain_pattern: "default.example.com", active: true)
-    custom_rule = ForwardAuthRule.create!(
+    # Create applications with different configs
+    default_rule = Application.create!(name: "Default App", slug: "default-app", app_type: "forward_auth", domain_pattern: "default.example.com", active: true)
+    custom_rule = Application.create!(
+      name: "Custom App", slug: "custom-app", app_type: "forward_auth",
       domain_pattern: "custom.example.com",
       active: true,
-      headers_config: { user: "X-WEBAUTH-USER", groups: "X-WEBAUTH-ROLES" }
+      metadata: { headers: { user: "X-WEBAUTH-USER", groups: "X-WEBAUTH-ROLES" } }.to_json
     )
-    no_headers_rule = ForwardAuthRule.create!(
+    no_headers_rule = Application.create!(
+      name: "No Headers App", slug: "no-headers-app", app_type: "forward_auth",
       domain_pattern: "noheaders.example.com",
       active: true,
-      headers_config: { user: "", email: "", name: "", groups: "", admin: "" }
+      metadata: { headers: { user: "", email: "", name: "", groups: "", admin: "" } }.to_json
     )
 
     # Add user to groups
@@ -191,7 +193,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     admin_user = users(:two)
 
     # Create restricted rule
-    admin_rule = ForwardAuthRule.create!(
+    admin_rule = Application.create!(
       domain_pattern: "admin.example.com",
       active: true,
       headers_config: { user: "X-Admin-User", admin: "X-Admin-Flag" }

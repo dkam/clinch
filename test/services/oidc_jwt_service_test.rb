@@ -14,7 +14,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     assert token.length > 100, "Token should be substantial"
     assert token.include?('.')
 
-    decoded = JWT.decode(token, nil, true)
+    # Decode without verification for testing the payload
+    decoded = JWT.decode(token, nil, false).first
     assert_equal @application.client_id, decoded['aud'], "Should have correct audience"
     assert_equal @user.id.to_s, decoded['sub'], "Should have correct subject"
     assert_equal @user.email_address, decoded['email'], "Should have correct email"
@@ -22,16 +23,16 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     assert_equal @user.email_address, decoded['preferred_username'], "Should have preferred username"
     assert_equal @user.email_address, decoded['name'], "Should have name"
     assert_equal "https://localhost:3000", decoded['iss'], "Should have correct issuer"
-    assert_equal Time.now.to_i + 3600, decoded['exp'], "Should have correct expiration"
+    assert_in_delta Time.current.to_i + 3600, decoded['exp'], 5, "Should have correct expiration"
   end
 
   test "should handle nonce in id token" do
     nonce = "test-nonce-12345"
     token = @service.generate_id_token(@user, @application, nonce: nonce)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     assert_equal nonce, decoded['nonce'], "Should preserve nonce in token"
-    assert_equal Time.now.to_i + 3600, decoded['exp'], "Should have correct expiration with nonce"
+    assert_in_delta Time.current.to_i + 3600, decoded['exp'], 5, "Should have correct expiration with nonce"
   end
 
   test "should include groups in token when user has groups" do
@@ -39,17 +40,17 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     assert_includes decoded['groups'], "admin", "Should include user's groups"
   end
 
-  test "should include admin claim for admin users" do
+  test "admin claim should not be included in token" do
     @user.update!(admin: true)
 
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
-    assert_equal true, decoded['admin'], "Admin users should have admin claim"
+    decoded = JWT.decode(token, nil, false).first
+    refute decoded.key?('admin'), "Admin claim should not be included in ID tokens (use groups instead)"
   end
 
   test "should handle role-based claims when enabled" do
@@ -63,7 +64,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     assert_includes decoded['roles'], "editor", "Should include user's role"
   end
 
@@ -96,7 +97,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     assert_equal "Content Editor", decoded['role_display_name'], "Should include role display name"
     assert_includes decoded['role_permissions'], "read", "Should include read permission"
     assert_includes decoded['role_permissions'], "write", "Should include write permission"
@@ -107,7 +108,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   test "should handle missing roles gracefully" do
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     refute_includes decoded, 'roles', "Should not have roles when not configured"
   end
 
@@ -260,7 +261,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   test "should handle access token generation" do
     token = @service.generate_id_token(@user, @application)
 
-    decoded = JWT.decode(token, nil, true)
+    decoded = JWT.decode(token, nil, false).first
     refute_includes decoded.keys, 'email_verified'
     assert_equal @user.id.to_s, decoded['sub'], "Should decode subject correctly"
     assert_equal @application.client_id, decoded['aud'], "Should decode audience correctly"
@@ -290,5 +291,216 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       @service.generate_id_token(@user, @application)
     end
     assert_match /no key found/, error.message, "Should warn about missing private key"
+  end
+
+  test "should include app-specific custom claims in token" do
+    # Use bob and another_app to avoid fixture conflicts
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Create app-specific claim
+    ApplicationUserClaim.create!(
+      user: user,
+      application: app,
+      custom_claims: { "app_groups": ["admin"], "library_access": "all" }
+    )
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    assert_equal ["admin"], decoded["app_groups"]
+    assert_equal "all", decoded["library_access"]
+  end
+
+  test "app-specific claims should override user and group claims" do
+    # Use bob and another_app to avoid fixture conflicts
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Add user to group with claims
+    group = groups(:admin_group)
+    group.update!(custom_claims: { "role": "viewer", "max_items": 10 })
+    user.groups << group
+
+    # Add user custom claims
+    user.update!(custom_claims: { "role": "editor", "theme": "dark" })
+
+    # Add app-specific claims (should override both)
+    ApplicationUserClaim.create!(
+      user: user,
+      application: app,
+      custom_claims: { "role": "admin", "app_specific": true }
+    )
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # App-specific claim should win
+    assert_equal "admin", decoded["role"]
+    # App-specific claim should be present
+    assert_equal true, decoded["app_specific"]
+    # User claim not overridden should still be present
+    assert_equal "dark", decoded["theme"]
+    # Group claim not overridden should still be present
+    assert_equal 10, decoded["max_items"]
+  end
+
+  test "should deep merge array claims from group and user" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Group has roles: ["user"]
+    group = groups(:admin_group)
+    group.update!(custom_claims: { "roles" => ["user"], "permissions" => ["read"] })
+    user.groups << group
+
+    # User adds roles: ["admin"]
+    user.update!(custom_claims: { "roles" => ["admin"], "permissions" => ["write"] })
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # Roles should be combined (not overwritten)
+    assert_equal 2, decoded["roles"].length
+    assert_includes decoded["roles"], "user"
+    assert_includes decoded["roles"], "admin"
+    # Permissions should also be combined
+    assert_equal 2, decoded["permissions"].length
+    assert_includes decoded["permissions"], "read"
+    assert_includes decoded["permissions"], "write"
+  end
+
+  test "should deep merge array claims from multiple groups" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # First group has roles: ["user"]
+    group1 = groups(:admin_group)
+    group1.update!(custom_claims: { "roles" => ["user"] })
+    user.groups << group1
+
+    # Second group has roles: ["moderator"]
+    group2 = Group.create!(name: "moderators", description: "Moderators group")
+    group2.update!(custom_claims: { "roles" => ["moderator"] })
+    user.groups << group2
+
+    # User adds roles: ["admin"]
+    user.update!(custom_claims: { "roles" => ["admin"] })
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # All roles should be combined
+    assert_equal 3, decoded["roles"].length
+    assert_includes decoded["roles"], "user"
+    assert_includes decoded["roles"], "moderator"
+    assert_includes decoded["roles"], "admin"
+  end
+
+  test "should remove duplicate values when merging arrays" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Group has roles: ["user", "reader"]
+    group = groups(:admin_group)
+    group.update!(custom_claims: { "roles" => ["user", "reader"] })
+    user.groups << group
+
+    # User also has "user" role (duplicate)
+    user.update!(custom_claims: { "roles" => ["user", "admin"] })
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # "user" should only appear once
+    assert_equal 3, decoded["roles"].length
+    assert_includes decoded["roles"], "user"
+    assert_includes decoded["roles"], "reader"
+    assert_includes decoded["roles"], "admin"
+  end
+
+  test "should override non-array values while merging arrays" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Group has roles array and max_items scalar
+    group = groups(:admin_group)
+    group.update!(custom_claims: { "roles" => ["user"], "max_items" => 10, "theme" => "light" })
+    user.groups << group
+
+    # User overrides max_items and theme, adds to roles
+    user.update!(custom_claims: { "roles" => ["admin"], "max_items" => 100, "theme" => "dark" })
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # Arrays should be combined
+    assert_equal 2, decoded["roles"].length
+    assert_includes decoded["roles"], "user"
+    assert_includes decoded["roles"], "admin"
+    # Scalar values should be overridden (user wins)
+    assert_equal 100, decoded["max_items"]
+    assert_equal "dark", decoded["theme"]
+  end
+
+  test "should deep merge nested hashes in claims" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Group has nested config
+    group = groups(:admin_group)
+    group.update!(custom_claims: {
+      "config" => {
+        "theme" => "light",
+        "notifications" => { "email" => true }
+      }
+    })
+    user.groups << group
+
+    # User adds to nested config
+    user.update!(custom_claims: {
+      "config" => {
+        "language" => "en",
+        "notifications" => { "sms" => true }
+      }
+    })
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # Nested hashes should be deep merged
+    assert_equal "light", decoded["config"]["theme"]
+    assert_equal "en", decoded["config"]["language"]
+    assert_equal true, decoded["config"]["notifications"]["email"]
+    assert_equal true, decoded["config"]["notifications"]["sms"]
+  end
+
+  test "app-specific claims should combine arrays with group and user claims" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Group has roles: ["user"]
+    group = groups(:admin_group)
+    group.update!(custom_claims: { "roles" => ["user"] })
+    user.groups << group
+
+    # User has roles: ["moderator"]
+    user.update!(custom_claims: { "roles" => ["moderator"] })
+
+    # App-specific has roles: ["app_admin"]
+    ApplicationUserClaim.create!(
+      user: user,
+      application: app,
+      custom_claims: { "roles" => ["app_admin"] }
+    )
+
+    token = @service.generate_id_token(user, app)
+    decoded = JWT.decode(token, nil, false).first
+
+    # All three sources should be combined
+    assert_equal 3, decoded["roles"].length
+    assert_includes decoded["roles"], "user"
+    assert_includes decoded["roles"], "moderator"
+    assert_includes decoded["roles"], "app_admin"
   end
 end

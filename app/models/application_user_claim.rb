@@ -1,8 +1,6 @@
-class Group < ApplicationRecord
-  has_many :user_groups, dependent: :destroy
-  has_many :users, through: :user_groups
-  has_many :application_groups, dependent: :destroy
-  has_many :applications, through: :application_groups
+class ApplicationUserClaim < ApplicationRecord
+  belongs_to :application
+  belongs_to :user
 
   # Reserved OIDC claim names that should not be overridden
   RESERVED_CLAIMS = %w[
@@ -11,8 +9,7 @@ class Group < ApplicationRecord
     groups
   ].freeze
 
-  validates :name, presence: true, uniqueness: { case_sensitive: false }
-  normalizes :name, with: ->(name) { name.strip.downcase }
+  validates :user_id, uniqueness: { scope: :application_id }
   validate :no_reserved_claim_names
 
   # Parse custom_claims JSON field
