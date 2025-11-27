@@ -43,6 +43,10 @@ class Application < ApplicationRecord
     normalized = pattern&.strip&.downcase
     normalized.blank? ? nil : normalized
   }
+  normalizes :backchannel_logout_uri, with: ->(uri) {
+    normalized = uri&.strip
+    normalized.blank? ? nil : normalized
+  }
 
   before_validation :generate_client_credentials, on: :create, if: :oidc?
 
