@@ -19,14 +19,27 @@
 
   <div>
     <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700" %>
-    <% if application.icon.attached? %>
-      <div class="mt-2 mb-3 flex items-center gap-4">
-        <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
-        <div class="text-sm text-gray-600">
-          <p class="font-medium">Current icon</p>
-          <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
+    <% begin %>
+      <% if application.icon.attached? && application.persisted? && application.icon.blob&.persisted? %>
+        <div class="mt-2 mb-3 flex items-center gap-4">
+          <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium">Current icon</p>
+            <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
+          </div>
         </div>
-      </div>
+      <% end %>
+    <% rescue ArgumentError => e %>
+      <%# Handle case where icon attachment exists but can't generate signed_id %>
+      <% if e.message.include?("Cannot get a signed_id for a new record") %>
+        <div class="mt-2 mb-3 text-sm text-gray-600">
+          <p class="font-medium">Icon uploaded</p>
+          <p class="text-xs">File will be processed shortly</p>
+        </div>
+      <% else %>
+        <%# Re-raise if it's a different error %>
+        <% raise e %>
+      <% end %>
     <% end %>
 
     <div class="mt-2" data-controller="file-drop">

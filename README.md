@@ -94,6 +94,7 @@ Standard OAuth2/OIDC provider with endpoints:
 
 Features:
 - **Refresh tokens** - Long-lived tokens (30 days default) with automatic rotation and revocation
+- **Token family tracking** - Advanced security detects token replay attacks and revokes compromised token families
 - **Configurable token expiry** - Set access token (5min-24hr), refresh token (1-90 days), and ID token TTL per application
 - **Token security** - BCrypt-hashed tokens, automatic cleanup of expired tokens
 - **Pairwise subject identifiers** - Each user gets a unique, stable `sub` claim per application for enhanced privacy
