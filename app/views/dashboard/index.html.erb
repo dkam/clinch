@@ -102,38 +102,56 @@
       <% @applications.each do |app| %>
         <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition">
           <div class="p-6">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-semibold text-gray-900 truncate">
-                <%= app.name %>
-              </h3>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                <% if app.oidc? %>
-                  bg-blue-100 text-blue-800
-                <% else %>
-                  bg-green-100 text-green-800
-                <% end %>">
-                <%= app.app_type.humanize %>
-              </span>
+            <div class="flex items-start gap-3 mb-4">
+              <% if app.icon.attached? %>
+                <%= image_tag app.icon, class: "h-12 w-12 rounded-lg object-cover border border-gray-200 shrink-0", alt: "#{app.name} icon" %>
+              <% else %>
+                <div class="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                  <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              <% end %>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="text-lg font-semibold text-gray-900 truncate">
+                    <%= app.name %>
+                  </h3>
+                  <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0
+                    <% if app.oidc? %>
+                      bg-blue-100 text-blue-800
+                    <% else %>
+                      bg-green-100 text-green-800
+                    <% end %>">
+                    <%= app.app_type.humanize %>
+                  </span>
+                </div>
+                <% if app.description.present? %>
+                  <p class="text-sm text-gray-600 mt-1 line-clamp-2">
+                    <%= app.description %>
+                  </p>
+                <% end %>
+              </div>
             </div>
 
-            <p class="text-sm text-gray-600 mb-4">
-              <% if app.oidc? %>
-                OIDC Application
+            <div class="space-y-2">
+              <% if app.landing_url.present? %>
+                <%= link_to "Open Application", app.landing_url,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    class: "w-full flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition" %>
               <% else %>
-                ForwardAuth Protected Application
+                <div class="text-sm text-gray-500 italic">
+                  No landing URL configured
+                </div>
               <% end %>
-            </p>
 
-            <% if app.landing_url.present? %>
-              <%= link_to "Open Application", app.landing_url,
-                  target: "_blank",
-                  rel: "noopener noreferrer",
-                  class: "w-full flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition" %>
-            <% else %>
-              <div class="text-sm text-gray-500 italic">
-                No landing URL configured
-              </div>
-            <% end %>
+              <% if app.user_has_active_session?(@user) %>
+                <%= button_to "Logout", logout_from_app_active_sessions_path(application_id: app.id), method: :delete,
+                    class: "w-full flex justify-center items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition",
+                    form: { data: { turbo_confirm: "This will log you out of #{app.name}. You can sign back in without re-authorizing. Continue?" } } %>
+              <% end %>
+            </div>
           </div>
         </div>
       <% end %>

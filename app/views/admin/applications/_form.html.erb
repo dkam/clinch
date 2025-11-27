@@ -18,6 +18,56 @@
   </div>
 
   <div>
+    <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700" %>
+    <% if application.icon.attached? %>
+      <div class="mt-2 mb-3 flex items-center gap-4">
+        <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
+        <div class="text-sm text-gray-600">
+          <p class="font-medium">Current icon</p>
+          <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="mt-2" data-controller="file-drop">
+      <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors"
+           data-file-drop-target="dropzone"
+           data-action="dragover->file-drop#dragover dragleave->file-drop#dragleave drop->file-drop#drop">
+        <div class="space-y-1 text-center">
+          <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <div class="flex text-sm text-gray-600">
+            <label for="<%= form.field_id(:icon) %>" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+              <span>Upload a file</span>
+              <%= form.file_field :icon,
+                  accept: "image/png,image/jpg,image/jpeg,image/gif,image/svg+xml",
+                  class: "sr-only",
+                  data: { file_drop_target: "input", action: "change->file-drop#handleFiles" } %>
+            </label>
+            <p class="pl-1">or drag and drop</p>
+          </div>
+          <p class="text-xs text-gray-500">PNG, JPG, GIF, or SVG up to 2MB</p>
+        </div>
+      </div>
+      <div data-file-drop-target="preview" class="mt-3 hidden">
+        <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+          <img data-file-drop-target="previewImage" class="h-12 w-12 rounded object-cover" alt="Preview">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900" data-file-drop-target="filename"></p>
+            <p class="text-xs text-gray-500" data-file-drop-target="filesize"></p>
+          </div>
+          <button type="button" data-action="click->file-drop#clear" class="text-gray-400 hover:text-gray-600">
+            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
     <%= form.label :landing_url, "Landing URL", class: "block text-sm font-medium text-gray-700" %>
     <%= form.url_field :landing_url, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "https://app.example.com" %>
     <p class="mt-1 text-sm text-gray-500">The main URL users will visit to access this application. This will be shown as a link on their dashboard.</p>
@@ -43,6 +93,16 @@
       <%= form.label :redirect_uris, "Redirect URIs", class: "block text-sm font-medium text-gray-700" %>
       <%= form.text_area :redirect_uris, rows: 4, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://example.com/callback\nhttps://app.example.com/auth/callback" %>
       <p class="mt-1 text-sm text-gray-500">One URI per line. These are the allowed callback URLs for your application.</p>
+    </div>
+
+    <div>
+      <%= form.label :backchannel_logout_uri, "Backchannel Logout URI (Optional)", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.url_field :backchannel_logout_uri, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://app.example.com/oidc/backchannel-logout" %>
+      <p class="mt-1 text-sm text-gray-500">
+        If the application supports OpenID Connect Backchannel Logout, enter the logout endpoint URL.
+        When users log out, Clinch will send logout notifications to this endpoint for immediate session termination.
+        Leave blank if the application doesn't support backchannel logout.
+      </p>
     </div>
 
     <div class="border-t border-gray-200 pt-4 mt-4">

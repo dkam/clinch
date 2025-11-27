@@ -49,6 +49,7 @@ Rails.application.routes.draw do
   end
   resource :active_sessions, only: [:show] do
     member do
+      delete :logout_from_app
       delete :revoke_consent
       delete :revoke_all_consents
     end

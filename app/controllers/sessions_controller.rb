@@ -134,6 +134,12 @@ class SessionsController < ApplicationController
   end
 
   def destroy
+    # Send backchannel logout notifications before terminating session
+    if authenticated?
+      user = Current.session.user
+      send_backchannel_logout_notifications(user)
+    end
+
     terminate_session
     redirect_to signin_path, status: :see_other, notice: "Signed out successfully."
   end
@@ -310,5 +316,27 @@ class SessionsController < ApplicationController
     rescue URI::InvalidURIError
       nil
     end
+  end
+
+  def send_backchannel_logout_notifications(user)
+    # Find all active OIDC consents for this user
+    consents = OidcUserConsent.where(user: user).includes(:application)
+
+    consents.each do |consent|
+      # Skip if application doesn't support backchannel logout
+      next unless consent.application.supports_backchannel_logout?
+
+      # Enqueue background job to send logout notification
+      BackchannelLogoutJob.perform_later(
+        user_id: user.id,
+        application_id: consent.application.id,
+        consent_sid: consent.sid
+      )
+    end
+
+    Rails.logger.info "SessionsController: Enqueued #{consents.count} backchannel logout notifications for user #{user.id}"
+  rescue => e
+    # Log error but don't block logout
+    Rails.logger.error "SessionsController: Failed to enqueue backchannel logout: #{e.class} - #{e.message}"
   end
 end

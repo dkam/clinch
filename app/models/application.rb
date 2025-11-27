@@ -1,6 +1,11 @@
 class Application < ApplicationRecord
   has_secure_password :client_secret, validations: false
 
+  has_one_attached :icon
+
+  # Fix SVG content type after attachment
+  after_save :fix_icon_content_type, if: -> { icon.attached? && saved_change_to_attribute?(:id) == false }
+
   has_many :application_groups, dependent: :destroy
   has_many :allowed_groups, through: :application_groups, source: :group
   has_many :application_user_claims, dependent: :destroy
@@ -18,6 +23,15 @@ class Application < ApplicationRecord
   validates :client_secret, presence: true, on: :create, if: -> { oidc? }
   validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
   validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
+  validates :backchannel_logout_uri, format: {
+    with: URI::regexp(%w[http https]),
+    allow_nil: true,
+    message: "must be a valid HTTP or HTTPS URL"
+  }
+  validate :backchannel_logout_uri_must_be_https_in_production, if: -> { backchannel_logout_uri.present? }
+
+  # Icon validation using ActiveStorage validators
+  validate :icon_validation, if: -> { icon.attached? }
 
   # Token TTL validations (for OIDC apps)
   validates :access_token_ttl, numericality: { greater_than_or_equal_to: 300, less_than_or_equal_to: 86400 }, if: :oidc?  # 5 min - 24 hours
@@ -193,7 +207,43 @@ class Application < ApplicationRecord
     app_claim&.parsed_custom_claims || {}
   end
 
+  # Check if this application supports backchannel logout
+  def supports_backchannel_logout?
+    backchannel_logout_uri.present?
+  end
+
+  # Check if a user has an active session with this application
+  # (i.e., has valid, non-revoked tokens)
+  def user_has_active_session?(user)
+    oidc_access_tokens.where(user: user).valid.exists? ||
+    oidc_refresh_tokens.where(user: user).valid.exists?
+  end
+
   private
+
+  def fix_icon_content_type
+    return unless icon.attached?
+
+    # Fix SVG content type if it was detected incorrectly
+    if icon.filename.extension == "svg" && icon.content_type == "application/octet-stream"
+      icon.blob.update(content_type: "image/svg+xml")
+    end
+  end
+
+  def icon_validation
+    return unless icon.attached?
+
+    # Check content type
+    allowed_types = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/svg+xml']
+    unless allowed_types.include?(icon.content_type)
+      errors.add(:icon, 'must be a PNG, JPG, GIF, or SVG image')
+    end
+
+    # Check file size (2MB limit)
+    if icon.blob.byte_size > 2.megabytes
+      errors.add(:icon, 'must be less than 2MB')
+    end
+  end
 
   def duration_to_human(seconds)
     if seconds < 3600
@@ -211,6 +261,20 @@ class Application < ApplicationRecord
     if new_record? && client_secret.blank?
       secret = SecureRandom.urlsafe_base64(48)
       self.client_secret = secret
+    end
+  end
+
+  def backchannel_logout_uri_must_be_https_in_production
+    return unless Rails.env.production?
+    return unless backchannel_logout_uri.present?
+
+    begin
+      uri = URI.parse(backchannel_logout_uri)
+      unless uri.scheme == 'https'
+        errors.add(:backchannel_logout_uri, 'must use HTTPS in production')
+      end
+    rescue URI::InvalidURIError
+      # Let the format validator handle invalid URIs
     end
   end
 end

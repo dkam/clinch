@@ -45,6 +45,30 @@ class OidcJwtService
       JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
     end
 
+    # Generate a backchannel logout token (JWT)
+    # Per OIDC Back-Channel Logout spec, this token:
+    # - MUST include iss, aud, iat, jti, events claims
+    # - MUST include sub or sid (or both) - we always include both
+    # - MUST NOT include nonce claim
+    def generate_logout_token(user, application, consent)
+      now = Time.current.to_i
+
+      payload = {
+        iss: issuer_url,
+        sub: consent.sid,  # Pairwise subject identifier
+        aud: application.client_id,
+        iat: now,
+        jti: SecureRandom.uuid,  # Unique identifier for this logout token
+        sid: consent.sid,  # Session ID - always included for granular logout
+        events: {
+          "http://schemas.openid.net/event/backchannel-logout" => {}
+        }
+      }
+
+      # Important: Do NOT include nonce in logout tokens (spec requirement)
+      JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
+    end
+
     # Decode and verify an ID token
     def decode_id_token(token)
       JWT.decode(token, public_key, true, { algorithm: "RS256" })

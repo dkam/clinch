@@ -23,7 +23,9 @@ class OidcController < ApplicationController
       scopes_supported: ["openid", "profile", "email", "groups"],
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
       claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin"],
-      code_challenge_methods_supported: ["plain", "S256"]
+      code_challenge_methods_supported: ["plain", "S256"],
+      backchannel_logout_supported: true,
+      backchannel_logout_session_supported: true
     }
 
     render json: config
@@ -627,6 +629,11 @@ class OidcController < ApplicationController
 
     # If user is authenticated, log them out
     if authenticated?
+      user = Current.session.user
+
+      # Send backchannel logout notifications to all connected applications
+      send_backchannel_logout_notifications(user)
+
       # Invalidate the current session
       Current.session&.destroy
       reset_session
@@ -765,5 +772,27 @@ class OidcController < ApplicationController
     rescue URI::InvalidURIError
       false
     end
+  end
+
+  def send_backchannel_logout_notifications(user)
+    # Find all active OIDC consents for this user
+    consents = OidcUserConsent.where(user: user).includes(:application)
+
+    consents.each do |consent|
+      # Skip if application doesn't support backchannel logout
+      next unless consent.application.supports_backchannel_logout?
+
+      # Enqueue background job to send logout notification
+      BackchannelLogoutJob.perform_later(
+        user_id: user.id,
+        application_id: consent.application.id,
+        consent_sid: consent.sid
+      )
+    end
+
+    Rails.logger.info "OidcController: Enqueued #{consents.count} backchannel logout notifications for user #{user.id}"
+  rescue => e
+    # Log error but don't block logout
+    Rails.logger.error "OidcController: Failed to enqueue backchannel logout: #{e.class} - #{e.message}"
   end
 end

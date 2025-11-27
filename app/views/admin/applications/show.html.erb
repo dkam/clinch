@@ -16,10 +16,21 @@
     </div>
   <% end %>
 
-  <div class="sm:flex sm:items-center sm:justify-between">
-    <div>
-      <h1 class="text-2xl font-semibold text-gray-900"><%= @application.name %></h1>
-      <p class="mt-1 text-sm text-gray-500"><%= @application.description %></p>
+  <div class="sm:flex sm:items-start sm:justify-between">
+    <div class="flex items-start gap-4">
+      <% if @application.icon.attached? %>
+        <%= image_tag @application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200 shrink-0", alt: "#{@application.name} icon" %>
+      <% else %>
+        <div class="h-16 w-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+          <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+      <% end %>
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-900"><%= @application.name %></h1>
+        <p class="mt-1 text-sm text-gray-500"><%= @application.description %></p>
+      </div>
     </div>
     <div class="mt-4 sm:mt-0 flex gap-3">
       <%= link_to "Edit", edit_admin_application_path(@application), class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
@@ -78,27 +89,29 @@
     <div class="bg-white shadow sm:rounded-lg">
       <div class="px-4 py-5 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-base font-semibold leading-6 text-gray-900">OIDC Credentials</h3>
+          <h3 class="text-base font-semibold leading-6 text-gray-900">OIDC Configuration</h3>
           <%= button_to "Regenerate Credentials", regenerate_credentials_admin_application_path(@application), method: :post, data: { turbo_confirm: "This will invalidate the current credentials. Continue?" }, class: "text-sm text-red-600 hover:text-red-900" %>
         </div>
         <dl class="space-y-4">
-          <div>
-            <dt class="text-sm font-medium text-gray-500">Client ID</dt>
-            <dd class="mt-1 text-sm text-gray-900">
-              <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_id %></code>
-            </dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
-            <dd class="mt-1 text-sm text-gray-900">
-              <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500 italic">
-                🔒 Client secret is stored securely and cannot be displayed
-              </div>
-              <p class="mt-2 text-xs text-gray-500">
-                To get a new client secret, use the "Regenerate Credentials" button above.
-              </p>
-            </dd>
-          </div>
+          <% unless flash[:client_id] && flash[:client_secret] %>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Client ID</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_id %></code>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500 italic">
+                  🔒 Client secret is stored securely and cannot be displayed
+                </div>
+                <p class="mt-2 text-xs text-gray-500">
+                  To get a new client secret, use the "Regenerate Credentials" button above.
+                </p>
+              </dd>
+            </div>
+          <% end %>
           <div>
             <dt class="text-sm font-medium text-gray-500">Redirect URIs</dt>
             <dd class="mt-1 text-sm text-gray-900">
@@ -108,6 +121,27 @@
                 <% end %>
               <% else %>
                 <span class="text-gray-400">No redirect URIs configured</span>
+              <% end %>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500">
+              Backchannel Logout URI
+              <% if @application.supports_backchannel_logout? %>
+                <span class="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+              <% end %>
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <% if @application.backchannel_logout_uri.present? %>
+                <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.backchannel_logout_uri %></code>
+                <p class="mt-2 text-xs text-gray-500">
+                  When users log out, Clinch will send logout notifications to this endpoint for immediate session termination.
+                </p>
+              <% else %>
+                <span class="text-gray-400 italic">Not configured</span>
+                <p class="mt-1 text-xs text-gray-500">
+                  Backchannel logout is optional. Configure it if the application supports OpenID Connect Backchannel Logout.
+                </p>
               <% end %>
             </dd>
           </div>
