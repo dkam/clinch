@@ -15,10 +15,12 @@ I've completed all planned features:
 * Forward Auth configured and working
 * OIDC provider with auto discovery, refresh tokens, and token revocation
 * Configurable token expiry per application (access, refresh, ID tokens)
+* Backchannel Logout
+* Per-application logout / revoke
 * Invite users by email, assign to groups
 * Self managed password reset by email
 * Use Groups to assign Applications ( Family group can access Kavita, Developers can access Gitea )
-* Configurable Group and User custom claims for OIDC token
+* Configurable Group, User & App+User custom claims for OIDC token
 * Display all Applications available to the user on their Dashboard
 * Display all logged in sessions and OIDC logged in sessions
 

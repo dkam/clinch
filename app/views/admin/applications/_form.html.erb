@@ -18,34 +18,47 @@
   </div>
 
   <div>
-    <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700" %>
-    <% begin %>
-      <% if application.icon.attached? && application.persisted? && application.icon.blob&.persisted? %>
-        <div class="mt-2 mb-3 flex items-center gap-4">
-          <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
-          <div class="text-sm text-gray-600">
-            <p class="font-medium">Current icon</p>
-            <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
+    <div class="flex items-center justify-between">
+      <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700" %>
+      <a href="https://dashboardicons.com" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+        </svg>
+        Browse icons at dashboardicons.com
+      </a>
+    </div>
+    <% if application.icon.attached? && application.persisted? %>
+      <% begin %>
+        <%# Only show icon if we can successfully get its URL (blob is persisted) %>
+        <% if application.icon.blob&.persisted? && application.icon.blob.key.present? %>
+          <div class="mt-2 mb-3 flex items-center gap-4">
+            <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
+            <div class="text-sm text-gray-600">
+              <p class="font-medium">Current icon</p>
+              <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
+            </div>
           </div>
-        </div>
-      <% end %>
-    <% rescue ArgumentError => e %>
-      <%# Handle case where icon attachment exists but can't generate signed_id %>
-      <% if e.message.include?("Cannot get a signed_id for a new record") %>
-        <div class="mt-2 mb-3 text-sm text-gray-600">
-          <p class="font-medium">Icon uploaded</p>
-          <p class="text-xs">File will be processed shortly</p>
-        </div>
-      <% else %>
-        <%# Re-raise if it's a different error %>
-        <% raise e %>
+        <% end %>
+      <% rescue ArgumentError => e %>
+        <%# Handle case where icon attachment exists but can't generate signed_id %>
+        <% if e.message.include?("Cannot get a signed_id for a new record") %>
+          <div class="mt-2 mb-3 text-sm text-gray-600">
+            <p class="font-medium">Icon uploaded</p>
+            <p class="text-xs">File will be processed shortly</p>
+          </div>
+        <% else %>
+          <%# Re-raise if it's a different error %>
+          <% raise e %>
+        <% end %>
       <% end %>
     <% end %>
 
-    <div class="mt-2" data-controller="file-drop">
+    <div class="mt-2" data-controller="file-drop image-paste">
       <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors"
            data-file-drop-target="dropzone"
-           data-action="dragover->file-drop#dragover dragleave->file-drop#dragleave drop->file-drop#drop">
+           data-image-paste-target="dropzone"
+           data-action="dragover->file-drop#dragover dragleave->file-drop#dragleave drop->file-drop#drop paste->image-paste#handlePaste"
+           tabindex="0">
         <div class="space-y-1 text-center">
           <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -56,11 +69,16 @@
               <%= form.file_field :icon,
                   accept: "image/png,image/jpg,image/jpeg,image/gif,image/svg+xml",
                   class: "sr-only",
-                  data: { file_drop_target: "input", action: "change->file-drop#handleFiles" } %>
+                  data: {
+                    file_drop_target: "input",
+                    image_paste_target: "input",
+                    action: "change->file-drop#handleFiles"
+                  } %>
             </label>
             <p class="pl-1">or drag and drop</p>
           </div>
           <p class="text-xs text-gray-500">PNG, JPG, GIF, or SVG up to 2MB</p>
+          <p class="text-xs text-blue-600 font-medium mt-2">💡 Tip: Click here and press Ctrl+V (or Cmd+V) to paste an image from your clipboard</p>
         </div>
       </div>
       <div data-file-drop-target="preview" class="mt-3 hidden">
