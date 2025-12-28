@@ -11,7 +11,7 @@
 ARG RUBY_VERSION=3.4.6
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
-LABEL org.opencontainers.image.source https://github.com/dkam/clinch
+LABEL org.opencontainers.image.source=https://github.com/dkam/clinch
 
 # Rails app lives here
 WORKDIR /rails
