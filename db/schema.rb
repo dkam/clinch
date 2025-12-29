@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_25_081147) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_29_220739) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -102,6 +102,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_081147) do
     t.string "scope"
     t.string "token"
     t.string "token_digest"
+    t.string "token_prefix", limit: 8
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_access_tokens_on_application_id_and_user_id"
@@ -110,6 +111,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_081147) do
     t.index ["revoked_at"], name: "index_oidc_access_tokens_on_revoked_at"
     t.index ["token"], name: "index_oidc_access_tokens_on_token", unique: true
     t.index ["token_digest"], name: "index_oidc_access_tokens_on_token_digest", unique: true
+    t.index ["token_prefix"], name: "index_oidc_access_tokens_on_token_prefix"
     t.index ["user_id"], name: "index_oidc_access_tokens_on_user_id"
   end
 
@@ -143,6 +145,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_081147) do
     t.string "scope"
     t.string "token_digest", null: false
     t.integer "token_family_id"
+    t.string "token_prefix", limit: 8
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_refresh_tokens_on_application_id_and_user_id"
@@ -152,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_081147) do
     t.index ["revoked_at"], name: "index_oidc_refresh_tokens_on_revoked_at"
     t.index ["token_digest"], name: "index_oidc_refresh_tokens_on_token_digest", unique: true
     t.index ["token_family_id"], name: "index_oidc_refresh_tokens_on_token_family_id"
+    t.index ["token_prefix"], name: "index_oidc_refresh_tokens_on_token_prefix"
     t.index ["user_id"], name: "index_oidc_refresh_tokens_on_user_id"
   end
 
