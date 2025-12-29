@@ -12,8 +12,8 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
   # End-to-End Authentication Flow Tests
   test "complete forward auth flow with default headers" do
-    # Create a rule with default headers
-    rule = ForwardAuthRule.create!(domain_pattern: "app.example.com", active: true)
+    # Create an application with default headers
+    rule = Application.create!(name: "App", slug: "app-system-test", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
 
     # Step 1: Unauthenticated request to protected resource
     get "/api/verify", headers: {
@@ -39,20 +39,22 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
 
     assert_response 200
-    assert_equal @user.email_address, response.headers["X-Remote-User"]
-    assert_equal @user.email_address, response.headers["X-Remote-Email"]
-    assert_equal "false", response.headers["X-Remote-Admin"] unless @user.admin?
+    assert_equal @user.email_address, response.headers["x-remote-user"]
+    assert_equal @user.email_address, response.headers["x-remote-email"]
+    assert_equal "false", response.headers["x-remote-admin"] unless @user.admin?
   end
 
   test "multiple domain access with single session" do
-    # Create rules for different applications
-    app_rule = ForwardAuthRule.create!(domain_pattern: "app.example.com", active: true)
-    grafana_rule = ForwardAuthRule.create!(
+    # Create applications for different domains
+    app_rule = Application.create!(name: "App Domain", slug: "app-domain", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+    grafana_rule = Application.create!(
+      name: "Grafana", slug: "grafana-system-test", app_type: "forward_auth",
       domain_pattern: "grafana.example.com",
       active: true,
       headers_config: { user: "X-WEBAUTH-USER", email: "X-WEBAUTH-EMAIL" }
     )
-    metube_rule = ForwardAuthRule.create!(
+    metube_rule = Application.create!(
+      name: "Metube", slug: "metube-system-test", app_type: "forward_auth",
       domain_pattern: "metube.example.com",
       active: true,
       headers_config: { user: "", email: "", name: "", groups: "", admin: "" }
@@ -67,24 +69,25 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     # App with default headers
     get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
     assert_response 200
-    assert_equal "X-Remote-User", response.headers.keys.find { |k| k.include?("User") }
+    assert response.headers.key?("x-remote-user")
 
     # Grafana with custom headers
     get "/api/verify", headers: { "X-Forwarded-Host" => "grafana.example.com" }
     assert_response 200
-    assert_equal "X-WEBAUTH-USER", response.headers.keys.find { |k| k.include?("USER") }
+    assert response.headers.key?("x-webauth-user")
 
     # Metube with no headers
     get "/api/verify", headers: { "X-Forwarded-Host" => "metube.example.com" }
     assert_response 200
-    auth_headers = response.headers.select { |k, v| k.match?(/^(X-|Remote-)/i) }
+    auth_headers = response.headers.select { |k, v| k.match?(/^x-remote-|^x-webauth-|^x-admin-/i) }
     assert_empty auth_headers
   end
 
   # Group-Based Access Control System Tests
   test "group-based access control with multiple groups" do
-    # Create restricted rule
-    restricted_rule = ForwardAuthRule.create!(
+    # Create restricted application
+    restricted_rule = Application.create!(
+      name: "Admin", slug: "admin-system-test", app_type: "forward_auth",
       domain_pattern: "admin.example.com",
       active: true
     )
@@ -101,7 +104,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     # Should have access (in allowed group)
     get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
     assert_response 200
-    assert_equal @group.name, response.headers["X-Remote-Groups"]
+    assert_equal @group.name, response.headers["x-remote-groups"]
 
     # Add user to second group
     @user.groups << @group2
@@ -109,7 +112,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     # Should show multiple groups
     get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
     assert_response 200
-    groups_header = response.headers["X-Remote-Groups"]
+    groups_header = response.headers["x-remote-groups"]
     assert_includes groups_header, @group.name
     assert_includes groups_header, @group2.name
 
@@ -122,8 +125,9 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   end
 
   test "bypass mode when no groups assigned to rule" do
-    # Create bypass rule (no groups)
-    bypass_rule = ForwardAuthRule.create!(
+    # Create bypass application (no groups)
+    bypass_rule = Application.create!(
+      name: "Public", slug: "public-system-test", app_type: "forward_auth",
       domain_pattern: "public.example.com",
       active: true
     )
@@ -138,7 +142,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     # Should have access (bypass mode)
     get "/api/verify", headers: { "X-Forwarded-Host" => "public.example.com" }
     assert_response 200
-    assert_equal @user.email_address, response.headers["X-Remote-User"]
+    assert_equal @user.email_address, response.headers["x-remote-user"]
   end
 
   # Security System Tests
@@ -158,7 +162,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
       "Cookie" => "_clinch_session_id=#{user_a_session}"
     }
     assert_response 200
-    assert_equal @user.email_address, response.headers["X-Remote-User"]
+    assert_equal @user.email_address, response.headers["x-remote-user"]
 
     # User B should be able to access resources
     get "/api/verify", headers: {
@@ -166,7 +170,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
       "Cookie" => "_clinch_session_id=#{user_b_session}"
     }
     assert_response 200
-    assert_equal @admin_user.email_address, response.headers["X-Remote-User"]
+    assert_equal @admin_user.email_address, response.headers["x-remote-user"]
 
     # Sessions should be independent
     assert_not_equal user_a_session, user_b_session
@@ -183,12 +187,12 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
     # Manually expire session
     session = Session.find(session_id)
-    session.update!(created_at: 1.year.ago)
+    session.update!(expires_at: 1.hour.ago)
 
     # Should redirect to login
     get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
     assert_response 302
-    assert_equal "Session expired", response.headers["X-Auth-Reason"]
+    assert_equal "Session expired", response.headers["x-auth-reason"]
 
     # Session should be cleaned up
     assert_nil Session.find_by(id: session_id)
@@ -218,7 +222,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
         results << {
           thread_id: i,
           status: response.status,
-          user: response.headers["X-Remote-User"],
+          user: response.headers["x-remote-user"],
           duration: end_time - start_time
         }
       end
@@ -255,9 +259,10 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
       }
     ]
 
-    # Create rules for each app
-    rules = apps.map do |app|
-      rule = ForwardAuthRule.create!(
+    # Create applications for each app
+    rules = apps.map.with_index do |app, idx|
+      rule = Application.create!(
+        name: "Multi App #{idx}", slug: "multi-app-#{idx}", app_type: "forward_auth",
         domain_pattern: app[:domain],
         active: true,
         headers_config: app[:headers_config]
@@ -300,8 +305,9 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
       { pattern: "*.*.example.com", domains: ["app.dev.example.com", "api.staging.example.com"] }
     ]
 
-    patterns.each do |pattern_config|
-      rule = ForwardAuthRule.create!(
+    patterns.each_with_index do |pattern_config, idx|
+      rule = Application.create!(
+        name: "Pattern Test #{idx}", slug: "pattern-test-#{idx}", app_type: "forward_auth",
         domain_pattern: pattern_config[:pattern],
         active: true
       )
@@ -313,7 +319,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
       pattern_config[:domains].each do |domain|
         get "/api/verify", headers: { "X-Forwarded-Host" => domain }
         assert_response 200, "Failed for pattern #{pattern_config[:pattern]} with domain #{domain}"
-        assert_equal @user.email_address, response.headers["X-Remote-User"]
+        assert_equal @user.email_address, response.headers["x-remote-user"]
       end
 
       # Clean up for next test
@@ -323,8 +329,8 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
   # Performance System Tests
   test "system performance under load" do
-    # Create test rule
-    rule = ForwardAuthRule.create!(domain_pattern: "loadtest.example.com", active: true)
+    # Create test application
+    rule = Application.create!(name: "Load Test", slug: "loadtest", app_type: "forward_auth", domain_pattern: "loadtest.example.com", active: true)
 
     # Sign in
     post "/signin", params: { email_address: @user.email_address, password: "password" }
@@ -385,7 +391,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
       # Should return 302 (redirect to login) rather than 500 error
       assert_response 302, "Should gracefully handle database issues"
-      assert_equal "Invalid session", response.headers["X-Auth-Reason"]
+      assert_equal "Invalid session", response.headers["x-auth-reason"]
     ensure
       # Restore original method
       Session.define_singleton_method(:find_by, original_method)

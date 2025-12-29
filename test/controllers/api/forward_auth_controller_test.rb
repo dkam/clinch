@@ -17,7 +17,7 @@ module Api
 
       assert_response 302
       assert_match %r{/signin}, response.location
-      assert_equal "No session cookie", response.headers["X-Auth-Reason"]
+      assert_equal "No session cookie", response.headers["x-auth-reason"]
     end
 
     test "should redirect when user is inactive" do
@@ -26,7 +26,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 302
-      assert_equal "User account is not active", response.headers["X-Auth-Reason"]
+      assert_equal "User account is not active", response.headers["x-auth-reason"]
     end
 
     test "should return 200 when user is authenticated" do
@@ -52,8 +52,8 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "unknown.example.com" }
 
       assert_response 200
-      assert_equal @user.email_address, response.headers["X-Remote-User"]
-      assert_equal @user.email_address, response.headers["X-Remote-Email"]
+      assert_equal @user.email_address, response.headers["x-remote-user"]
+      assert_equal @user.email_address, response.headers["x-remote-email"]
     end
 
     test "should return 403 when rule exists but is inactive" do
@@ -62,7 +62,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "inactive.example.com" }
 
       assert_response 403
-      assert_equal "No authentication rule configured for this domain", response.headers["X-Auth-Reason"]
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     test "should return 403 when rule exists but user not in allowed groups" do
@@ -72,7 +72,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 403
-      assert_match %r{permission to access this domain}, response.headers["X-Auth-Reason"]
+      assert_match %r{permission to access this domain}, response.headers["x-auth-reason"]
     end
 
     test "should return 200 when user is in allowed groups" do
@@ -118,10 +118,10 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 200
-      assert_equal @user.email_address, response.headers["X-Remote-User"]
-      assert_equal @user.email_address, response.headers["X-Remote-Email"]
-      assert response.headers["X-Remote-Name"].present?
-      assert_equal (@user.admin? ? "true" : "false"), response.headers["X-Remote-Admin"]
+      assert_equal @user.email_address, response.headers["x-remote-user"]
+      assert_equal @user.email_address, response.headers["x-remote-email"]
+      assert response.headers["x-remote-name"].present?
+      assert_equal (@user.admin? ? "true" : "false"), response.headers["x-remote-admin"]
     end
 
     test "should return custom headers when configured" do
@@ -142,11 +142,11 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "custom.example.com" }
 
       assert_response 200
-      assert_equal @user.email_address, response.headers["X-WEBAUTH-USER"]
-      assert_equal @user.email_address, response.headers["X-WEBAUTH-EMAIL"]
+      assert_equal @user.email_address, response.headers["x-webauth-user"]
+      assert_equal @user.email_address, response.headers["x-webauth-email"]
       # Default headers should NOT be present
-      assert_nil response.headers["X-Remote-User"]
-      assert_nil response.headers["X-Remote-Email"]
+      assert_nil response.headers["x-remote-user"]
+      assert_nil response.headers["x-remote-email"]
     end
 
     test "should return no headers when all headers disabled" do
@@ -175,7 +175,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 200
-      groups_header = response.headers["X-Remote-Groups"]
+      groups_header = response.headers["x-remote-groups"]
       assert_includes groups_header, @group.name
       # Bob also has editor_group from fixtures
       assert_includes groups_header, "Editors"
@@ -188,7 +188,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 200
-      assert_nil response.headers["X-Remote-Groups"]
+      assert_nil response.headers["x-remote-groups"]
     end
 
     test "should include admin header correctly" do
@@ -197,7 +197,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 200
-      assert_equal "true", response.headers["X-Remote-Admin"]
+      assert_equal "true", response.headers["x-remote-admin"]
     end
 
     test "should include multiple groups when user has multiple groups" do
@@ -209,7 +209,7 @@ module Api
       get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
 
       assert_response 200
-      groups_header = response.headers["X-Remote-Groups"]
+      groups_header = response.headers["x-remote-groups"]
       assert_includes groups_header, @group.name
       assert_includes groups_header, group2.name
     end
@@ -465,7 +465,7 @@ module Api
       assert_response 200
 
       # Should maintain user identity across requests
-      assert_equal @user.email_address, response.headers["X-Remote-User"]
+      assert_equal @user.email_address, response.headers["x-remote-user"]
     end
 
     test "should handle concurrent requests with same session" do
@@ -478,7 +478,7 @@ module Api
       5.times do |i|
         threads << Thread.new do
           get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
-          results << { status: response.status, user: response.headers["X-Remote-User"] }
+          results << { status: response.status, user: response.headers["x-remote-user"] }
         end
       end
 

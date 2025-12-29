@@ -19,9 +19,11 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   def teardown
-    OidcAuthorizationCode.where(application: @application).delete_all
-    # Use delete_all to avoid triggering callbacks that might have issues with the schema
+    # Delete in correct order to avoid foreign key constraints
+    OidcRefreshToken.where(application: @application).delete_all
     OidcAccessToken.where(application: @application).delete_all
+    OidcAuthorizationCode.where(application: @application).delete_all
+    OidcUserConsent.where(application: @application).delete_all
     @user.destroy
     @application.destroy
   end
@@ -31,6 +33,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "prevents authorization code reuse - sequential attempts" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create a valid authorization code
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -69,6 +80,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "revokes existing tokens when authorization code is reused" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create a valid authorization code
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -115,6 +135,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects already used authorization code" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create and mark code as used
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -143,6 +172,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects expired authorization code" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create expired code
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -170,6 +208,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects authorization code with mismatched redirect_uri" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -212,6 +259,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects authorization code for different application" do
+    # Create consent for the first application
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create another application
     other_app = Application.create!(
       name: "Other App",
@@ -255,6 +311,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "rejects invalid client_id in Basic auth" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -280,6 +345,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects invalid client_secret in Basic auth" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -305,6 +379,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "accepts client credentials in POST body" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -331,6 +414,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   end
 
   test "rejects request with no client authentication" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -389,6 +481,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "client authentication uses constant-time comparison" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -452,6 +553,9 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
       granted_at: Time.current,
       sid: "test-sid-123"
     )
+
+    # Sign in first
+    post signin_path, params: { email_address: "security_test@example.com", password: "password123" }
 
     # Test authorization with state parameter
     get "/oauth/authorize", params: {
@@ -699,7 +803,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     assert_response :bad_request
     error = JSON.parse(@response.body)
-    assert_equal "invalid_grant", error["error"]
+    assert_equal "invalid_request", error["error"]
   end
 
   # ====================
@@ -707,6 +811,15 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "refresh token rotation is enforced" do
+    # Create consent for the refresh token endpoint
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create initial access and refresh tokens
     access_token = OidcAccessToken.create!(
       application: @application,

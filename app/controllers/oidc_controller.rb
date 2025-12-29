@@ -99,7 +99,7 @@ class OidcController < ApplicationController
       return
     end
 
-    # Validate redirect URI
+    # Validate redirect URI first (required before we can safely redirect with errors)
     unless @application.parsed_redirect_uris.include?(redirect_uri)
       Rails.logger.error "OAuth: Invalid request - redirect URI mismatch. Expected: #{@application.parsed_redirect_uris}, Got: #{redirect_uri}"
 
@@ -111,6 +111,15 @@ class OidcController < ApplicationController
       end
 
       render plain: error_msg, status: :bad_request
+      return
+    end
+
+    # Check if application is active (now we can safely redirect with error)
+    unless @application.active?
+      Rails.logger.error "OAuth: Application is not active: #{@application.name}"
+      error_uri = "#{redirect_uri}?error=unauthorized_client&error_description=Application+is+not+active"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
       return
     end
 
@@ -223,6 +232,17 @@ class OidcController < ApplicationController
     # Find the application
     client_id = oauth_params['client_id']
     application = Application.find_by(client_id: client_id, app_type: "oidc")
+
+    # Check if application is active (redirect with OAuth error)
+    unless application&.active?
+      Rails.logger.error "OAuth: Application is not active: #{application&.name || client_id}"
+      session.delete(:oauth_params)
+      error_uri = "#{oauth_params['redirect_uri']}?error=unauthorized_client&error_description=Application+is+not+active"
+      error_uri += "&state=#{CGI.escape(oauth_params['state'])}" if oauth_params['state'].present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
+
     user = Current.session.user
 
     # Record user consent
@@ -289,6 +309,13 @@ class OidcController < ApplicationController
     application = Application.find_by(client_id: client_id)
     unless application && application.authenticate_client_secret(client_secret)
       render json: { error: "invalid_client" }, status: :unauthorized
+      return
+    end
+
+    # Check if application is active
+    unless application.active?
+      Rails.logger.error "OAuth: Token request for inactive application: #{application.name}"
+      render json: { error: "invalid_client", error_description: "Application is not active" }, status: :forbidden
       return
     end
 
@@ -418,6 +445,13 @@ class OidcController < ApplicationController
       return
     end
 
+    # Check if application is active
+    unless application.active?
+      Rails.logger.error "OAuth: Refresh token request for inactive application: #{application.name}"
+      render json: { error: "invalid_client", error_description: "Application is not active" }, status: :forbidden
+      return
+    end
+
     # Get the refresh token
     refresh_token = params[:refresh_token]
     unless refresh_token.present?
@@ -519,6 +553,13 @@ class OidcController < ApplicationController
       return
     end
 
+    # Check if application is active (immediate cutoff when app is disabled)
+    unless access_token.application&.active?
+      Rails.logger.warn "OAuth: Userinfo request for inactive application: #{access_token.application&.name}"
+      head :forbidden
+      return
+    end
+
     # Get the user (with fresh data from database)
     user = access_token.user
     unless user
@@ -577,6 +618,13 @@ class OidcController < ApplicationController
     application = Application.find_by(client_id: client_id)
     unless application && application.authenticate_client_secret(client_secret)
       Rails.logger.warn "OAuth: Token revocation attempted for invalid application: #{client_id}"
+      head :ok
+      return
+    end
+
+    # Check if application is active (RFC 7009: still return 200 OK for privacy)
+    unless application.active?
+      Rails.logger.warn "OAuth: Token revocation attempted for inactive application: #{application.name}"
       head :ok
       return
     end
