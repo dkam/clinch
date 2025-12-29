@@ -49,7 +49,9 @@ class InvitationFlowTest < ActionDispatch::IntegrationTest
       email_address: "newuser@example.com",
       password: "SecurePassword123!"
     }
-    assert_redirected_to root_path
+    # Redirect may include fa_token parameter for first-time authentication
+    assert_response :redirect
+    assert_match %r{^http://www\.example\.com/}, response.location
     assert cookies[:session_id]
   end
 

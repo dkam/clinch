@@ -17,8 +17,11 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
   def teardown
     Current.session&.destroy
-    OidcAuthorizationCode.where(application: @application).destroy_all
-    OidcAccessToken.where(application: @application).destroy_all
+    # Delete in correct order to avoid foreign key constraints
+    OidcRefreshToken.where(application: @application).delete_all
+    OidcAccessToken.where(application: @application).delete_all
+    OidcAuthorizationCode.where(application: @application).delete_all
+    OidcUserConsent.where(application: @application).delete_all
     @user.destroy
     @application.destroy
   end
@@ -111,6 +114,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint requires code_verifier when PKCE was used (S256)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create authorization code with PKCE S256
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -140,6 +152,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint requires code_verifier when PKCE was used (plain)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create authorization code with PKCE plain
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -169,6 +190,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint rejects invalid code_verifier (S256)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create authorization code with PKCE S256
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
@@ -200,6 +230,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint accepts valid code_verifier (S256)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Generate valid PKCE pair
     code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     code_challenge = Digest::SHA256.base64digest(code_verifier)
@@ -237,6 +276,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint accepts valid code_verifier (plain)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     code_verifier = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 
     # Create authorization code with PKCE plain
@@ -270,6 +318,15 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "token endpoint works without PKCE (backward compatibility)" do
+    # Create consent for token endpoint
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
     # Create authorization code without PKCE
     auth_code = OidcAuthorizationCode.create!(
       application: @application,

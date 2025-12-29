@@ -107,17 +107,15 @@ class InvitationsMailerTest < ActionMailer::TestCase
   end
 
   test "should have proper email headers" do
-    email = @invitation_mail
+    # Deliver the email first to ensure headers are set
+    email = InvitationsMailer.invite_user(@user).deliver_now
 
-    # Test common email headers
+    # Test common email headers (message_id is set on delivery)
     assert_not_nil email.message_id
     assert_not_nil email.date
 
-    # Test content-type
-    if email.html_part
-      assert_includes email.content_type, "text/html"
-    elsif email.text_part
-      assert_includes email.content_type, "text/plain"
-    end
+    # Test content-type - multipart emails contain both text and html parts
+    assert_includes email.content_type, "multipart"
+    assert email.html_part || email.text_part, "Should have html or text part"
   end
 end

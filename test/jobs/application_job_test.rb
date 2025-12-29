@@ -37,11 +37,14 @@ class ApplicationJobTest < ActiveJob::TestCase
     end
 
     assert_enqueued_jobs 1 do
-      test_job.perform_later("arg1", "arg2", { key: "value" })
+      test_job.perform_later("arg1", "arg2", { "key" => "value" })
     end
 
-    # Job class name may be nil in test environment, focus on args
-    assert_equal ["arg1", "arg2", { key: "value" }], enqueued_jobs.last[:args]
+    # ActiveJob serializes all hash keys as strings
+    args = enqueued_jobs.last[:args]
+    assert_equal "arg1", args[0]
+    assert_equal "arg2", args[1]
+    assert_equal "value", args[2]["key"]
   end
 
   test "should have default queue configuration" do
