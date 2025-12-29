@@ -30,6 +30,14 @@ Rails.application.configure do
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = true
 
+  # Additional security headers (beyond Rails defaults)
+  # Note: Rails already sets X-Content-Type-Options: nosniff by default
+  # Note: Permissions-Policy is configured in config/initializers/permissions_policy.rb
+  config.action_dispatch.default_headers.merge!(
+    'X-Frame-Options' => 'DENY',  # Override default SAMEORIGIN to prevent clickjacking
+    'Referrer-Policy' => 'strict-origin-when-cross-origin'  # Control referrer information
+  )
+
   # Skip http-to-https redirect for the default health check endpoint.
   # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 

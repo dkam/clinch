@@ -3,6 +3,14 @@ class OidcController < ApplicationController
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout]
   skip_before_action :verify_authenticity_token, only: [:token, :revoke, :logout]
 
+  # Rate limiting to prevent brute force and abuse
+  rate_limit to: 60, within: 1.minute, only: [:token, :revoke], with: -> {
+    render json: { error: "too_many_requests", error_description: "Rate limit exceeded. Try again later." }, status: :too_many_requests
+  }
+  rate_limit to: 30, within: 1.minute, only: [:authorize, :consent], with: -> {
+    render plain: "Too many authorization attempts. Try again later.", status: :too_many_requests
+  }
+
   # GET /.well-known/openid-configuration
   def discovery
     base_url = OidcJwtService.issuer_url
