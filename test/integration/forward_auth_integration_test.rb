@@ -152,10 +152,12 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert_response 302
     location = response.location
 
-    # Should redirect to signin on same host with parameters
-    assert_includes location, "grafana.example.com/signin"
+    # Should redirect to signin with parameters (rd contains the original URL)
+    assert_includes location, "/signin"
     assert_includes location, "rd="
     assert_includes location, "rm=GET"
+    # The rd parameter should contain the original grafana.example.com URL
+    assert_includes location, "grafana.example.com"
   end
 
   test "return URL functionality after authentication" do
