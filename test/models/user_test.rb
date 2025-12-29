@@ -135,45 +135,6 @@ class UserTest < ActiveSupport::TestCase
     assert_equal user, found_user
   end
 
-  test "magic login token generation" do
-    user = User.create!(
-      email_address: "test@example.com",
-      password: "password123"
-    )
-
-    token = user.generate_token_for(:magic_login)
-    assert_not_nil token
-    assert token.is_a?(String)
-  end
-
-  test "finds user by valid magic login token" do
-    user = User.create!(
-      email_address: "test@example.com",
-      password: "password123"
-    )
-
-    token = user.generate_token_for(:magic_login)
-    found_user = User.find_by_token_for(:magic_login, token)
-
-    assert_equal user, found_user
-  end
-
-  test "magic login token depends on last_sign_in_at" do
-    user = User.create!(
-      email_address: "test@example.com",
-      password: "password123",
-      last_sign_in_at: 1.hour.ago
-    )
-
-    token = user.generate_token_for(:magic_login)
-
-    # Update last_sign_in_at to invalidate the token
-    user.update!(last_sign_in_at: Time.current)
-
-    found_user = User.find_by_token_for(:magic_login, token)
-    assert_nil found_user
-  end
-
   test "admin scope" do
     admin_user = User.create!(
       email_address: "admin@example.com",

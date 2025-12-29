@@ -16,10 +16,6 @@ class User < ApplicationRecord
     updated_at
   end
 
-  generates_token_for :magic_login, expires_in: 15.minutes do
-    last_sign_in_at
-  end
-
   normalizes :email_address, with: ->(e) { e.strip.downcase }
   normalizes :username, with: ->(u) { u.strip.downcase if u.present? }
 

@@ -1,10 +1,59 @@
 require "test_helper"
 
 class OidcJwtServiceTest < ActiveSupport::TestCase
+  TEST_OIDC_KEY = <<~KEY
+    -----BEGIN PRIVATE KEY-----
+    MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCNLfKZ4+Po2Rhd
+    uwtStOvU3XwI4IMPWvIArIskYKKwiRS2GYyYKIa0LtRacExEopbYVonUuNFrvbBZ
+    bl7RHH2qF9u5C01Iadz0sa1ZOqUeetstgK4Wlx9v5kHrGvaTzGLyPmyOzuUTj0LO
+    jDHXuO6ojIJBSIIKmOqO6yOgogX7zWuBzuRFAlDmkaBcg0N/PGb9nvPIyB8oJd3E
+    mKNZtoiAyETLsiF1QMp3PuOj25k7tSgHj+80OCOWe9n7g7iXooGXqIIcYfaxrU7H
+    216lkMLLMblfGc/O68NAKW32x85dpgI3fiNTZS0Wc52yZUQ+zxBhRJ95yjvyfSaC
+    PGysWdFdAgMBAAECggEAGhO63DCDHDMfZE7EimgXKHgprTUVGDy+9x9nyxYbbtq/
+    K9yfwso3iWgd+r+D4uiaTsb7SgLCUfGVdYtksaDe2FB0WiNriLzfHoaEI7dooO7l
+    9atvXIZY/PENy3itQ4MM4rxjjmRKXVjIqQCtwzAqSxE7DQZw2LbCmpf1unm6+7XB
+    So0L3ScgkBszRjOlLoe6LPCkYNisANEH2elNmzgDfAdwhmQSXCnipiIGGxOfFbf8
+    qyAyxmWmzIfnbU1LzOA916C3iLcKVySHm/2SVXsznnwHAdWMW/YVSpTuWmmV+hES
+    3krOBWvh4caVljYxfRkwneIUtnZUBhlVDb0sqRq/yQKBgQDEACJijI++e7L7+6l7
+    vdGhkRzi6BKGixCNeiEUzYjTYKpsMaWm54MYnhZhIaSuYQYEInmkW1wz3DXcH6P5
+    a4rnwpT+66ka6sj5BrD59saPpUaqmnjKY9MDep2WbcCXmNdA4C3xjottHXn4x/9v
+    bHfUlcvdPulbW/QYK4WCfqKSdQKBgQC4Za7NlY3E0CmOO7o0J9vzO1qPb/QIdv7J
+    ohhcAlAsmW1zZEiYxNuQkl4RJLseqMYRHlTzRD0nfEDHksLcp2uXG2WYK6ESP/oI
+    Wl4Lm169e5sutEqFujj6dsrQ+jqGuGSNV2I0rAfEOE2ZSeKNRFsJH35EBMq8XQF1
+    Q4ir/MgWSQKBgHRJbB0yLjqio5+zQWwEQ/Lq6MuLSyp+KZT259ey1kIrMRG+Jv0u
+    kG4zpS19y3oWYH5lgexMtBikx2PRdfUOpDw7CzFv2kX5FMIDAU9c5ZPmSFYCDjZu
+    IY0H26Wbek+3Q8be+wM9QmW7vlknN9sA7Nu5AFpE8CjfFqScdbrlrUjdAoGAf4W6
+    tOyHhaPcCURfCrDCGN1kTKxE3RHGNJWIOSFUZvOYUOP6nMQPgFTo/vwi+BoKGE6c
+    uzvm+wagGiTx4/1Yl8DXqrwJgYCDHwG35lkF1Q7FjDAdFYxq2TQMISfcD803pNPY
+    08pg+J9jcu444i9yscV44ftaZZgAaSNSQnbnvRkCgYBQwP/nqGtXMHHVz97NeEJT
+    xQ/0GCNx1isIN8ZKzynVwZebFrtxwrFOf3zIxgtlx30V3Ekezx7kmbaPiQr041J4
+    nKBppinMQsTb9Bu/0K8aHvjpxdkPeMdugfZAPShDnhM3fhukiJZp36X4u1/xY4Gn
+    wkkkJkpY4gKeqVL0uzeARA==
+    -----END PRIVATE KEY-----
+  KEY
+
   def setup
     @user = users(:alice)
     @application = applications(:kavita_app)
     @service = OidcJwtService
+
+    # Set a consistent test key to avoid key mismatch issues
+    ENV["OIDC_PRIVATE_KEY"] = TEST_OIDC_KEY
+
+    # Reset any memoized keys to pick up the new ENV value
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+    OidcJwtService.instance_variable_set(:@public_key, nil)
+    OidcJwtService.instance_variable_set(:@key_id, nil)
+  end
+
+  def teardown
+    # Clean up ENV after test
+    ENV.delete("OIDC_PRIVATE_KEY")
+
+    # Reset memoized keys
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+    OidcJwtService.instance_variable_set(:@public_key, nil)
+    OidcJwtService.instance_variable_set(:@key_id, nil)
   end
 
   test "should generate id token with required claims" do

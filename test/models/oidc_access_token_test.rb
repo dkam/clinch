@@ -92,9 +92,10 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
     @access_token.revoke!
     @access_token.reload
 
-    assert @access_token.expired?, "Token should be expired after revocation"
-    assert @access_token.expires_at <= Time.current, "Expiry should be set to current time or earlier"
-    assert @access_token.expires_at < original_expiry, "Expiry should be changed from original"
+    assert @access_token.revoked?, "Token should be revoked after revocation"
+    assert @access_token.revoked_at <= Time.current, "Revoked at should be set to current time or earlier"
+    # expires_at should not be changed by revocation
+    assert_equal original_expiry, @access_token.expires_at, "Expiry should remain unchanged"
   end
 
   test "valid scope should return only non-expired tokens" do
@@ -142,7 +143,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
     @access_token.revoke!
 
     assert original_active, "Token should be active before revocation"
-    assert @access_token.expired?, "Token should be expired after revocation"
+    assert @access_token.revoked?, "Token should be revoked after revocation"
   end
 
   test "should generate secure random tokens" do
