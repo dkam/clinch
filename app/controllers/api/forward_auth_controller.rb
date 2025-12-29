@@ -49,14 +49,20 @@ module Api
       forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
 
       if forwarded_host.present?
-        # Load active forward auth applications with their associations for better performance
+        # Load all forward auth applications (including inactive ones) for security checks
         # Preload groups to avoid N+1 queries in user_allowed? checks
-        apps = Application.forward_auth.includes(:allowed_groups).active
+        apps = Application.forward_auth.includes(:allowed_groups)
 
         # Find matching forward auth application for this domain
         app = apps.find { |a| a.matches_domain?(forwarded_host) }
 
         if app
+          # Check if application is active
+          unless app.active?
+            Rails.logger.info "ForwardAuth: Access denied to #{forwarded_host} - application is inactive"
+            return render_forbidden("No authentication rule configured for this domain")
+          end
+
           # Check if user is allowed by this application
           unless app.user_allowed?(user)
             Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by app #{app.domain_pattern}"
@@ -135,6 +141,9 @@ module Api
     def render_unauthorized(reason = nil)
       Rails.logger.info "ForwardAuth: Unauthorized - #{reason}"
 
+      # Set auth reason header for debugging (like Authelia)
+      response.headers["X-Auth-Reason"] = reason if reason.present?
+
       # Get the redirect URL from query params or construct default
       redirect_url = validate_redirect_url(params[:rd])
       base_url = determine_base_url(redirect_url)
@@ -175,6 +184,9 @@ module Api
 
     def render_forbidden(reason = nil)
       Rails.logger.info "ForwardAuth: Forbidden - #{reason}"
+
+      # Set auth reason header for debugging (like Authelia)
+      response.headers["X-Auth-Reason"] = reason if reason.present?
 
       # Return 403 Forbidden
       head :forbidden

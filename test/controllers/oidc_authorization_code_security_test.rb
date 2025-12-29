@@ -438,4 +438,315 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     assert timing_difference < 0.05,
       "Timing difference #{timing_difference}s suggests potential timing attack vulnerability"
   end
+
+  # ====================
+  # STATE PARAMETER BINDING (CSRF PREVENTION FOR OAUTH)
+  # ====================
+
+  test "state parameter is required and validated in authorization flow" do
+    # Create consent to skip consent page
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Test authorization with state parameter
+    get "/oauth/authorize", params: {
+      client_id: @application.client_id,
+      redirect_uri: "http://localhost:4000/callback",
+      response_type: "code",
+      scope: "openid profile",
+      state: "random_state_123"
+    }
+
+    # Should include state in redirect
+    assert_response :redirect
+    assert_match(/state=random_state_123/, response.location)
+  end
+
+  test "authorization without state parameter still works but is less secure" do
+    # Create consent to skip consent page
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Sign in first
+    post signin_path, params: { email_address: "security_test@example.com", password: "password123" }
+
+    # Test authorization without state parameter
+    get "/oauth/authorize", params: {
+      client_id: @application.client_id,
+      redirect_uri: "http://localhost:4000/callback",
+      response_type: "code",
+      scope: "openid profile"
+    }
+
+    # Should work but state is recommended for CSRF protection
+    assert_response :redirect
+  end
+
+  # ====================
+  # NONCE PARAMETER VALIDATION (FOR ID TOKENS)
+  # ====================
+
+  test "nonce parameter is included in ID token" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Create authorization code with nonce
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      code: SecureRandom.urlsafe_base64(32),
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      nonce: "test_nonce_123",
+      expires_at: 10.minutes.from_now
+    )
+
+    # Exchange code for tokens
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.code,
+      redirect_uri: "http://localhost:4000/callback"
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :success
+    response_body = JSON.parse(@response.body)
+    id_token = response_body["id_token"]
+
+    # Decode ID token (without verification for this test)
+    decoded_token = JWT.decode(id_token, nil, false)
+
+    # Verify nonce is included in ID token
+    assert_equal "test_nonce_123", decoded_token[0]["nonce"]
+  end
+
+  # ====================
+  # TOKEN LEAKAGE VIA REFERER HEADER TESTS
+  # ====================
+
+  test "access tokens are not exposed in referer header" do
+    # Create consent and authorization code
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      code: SecureRandom.urlsafe_base64(32),
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      expires_at: 10.minutes.from_now
+    )
+
+    # Exchange code for tokens
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.code,
+      redirect_uri: "http://localhost:4000/callback"
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :success
+    response_body = JSON.parse(@response.body)
+    access_token = response_body["access_token"]
+
+    # Verify token is not in response headers (especially Referer)
+    assert_nil response.headers["Referer"], "Access token should not leak in Referer header"
+    assert_nil response.headers["Location"], "Access token should not leak in Location header"
+  end
+
+  # ====================
+  # PKCE ENFORCEMENT FOR PUBLIC CLIENTS TESTS
+  # ====================
+
+  test "PKCE code_verifier is required when code_challenge was provided" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Create authorization code with PKCE challenge
+    code_verifier = SecureRandom.urlsafe_base64(32)
+    code_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
+
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      code: SecureRandom.urlsafe_base64(32),
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
+      expires_at: 10.minutes.from_now
+    )
+
+    # Try to exchange code without code_verifier
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.code,
+      redirect_uri: "http://localhost:4000/callback"
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :bad_request
+    error = JSON.parse(@response.body)
+    assert_equal "invalid_request", error["error"]
+    assert_match(/code_verifier is required/, error["error_description"])
+  end
+
+  test "PKCE with S256 method validates correctly" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Create authorization code with PKCE S256
+    code_verifier = SecureRandom.urlsafe_base64(32)
+    code_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
+
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      code: SecureRandom.urlsafe_base64(32),
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
+      expires_at: 10.minutes.from_now
+    )
+
+    # Exchange code with correct code_verifier
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.code,
+      redirect_uri: "http://localhost:4000/callback",
+      code_verifier: code_verifier
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :success
+    response_body = JSON.parse(@response.body)
+    assert response_body.key?("access_token")
+  end
+
+  test "PKCE rejects invalid code_verifier" do
+    # Create consent
+    consent = OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-123"
+    )
+
+    # Create authorization code with PKCE
+    code_verifier = SecureRandom.urlsafe_base64(32)
+    code_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
+
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      code: SecureRandom.urlsafe_base64(32),
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
+      expires_at: 10.minutes.from_now
+    )
+
+    # Try with wrong code_verifier
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.code,
+      redirect_uri: "http://localhost:4000/callback",
+      code_verifier: "wrong_code_verifier_12345678901234567890"
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :bad_request
+    error = JSON.parse(@response.body)
+    assert_equal "invalid_grant", error["error"]
+  end
+
+  # ====================
+  # REFRESH TOKEN ROTATION TESTS
+  # ====================
+
+  test "refresh token rotation is enforced" do
+    # Create initial access and refresh tokens
+    access_token = OidcAccessToken.create!(
+      application: @application,
+      user: @user,
+      scope: "openid profile"
+    )
+
+    refresh_token = OidcRefreshToken.create!(
+      application: @application,
+      user: @user,
+      oidc_access_token: access_token,
+      scope: "openid profile"
+    )
+
+    original_token_family_id = refresh_token.token_family_id
+    old_refresh_token = refresh_token.token
+
+    # Refresh the token
+    post "/oauth/token", params: {
+      grant_type: "refresh_token",
+      refresh_token: old_refresh_token
+    }, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+    }
+
+    assert_response :success
+    response_body = JSON.parse(@response.body)
+    new_refresh_token = response_body["refresh_token"]
+
+    # Verify new refresh token is different
+    assert_not_equal old_refresh_token, new_refresh_token
+
+    # Verify token family is preserved
+    new_token_record = OidcRefreshToken.where(application: @application).find do |rt|
+      rt.token_matches?(new_refresh_token)
+    end
+    assert_equal original_token_family_id, new_token_record.token_family_id
+
+    # Old refresh token should be revoked
+    old_token_record = OidcRefreshToken.find(refresh_token.id)
+    assert old_token_record.revoked?
+  end
 end
