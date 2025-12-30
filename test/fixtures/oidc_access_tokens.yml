@@ -1,14 +1,16 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  token: <%= SecureRandom.urlsafe_base64(32) %>
+  token_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
+  token_prefix: <%= SecureRandom.urlsafe_base64(8)[0..7] %>
   application: kavita_app
   user: alice
   scope: "openid profile email"
   expires_at: 2025-12-31 23:59:59
 
 two:
-  token: <%= SecureRandom.urlsafe_base64(32) %>
+  token_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
+  token_prefix: <%= SecureRandom.urlsafe_base64(8)[0..7] %>
   application: another_app
   user: bob
   scope: "openid profile email"

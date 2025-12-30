@@ -24,10 +24,10 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
       application: applications(:kavita_app),
       user: users(:alice)
     )
-    assert_nil new_token.token
+    assert_nil new_token.plaintext_token
     assert new_token.save
-    assert_not_nil new_token.token
-    assert_match /^[A-Za-z0-9_-]+$/, new_token.token
+    assert_not_nil new_token.plaintext_token
+    assert_match /^[A-Za-z0-9_-]+$/, new_token.plaintext_token
   end
 
   test "should set expiry before validation on create" do
@@ -40,23 +40,6 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
     assert_not_nil new_token.expires_at
     assert new_token.expires_at > Time.current
     assert new_token.expires_at <= 61.minutes.from_now # Allow some variance
-  end
-
-  test "should validate presence of token" do
-    @access_token.token = nil
-    assert_not @access_token.valid?
-    assert_includes @access_token.errors[:token], "can't be blank"
-  end
-
-  test "should validate uniqueness of token" do
-    @access_token.save! if @access_token.changed?
-    duplicate = OidcAccessToken.new(
-      token: @access_token.token,
-      application: applications(:another_app),
-      user: users(:bob)
-    )
-    assert_not duplicate.valid?
-    assert_includes duplicate.errors[:token], "has already been taken"
   end
 
   test "should identify expired tokens correctly" do
@@ -153,7 +136,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
         application: applications(:kavita_app),
         user: users(:alice)
       )
-      tokens << token.token
+      tokens << token.plaintext_token
     end
 
     # All tokens should be unique
@@ -180,7 +163,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
       user: users(:alice)
     )
 
-    assert access_token.token.length > auth_code.code.length,
+    assert access_token.plaintext_token.length > auth_code.code.length,
            "Access tokens should be longer than authorization codes"
   end
 
