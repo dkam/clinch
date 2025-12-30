@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_30_005248) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -77,6 +77,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_30_005248) do
     t.string "name", null: false
     t.text "redirect_uris"
     t.integer "refresh_token_ttl", default: 2592000
+    t.boolean "require_pkce", default: true, null: false
     t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_applications_on_active"

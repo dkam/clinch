@@ -1,6 +1,8 @@
 <%# Enhanced Flash Messages with Support for Multiple Types and Auto-Dismiss %>
 <% flash.each do |type, message| %>
   <% next if message.blank? %>
+  <%# Skip credential-related flash messages - they're displayed in a special credentials box %>
+  <% next if %w[client_id client_secret public_client].include?(type.to_s) %>
 
   <%
     # Map flash types to styling

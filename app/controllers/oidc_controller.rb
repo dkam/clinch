@@ -296,20 +296,31 @@ class OidcController < ApplicationController
   end
 
   def handle_authorization_code_grant
-
     # Get client credentials from Authorization header or params
     client_id, client_secret = extract_client_credentials
 
-    unless client_id && client_secret
-      render json: { error: "invalid_client" }, status: :unauthorized
+    unless client_id
+      render json: { error: "invalid_client", error_description: "client_id is required" }, status: :unauthorized
       return
     end
 
-    # Find and validate the application
+    # Find the application
     application = Application.find_by(client_id: client_id)
-    unless application && application.authenticate_client_secret(client_secret)
-      render json: { error: "invalid_client" }, status: :unauthorized
+    unless application
+      render json: { error: "invalid_client", error_description: "Unknown client" }, status: :unauthorized
       return
+    end
+
+    # Validate client credentials based on client type
+    if application.public_client?
+      # Public clients don't have a secret - they MUST use PKCE (checked later)
+      Rails.logger.info "OAuth: Public client authentication for #{application.name}"
+    else
+      # Confidential clients MUST provide valid client_secret
+      unless client_secret.present? && application.authenticate_client_secret(client_secret)
+        render json: { error: "invalid_client", error_description: "Invalid client credentials" }, status: :unauthorized
+        return
+      end
     end
 
     # Check if application is active
@@ -371,8 +382,8 @@ class OidcController < ApplicationController
           return
         end
 
-        # Validate PKCE if code challenge is present
-        pkce_result = validate_pkce(auth_code, code_verifier)
+        # Validate PKCE - required for public clients and optionally for confidential clients
+        pkce_result = validate_pkce(application, auth_code, code_verifier)
         unless pkce_result[:valid]
           render json: {
             error: pkce_result[:error],
@@ -433,16 +444,28 @@ class OidcController < ApplicationController
     # Get client credentials from Authorization header or params
     client_id, client_secret = extract_client_credentials
 
-    unless client_id && client_secret
-      render json: { error: "invalid_client" }, status: :unauthorized
+    unless client_id
+      render json: { error: "invalid_client", error_description: "client_id is required" }, status: :unauthorized
       return
     end
 
-    # Find and validate the application
+    # Find the application
     application = Application.find_by(client_id: client_id)
-    unless application && application.authenticate_client_secret(client_secret)
-      render json: { error: "invalid_client" }, status: :unauthorized
+    unless application
+      render json: { error: "invalid_client", error_description: "Unknown client" }, status: :unauthorized
       return
+    end
+
+    # Validate client credentials based on client type
+    if application.public_client?
+      # Public clients don't have a secret
+      Rails.logger.info "OAuth: Public client refresh token request for #{application.name}"
+    else
+      # Confidential clients MUST provide valid client_secret
+      unless client_secret.present? && application.authenticate_client_secret(client_secret)
+        render json: { error: "invalid_client", error_description: "Invalid client credentials" }, status: :unauthorized
+        return
+      end
     end
 
     # Check if application is active
@@ -716,11 +739,26 @@ class OidcController < ApplicationController
 
   private
 
-  def validate_pkce(auth_code, code_verifier)
-    # Skip PKCE validation if no code challenge was stored (legacy clients)
-    return { valid: true } unless auth_code.code_challenge.present?
+  def validate_pkce(application, auth_code, code_verifier)
+    # Check if PKCE is required for this application
+    pkce_required = application.requires_pkce?
+    pkce_provided = auth_code.code_challenge.present?
 
-    # PKCE is required but no verifier provided
+    # If PKCE is required but wasn't provided during authorization
+    if pkce_required && !pkce_provided
+      client_type = application.public_client? ? "public clients" : "this application"
+      return {
+        valid: false,
+        error: "invalid_request",
+        error_description: "PKCE is required for #{client_type}. code_challenge must be provided during authorization.",
+        status: :bad_request
+      }
+    end
+
+    # Skip validation if no code challenge was stored (legacy clients without PKCE requirement)
+    return { valid: true } unless pkce_provided
+
+    # PKCE was provided during authorization but no verifier sent with token request
     unless code_verifier.present?
       return {
         valid: false,

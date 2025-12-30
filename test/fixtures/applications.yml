@@ -13,6 +13,7 @@ kavita_app:
     https://kavita.example.com/signout-callback-oidc
   metadata: "{}"
   active: true
+  require_pkce: false
 
 another_app:
   name: Another App
@@ -24,6 +25,7 @@ another_app:
     https://app.example.com/auth/callback
   metadata: "{}"
   active: true
+  require_pkce: false
 
 audiobookshelf_app:
   name: Audiobookshelf
@@ -35,3 +37,4 @@ audiobookshelf_app:
     https://abs.example.com/auth/openid/callback
   metadata: "{}"
   active: true
+  require_pkce: false

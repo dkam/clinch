@@ -74,6 +74,14 @@ class User < ApplicationRecord
     totp.verify(code, drift_behind: 30, drift_ahead: 30)
   end
 
+  # Console/debug helper: get current TOTP code
+  def console_totp
+    return nil unless totp_enabled?
+
+    require "rotp"
+    ROTP::TOTP.new(totp_secret).now
+  end
+
   def verify_backup_code(code)
     return false unless backup_codes.present?
 

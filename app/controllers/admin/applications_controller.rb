@@ -26,16 +26,17 @@ module Admin
           @application.allowed_groups = Group.where(id: group_ids)
         end
 
-        # Get the plain text client secret to show one time
+        # Get the plain text client secret to show one time (confidential clients only)
         client_secret = nil
-        if @application.oidc?
+        if @application.oidc? && @application.confidential_client?
           client_secret = @application.generate_new_client_secret!
         end
 
-        if @application.oidc? && client_secret
+        if @application.oidc?
           flash[:notice] = "Application created successfully."
           flash[:client_id] = @application.client_id
-          flash[:client_secret] = client_secret
+          flash[:client_secret] = client_secret if client_secret
+          flash[:public_client] = true if @application.public_client?
         else
           flash[:notice] = "Application created successfully."
         end
@@ -74,15 +75,20 @@ module Admin
 
     def regenerate_credentials
       if @application.oidc?
-        # Generate new client ID and secret
+        # Generate new client ID (always)
         new_client_id = SecureRandom.urlsafe_base64(32)
-        client_secret = @application.generate_new_client_secret!
-
         @application.update!(client_id: new_client_id)
 
         flash[:notice] = "Credentials regenerated successfully."
         flash[:client_id] = @application.client_id
-        flash[:client_secret] = client_secret
+
+        # Generate new client secret only for confidential clients
+        if @application.confidential_client?
+          client_secret = @application.generate_new_client_secret!
+          flash[:client_secret] = client_secret
+        else
+          flash[:public_client] = true
+        end
 
         redirect_to admin_application_path(@application)
       else
@@ -97,15 +103,24 @@ module Admin
     end
 
     def application_params
-      params.require(:application).permit(
+      permitted = params.require(:application).permit(
         :name, :slug, :app_type, :active, :redirect_uris, :description, :metadata,
         :domain_pattern, :landing_url, :access_token_ttl, :refresh_token_ttl, :id_token_ttl,
-        :icon, :backchannel_logout_uri,
-        headers_config: {}
-      ).tap do |whitelisted|
-        # Remove client_secret from params if present (shouldn't be updated via form)
-        whitelisted.delete(:client_secret)
+        :icon, :backchannel_logout_uri, :is_public_client, :require_pkce
+      )
+
+      # Handle headers_config - it comes as a JSON string from the text area
+      if params[:application][:headers_config].present?
+        begin
+          permitted[:headers_config] = JSON.parse(params[:application][:headers_config])
+        rescue JSON::ParserError
+          permitted[:headers_config] = {}
+        end
       end
+
+      # Remove client_secret from params if present (shouldn't be updated via form)
+      permitted.delete(:client_secret)
+      permitted
     end
   end
 end

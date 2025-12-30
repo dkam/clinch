@@ -6,6 +6,15 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     @admin_user = users(:two)
     @group = groups(:one)
     @group2 = groups(:two)
+
+    # Create a forward_auth application for test.example.com
+    @test_app = Application.create!(
+      name: "Test App",
+      slug: "test-app",
+      app_type: "forward_auth",
+      domain_pattern: "test.example.com",
+      active: true
+    )
   end
 
   # Basic Authentication Flow Tests

@@ -4,7 +4,6 @@ class OidcRefreshToken < ApplicationRecord
   belongs_to :application
   belongs_to :user
   belongs_to :oidc_access_token
-  has_many :oidc_access_tokens, foreign_key: :oidc_access_token_id, dependent: :nullify
 
   before_validation :generate_token_with_prefix, on: :create
   before_validation :set_expiry, on: :create

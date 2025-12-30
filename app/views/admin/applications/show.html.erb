@@ -1,17 +1,30 @@
 <div class="mb-6">
-  <% if flash[:client_id] && flash[:client_secret] %>
+  <% if flash[:client_id] %>
     <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
       <h4 class="text-sm font-medium text-yellow-800 mb-2">🔐 OIDC Client Credentials</h4>
-      <p class="text-xs text-yellow-700 mb-3">Copy these credentials now. The client secret will not be shown again.</p>
+      <% if flash[:public_client] %>
+        <p class="text-xs text-yellow-700 mb-3">This is a public client. Copy the client ID below.</p>
+      <% else %>
+        <p class="text-xs text-yellow-700 mb-3">Copy these credentials now. The client secret will not be shown again.</p>
+      <% end %>
       <div class="space-y-2">
         <div>
           <span class="text-xs font-medium text-yellow-700">Client ID:</span>
         </div>
         <code class="block bg-yellow-100 px-3 py-2 rounded font-mono text-xs break-all"><%= flash[:client_id] %></code>
-        <div class="mt-3">
-          <span class="text-xs font-medium text-yellow-700">Client Secret:</span>
-        </div>
-        <code class="block bg-yellow-100 px-3 py-2 rounded font-mono text-xs break-all"><%= flash[:client_secret] %></code>
+        <% if flash[:client_secret] %>
+          <div class="mt-3">
+            <span class="text-xs font-medium text-yellow-700">Client Secret:</span>
+          </div>
+          <code class="block bg-yellow-100 px-3 py-2 rounded font-mono text-xs break-all"><%= flash[:client_secret] %></code>
+        <% elsif flash[:public_client] %>
+          <div class="mt-3">
+            <span class="text-xs font-medium text-yellow-700">Client Secret:</span>
+          </div>
+          <div class="bg-yellow-100 px-3 py-2 rounded text-xs text-yellow-600">
+            Public clients do not have a client secret. PKCE is required.
+          </div>
+        <% end %>
       </div>
     </div>
   <% end %>
@@ -93,24 +106,57 @@
           <%= button_to "Regenerate Credentials", regenerate_credentials_admin_application_path(@application), method: :post, data: { turbo_confirm: "This will invalidate the current credentials. Continue?" }, class: "text-sm text-red-600 hover:text-red-900" %>
         </div>
         <dl class="space-y-4">
-          <% unless flash[:client_id] && flash[:client_secret] %>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Client Type</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <% if @application.public_client? %>
+                  <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">Public</span>
+                <% else %>
+                  <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">Confidential</span>
+                <% end %>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">PKCE</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <% if @application.requires_pkce? %>
+                  <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">Required</span>
+                <% else %>
+                  <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">Optional</span>
+                <% end %>
+              </dd>
+            </div>
+          </div>
+          <% unless flash[:client_id] %>
             <div>
               <dt class="text-sm font-medium text-gray-500">Client ID</dt>
               <dd class="mt-1 text-sm text-gray-900">
                 <code class="block bg-gray-100 px-3 py-2 rounded font-mono text-xs break-all"><%= @application.client_id %></code>
               </dd>
             </div>
-            <div>
-              <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
-              <dd class="mt-1 text-sm text-gray-900">
-                <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500 italic">
-                  🔒 Client secret is stored securely and cannot be displayed
-                </div>
-                <p class="mt-2 text-xs text-gray-500">
-                  To get a new client secret, use the "Regenerate Credentials" button above.
-                </p>
-              </dd>
-            </div>
+            <% if @application.confidential_client? %>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                  <div class="bg-gray-100 px-3 py-2 rounded text-xs text-gray-500 italic">
+                    🔒 Client secret is stored securely and cannot be displayed
+                  </div>
+                  <p class="mt-2 text-xs text-gray-500">
+                    To get a new client secret, use the "Regenerate Credentials" button above.
+                  </p>
+                </dd>
+              </div>
+            <% else %>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Client Secret</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                  <div class="bg-blue-50 px-3 py-2 rounded text-xs text-blue-600">
+                    Public clients do not use a client secret. PKCE is required for authorization.
+                  </div>
+                </dd>
+              </div>
+            <% end %>
           <% end %>
           <div>
             <dt class="text-sm font-medium text-gray-500">Redirect URIs</dt>

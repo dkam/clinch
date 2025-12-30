@@ -8,7 +8,8 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
       slug: "security-test-app",
       app_type: "oidc",
       redirect_uris: ["http://localhost:4000/callback"].to_json,
-      active: true
+      active: true,
+      require_pkce: false
     )
 
     # Store the plain text client secret for testing
@@ -274,7 +275,8 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
       slug: "other-app",
       app_type: "oidc",
       redirect_uris: ["http://localhost:5000/callback"].to_json,
-      active: true
+      active: true,
+      require_pkce: false
     )
     other_secret = other_app.client_secret
 

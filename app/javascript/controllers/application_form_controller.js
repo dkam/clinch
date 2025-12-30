@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["appTypeSelect", "oidcFields", "forwardAuthFields"]
+  static targets = ["appTypeSelect", "oidcFields", "forwardAuthFields", "pkceOptions"]
 
   connect() {
     this.updateFieldVisibility()
@@ -19,6 +19,19 @@ export default class extends Controller {
     } else {
       this.oidcFieldsTarget.classList.add('hidden')
       this.forwardAuthFieldsTarget.classList.add('hidden')
+    }
+  }
+
+  updatePkceVisibility(event) {
+    // Show PKCE options for confidential clients, hide for public clients
+    const isPublicClient = event.target.value === "true"
+
+    if (this.hasPkceOptionsTarget) {
+      if (isPublicClient) {
+        this.pkceOptionsTarget.classList.add('hidden')
+      } else {
+        this.pkceOptionsTarget.classList.remove('hidden')
+      }
     }
   }
 }

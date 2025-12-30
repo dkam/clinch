@@ -1,6 +1,10 @@
 class Application < ApplicationRecord
   has_secure_password :client_secret, validations: false
 
+  # Virtual attribute to control client type during creation
+  # When true, no client_secret will be generated (public client)
+  attr_accessor :is_public_client
+
   has_one_attached :icon
 
   # Fix SVG content type after attachment
@@ -20,7 +24,7 @@ class Application < ApplicationRecord
   validates :app_type, presence: true,
                       inclusion: { in: %w[oidc forward_auth] }
   validates :client_id, uniqueness: { allow_nil: true }
-  validates :client_secret, presence: true, on: :create, if: -> { oidc? }
+  validates :client_secret, presence: true, on: :create, if: -> { oidc? && confidential_client? }
   validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
   validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
   validates :backchannel_logout_uri, format: {
@@ -72,6 +76,24 @@ class Application < ApplicationRecord
 
   def forward_auth?
     app_type == "forward_auth"
+  end
+
+  # Client type checks (for OIDC)
+  def public_client?
+    client_secret_digest.blank?
+  end
+
+  def confidential_client?
+    !public_client?
+  end
+
+  # PKCE requirement check
+  # Public clients MUST use PKCE (no client secret to protect auth code)
+  # Confidential clients can optionally require PKCE (OAuth 2.1 recommendation)
+  def requires_pkce?
+    return false unless oidc?
+    return true if public_client?  # Always require PKCE for public clients
+    require_pkce?  # Check the flag for confidential clients
   end
 
   # Access control
@@ -261,11 +283,17 @@ class Application < ApplicationRecord
 
   def generate_client_credentials
     self.client_id ||= SecureRandom.urlsafe_base64(32)
-    # Generate and hash the client secret
-    if new_record? && client_secret.blank?
+    # Generate client secret only for confidential clients
+    # Public clients (is_public_client checked) don't get a secret - they use PKCE only
+    if new_record? && client_secret.blank? && !is_public_client_selected?
       secret = SecureRandom.urlsafe_base64(48)
       self.client_secret = secret
     end
+  end
+
+  # Check if the user selected public client option
+  def is_public_client_selected?
+    ActiveModel::Type::Boolean.new.cast(is_public_client)
   end
 
   def backchannel_logout_uri_must_be_https_in_production
