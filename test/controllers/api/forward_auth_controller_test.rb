@@ -46,14 +46,13 @@ module Api
       assert_response 200
     end
 
-    test "should return 200 with default headers when no rule matches" do
+    test "should return 403 when no rule matches (fail-closed security)" do
       sign_in_as(@user)
 
       get "/api/verify", headers: { "X-Forwarded-Host" => "unknown.example.com" }
 
-      assert_response 200
-      assert_equal @user.email_address, response.headers["x-remote-user"]
-      assert_equal @user.email_address, response.headers["x-remote-email"]
+      assert_response 403
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     test "should return 403 when rule exists but is inactive" do
@@ -97,7 +96,8 @@ module Api
       assert_response 200
 
       get "/api/verify", headers: { "X-Forwarded-Host" => "other.com" }
-      assert_response 200  # Falls back to default behavior
+      assert_response 403  # No rule configured - fail-closed
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     test "should match exact domains correctly" do
@@ -108,7 +108,8 @@ module Api
       assert_response 200
 
       get "/api/verify", headers: { "X-Forwarded-Host" => "app.api.example.com" }
-      assert_response 200  # Falls back to default behavior
+      assert_response 403  # No rule configured - fail-closed
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     # Header Configuration Tests
@@ -228,8 +229,9 @@ module Api
 
       get "/api/verify"
 
-      assert_response 200
-      # User is authenticated even without host headers
+      # User is authenticated but no domain rule matches (default test host)
+      assert_response 403
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     # Security Tests
@@ -239,7 +241,8 @@ module Api
 
       get "/api/verify", headers: { "X-Forwarded-Host" => long_domain }
 
-      assert_response 200  # Should fall back to default behavior
+      assert_response 403  # No rule configured - fail-closed
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     test "should handle case insensitive domain matching" do
@@ -425,7 +428,8 @@ module Api
         "X-Forwarded-Host" => "测试.example.com"
       }
 
-      assert_response 200
+      assert_response 403  # No rule configured - fail-closed
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     # Protocol and Scheme Tests
@@ -478,16 +482,15 @@ module Api
       5.times do |i|
         threads << Thread.new do
           get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
-          results << { status: response.status, user: response.headers["x-remote-user"] }
+          results << { status: response.status }
         end
       end
 
       threads.each(&:join)
 
-      # All requests should succeed
+      # All requests should be denied (no rules configured for these domains)
       results.each do |result|
-        assert_equal 200, result[:status]
-        assert_equal @user.email_address, result[:user]
+        assert_equal 403, result[:status]
       end
     end
 
@@ -508,8 +511,9 @@ module Api
         "X-Forwarded-Host" => "test.example.com\0.evil.com"
       }
 
-      # Should handle null bytes safely
-      assert_response 200
+      # Should handle null bytes safely - domain doesn't match any rule
+      assert_response 403
+      assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     # Performance and Load Tests
@@ -521,7 +525,7 @@ module Api
 
       request_count.times do |i|
         get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
-        assert_response 200
+        assert_response 403  # No rules configured for these domains
       end
 
       total_time = Time.current - start_time

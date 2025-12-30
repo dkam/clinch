@@ -71,8 +71,9 @@ module Api
 
           Rails.logger.info "ForwardAuth: User #{user.email_address} granted access to #{forwarded_host} by app #{app.domain_pattern} (policy: #{app.policy_for_user(user)})"
         else
-          # No application found - allow access with default headers (original behavior)
-          Rails.logger.info "ForwardAuth: No application found for domain: #{forwarded_host}, allowing with default headers"
+          # No application found - DENY by default (fail-closed security)
+          Rails.logger.info "ForwardAuth: Access denied to #{forwarded_host} - no authentication rule configured"
+          return render_forbidden("No authentication rule configured for this domain")
         end
       else
         Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no domain specified)"
