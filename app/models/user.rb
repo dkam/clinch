@@ -1,4 +1,7 @@
 class User < ApplicationRecord
+  # Encrypt TOTP secrets at rest (key derived from SECRET_KEY_BASE)
+  encrypts :totp_secret
+
   has_secure_password
   has_many :sessions, dependent: :destroy
   has_many :user_groups, dependent: :destroy

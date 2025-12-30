@@ -19,13 +19,21 @@ class ProfilesController < ApplicationController
       else
         render :show, status: :unprocessable_entity
       end
-    else
-      # Updating email
+    elsif params[:user][:email_address].present?
+      # Updating email - requires current password (security: prevents account takeover)
+      unless @user.authenticate(params[:user][:current_password])
+        @user.errors.add(:current_password, "is required to change email")
+        render :show, status: :unprocessable_entity
+        return
+      end
+
       if @user.update(email_params)
         redirect_to profile_path, notice: "Email updated successfully."
       else
         render :show, status: :unprocessable_entity
       end
+    else
+      render :show, status: :unprocessable_entity
     end
   end
 

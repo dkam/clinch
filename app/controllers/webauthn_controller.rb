@@ -2,6 +2,11 @@ class WebauthnController < ApplicationController
   before_action :set_webauthn_credential, only: [:destroy]
   skip_before_action :require_authentication, only: [:check]
 
+  # Rate limit check endpoint to prevent enumeration attacks
+  rate_limit to: 10, within: 1.minute, only: [:check], with: -> {
+    render json: { error: "Too many requests. Try again later." }, status: :too_many_requests
+  }
+
   # GET /webauthn/new
   def new
     @webauthn_credential = WebauthnCredential.new
@@ -131,25 +136,27 @@ class WebauthnController < ApplicationController
 
   # GET /webauthn/check
   # Check if user has WebAuthn credentials (for login page detection)
+  # Security: Returns identical responses for non-existent users to prevent enumeration
   def check
     email = params[:email]&.strip&.downcase
 
     if email.blank?
-      render json: { has_webauthn: false, error: "Email is required" }
+      render json: { has_webauthn: false, requires_webauthn: false }
       return
     end
 
     user = User.find_by(email_address: email)
 
+    # Security: Return identical response for non-existent users
+    # Combined with rate limiting (10/min), this prevents account enumeration
     if user.nil?
-      render json: { has_webauthn: false, message: "User not found" }
+      render json: { has_webauthn: false, requires_webauthn: false }
       return
     end
 
+    # Only return minimal necessary info - no user_id or preferred_method
     render json: {
       has_webauthn: user.can_authenticate_with_webauthn?,
-      user_id: user.id,
-      preferred_method: user.preferred_authentication_method,
       requires_webauthn: user.require_webauthn?
     }
   end
