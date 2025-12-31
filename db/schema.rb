@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_31_043838) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_31_055350) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -114,6 +114,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_043838) do
 
   create_table "oidc_authorization_codes", force: :cascade do |t|
     t.integer "application_id", null: false
+    t.integer "auth_time"
     t.string "code_challenge"
     t.string "code_challenge_method"
     t.string "code_hmac", null: false
@@ -135,6 +136,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_043838) do
 
   create_table "oidc_refresh_tokens", force: :cascade do |t|
     t.integer "application_id", null: false
+    t.integer "auth_time"
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.integer "oidc_access_token_id", null: false

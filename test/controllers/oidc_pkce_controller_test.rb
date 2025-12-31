@@ -532,7 +532,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   # AUTH_TIME CLAIM TESTS
   # ====================
 
-  test "ID token includes auth_time claim from session created_at" do
+  test "ID token includes auth_time claim from authorization code" do
     # Create consent
     OidcUserConsent.create!(
       user: @user,
@@ -551,7 +551,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Get the expected auth_time from the session's created_at
     expected_auth_time = Current.session.created_at.to_i
 
-    # Create authorization code
+    # Create authorization code with auth_time
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -559,6 +559,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       scope: "openid profile",
       code_challenge: code_challenge,
       code_challenge_method: "S256",
+      auth_time: expected_auth_time,
       expires_at: 10.minutes.from_now
     )
 
@@ -577,10 +578,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     tokens = JSON.parse(@response.body)
     assert tokens.key?("id_token")
 
-    # Decode and verify auth_time is present and matches session created_at
+    # Decode and verify auth_time is present and matches what we stored
     decoded = JWT.decode(tokens["id_token"], nil, false).first
     assert_includes decoded.keys, "auth_time", "ID token should include auth_time"
-    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match session created_at"
+    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match authorization code"
   end
 
   test "ID token includes auth_time in refresh token flow" do
@@ -596,7 +597,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Get the expected auth_time from the session's created_at
     expected_auth_time = Current.session.created_at.to_i
 
-    # Create initial access and refresh tokens (bypass PKCE for this test)
+    # Create initial access and refresh tokens with auth_time
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
@@ -604,6 +605,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       scope: "openid profile offline_access",
       code_challenge: nil,
       code_challenge_method: nil,
+      auth_time: expected_auth_time,
       expires_at: 10.minutes.from_now
     )
 
@@ -638,10 +640,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     new_tokens = JSON.parse(@response.body)
     assert new_tokens.key?("id_token")
 
-    # Decode and verify auth_time is still present from session created_at
+    # Decode and verify auth_time is preserved from original authorization
     decoded = JWT.decode(new_tokens["id_token"], nil, false).first
     assert_includes decoded.keys, "auth_time", "Refreshed ID token should include auth_time"
-    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match session created_at"
+    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match original authorization code"
   end
 
   test "at_hash is correctly computed and included in ID token" do
