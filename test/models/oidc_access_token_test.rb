@@ -163,7 +163,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
       user: users(:alice)
     )
 
-    assert access_token.plaintext_token.length > auth_code.code.length,
+    assert access_token.plaintext_token.length > auth_code.plaintext_code.length,
            "Access tokens should be longer than authorization codes"
   end
 

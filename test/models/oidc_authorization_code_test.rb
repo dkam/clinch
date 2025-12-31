@@ -25,10 +25,10 @@ class OidcAuthorizationCodeTest < ActiveSupport::TestCase
       user: users(:alice),
       redirect_uri: "https://example.com/callback"
     )
-    assert_nil new_code.code
+    assert_nil new_code.code_hmac
     assert new_code.save
-    assert_not_nil new_code.code
-    assert_match /^[A-Za-z0-9_-]+$/, new_code.code
+    assert_not_nil new_code.code_hmac
+    assert_match /^[a-f0-9]{64}$/, new_code.code_hmac # SHA256 hex digest
   end
 
   test "should set expiry before validation on create" do
@@ -44,22 +44,22 @@ class OidcAuthorizationCodeTest < ActiveSupport::TestCase
     assert new_code.expires_at <= 11.minutes.from_now # Allow some variance
   end
 
-  test "should validate presence of code" do
-    @auth_code.code = nil
+  test "should validate presence of code_hmac" do
+    @auth_code.code_hmac = nil
     assert_not @auth_code.valid?
-    assert_includes @auth_code.errors[:code], "can't be blank"
+    assert_includes @auth_code.errors[:code_hmac], "can't be blank"
   end
 
-  test "should validate uniqueness of code" do
+  test "should validate uniqueness of code_hmac" do
     @auth_code.save! if @auth_code.changed?
     duplicate = OidcAuthorizationCode.new(
-      code: @auth_code.code,
+      code_hmac: @auth_code.code_hmac,
       application: applications(:another_app),
       user: users(:bob),
       redirect_uri: "https://example.com/callback"
     )
     assert_not duplicate.valid?
-    assert_includes duplicate.errors[:code], "has already been taken"
+    assert_includes duplicate.errors[:code_hmac], "has already been taken"
   end
 
   test "should validate presence of redirect_uri" do
@@ -178,16 +178,16 @@ class OidcAuthorizationCodeTest < ActiveSupport::TestCase
         user: users(:alice),
         redirect_uri: "https://example.com/callback"
       )
-      codes << code.code
+      codes << code.code_hmac
     end
 
     # All codes should be unique
     assert_equal codes.length, codes.uniq.length
 
-    # All codes should match the expected pattern
+    # All codes should be SHA256 hex digests
     codes.each do |code|
-      assert_match /^[A-Za-z0-9_-]+$/, code
-      assert_equal 43, code.length # Base64 padding removed
+      assert_match /^[a-f0-9]{64}$/, code
+      assert_equal 64, code.length # SHA256 hex digest
     end
   end
 end
