@@ -5,9 +5,9 @@
 
 **A lightweight, self-hosted identity & SSO / IpD portal**
 
-Clinch gives you one place to manage users and lets any web app authenticate against it without maintaining its own user table. 
+Clinch gives you one place to manage users and lets any web app authenticate against it without managing it's own users. 
 
-I've completed all planned features:
+All planned features are complete:
 
 * Create Admin user on first login
 * TOTP ( QR Code ) 2FA, with backup codes ( encrypted at rest )
@@ -24,7 +24,7 @@ I've completed all planned features:
 * Display all Applications available to the user on their Dashboard
 * Display all logged in sessions and OIDC logged in sessions
 
-What remains now is ensure test coverage, 
+What remains now is ensure test coverage, and validating correct implementation. 
 
 ## Why Clinch?
 
@@ -106,8 +106,9 @@ Client apps (Audiobookshelf, Kavita, Grafana, etc.) redirect to Clinch for login
 #### Trusted-Header SSO (ForwardAuth)
 Works with reverse proxies (Caddy, Traefik, Nginx):
 1. Proxy sends every request to `/api/verify`
-2. **200 OK** → Proxy injects headers (`Remote-User`, `Remote-Groups`, `Remote-Email`) and forwards to app
-3. **401/403** → Proxy redirects to Clinch login; after login, user returns to original URL
+2. Response handling:
+   - **200 OK** → Proxy injects headers (`Remote-User`, `Remote-Groups`, `Remote-Email`) and forwards to app
+   - **Any other status** → Proxy returns that response directly to client (typically 302 redirect to login page)
 
 Apps that speak OIDC use the OIDC flow; apps that only need "who is it?" headers use ForwardAuth.
 
