@@ -532,7 +532,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   # AUTH_TIME CLAIM TESTS
   # ====================
 
-  test "ID token includes auth_time claim from session" do
+  test "ID token includes auth_time claim from session created_at" do
     # Create consent
     OidcUserConsent.create!(
       user: @user,
@@ -548,8 +548,8 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       .tr("+/", "-_")
       .tr("=", "")
 
-    # Set auth_time in session (simulating user login)
-    session[:auth_time] = Time.now.to_i - 300  # 5 minutes ago
+    # Get the expected auth_time from the session's created_at
+    expected_auth_time = Current.session.created_at.to_i
 
     # Create authorization code
     auth_code = OidcAuthorizationCode.create!(
@@ -577,10 +577,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     tokens = JSON.parse(@response.body)
     assert tokens.key?("id_token")
 
-    # Decode and verify auth_time is present
+    # Decode and verify auth_time is present and matches session created_at
     decoded = JWT.decode(tokens["id_token"], nil, false).first
     assert_includes decoded.keys, "auth_time", "ID token should include auth_time"
-    assert_equal session[:auth_time], decoded["auth_time"], "auth_time should match session value"
+    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match session created_at"
   end
 
   test "ID token includes auth_time in refresh token flow" do
@@ -593,8 +593,8 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       sid: "test-sid-refresh-auth-time"
     )
 
-    # Set auth_time in session
-    session[:auth_time] = Time.now.to_i - 600  # 10 minutes ago
+    # Get the expected auth_time from the session's created_at
+    expected_auth_time = Current.session.created_at.to_i
 
     # Create initial access and refresh tokens (bypass PKCE for this test)
     auth_code = OidcAuthorizationCode.create!(
@@ -638,10 +638,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     new_tokens = JSON.parse(@response.body)
     assert new_tokens.key?("id_token")
 
-    # Decode and verify auth_time is still present from refresh
+    # Decode and verify auth_time is still present from session created_at
     decoded = JWT.decode(new_tokens["id_token"], nil, false).first
     assert_includes decoded.keys, "auth_time", "Refreshed ID token should include auth_time"
-    assert_equal session[:auth_time], decoded["auth_time"], "auth_time should persist from original session"
+    assert_equal expected_auth_time, decoded["auth_time"], "auth_time should match session created_at"
   end
 
   test "at_hash is correctly computed and included in ID token" do

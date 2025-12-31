@@ -49,9 +49,6 @@ module Authentication
       user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip).tap do |session|
         Current.session = session
 
-        # Store auth_time in session for OIDC max_age support
-        session[:auth_time] = Time.now.to_i
-
         # Extract root domain for cross-subdomain cookies (required for forward auth)
         domain = extract_root_domain(request.host)
 

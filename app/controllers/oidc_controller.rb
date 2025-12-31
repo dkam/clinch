@@ -412,13 +412,14 @@ class OidcController < ApplicationController
         end
 
         # Generate ID token (JWT) with pairwise SID, at_hash, and auth_time
+        # auth_time comes from the Session model's created_at (when user logged in)
         id_token = OidcJwtService.generate_id_token(
           user,
           application,
           consent: consent,
           nonce: auth_code.nonce,
           access_token: access_token_record.plaintext_token,
-          auth_time: session[:auth_time]
+          auth_time: Current.session.created_at.to_i
         )
 
         # Return tokens
@@ -536,12 +537,13 @@ class OidcController < ApplicationController
     end
 
     # Generate new ID token (JWT with pairwise SID, at_hash, and auth_time; no nonce for refresh grants)
+    # auth_time comes from the Session model's created_at (when user logged in)
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
       access_token: new_access_token.plaintext_token,
-      auth_time: session[:auth_time]
+      auth_time: Current.session.created_at.to_i
     )
 
     # Return new tokens
