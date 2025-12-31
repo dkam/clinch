@@ -26,7 +26,7 @@ class OidcController < ApplicationController
       response_types_supported: ["code"],
       response_modes_supported: ["query"],
       grant_types_supported: ["authorization_code", "refresh_token"],
-      subject_types_supported: ["public"],
+      subject_types_supported: ["pairwise"],
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: ["openid", "profile", "email", "groups", "offline_access"],
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
@@ -422,8 +422,14 @@ class OidcController < ApplicationController
           return
         end
 
-        # Generate ID token (JWT) with pairwise SID
-        id_token = OidcJwtService.generate_id_token(user, application, consent: consent, nonce: auth_code.nonce)
+        # Generate ID token (JWT) with pairwise SID and at_hash
+        id_token = OidcJwtService.generate_id_token(
+          user,
+          application,
+          consent: consent,
+          nonce: auth_code.nonce,
+          access_token: access_token_record.plaintext_token
+        )
 
         # Return tokens
         render json: {
@@ -539,8 +545,13 @@ class OidcController < ApplicationController
       return
     end
 
-    # Generate new ID token (JWT with pairwise SID, no nonce for refresh grants)
-    id_token = OidcJwtService.generate_id_token(user, application, consent: consent)
+    # Generate new ID token (JWT with pairwise SID and at_hash, no nonce for refresh grants)
+    id_token = OidcJwtService.generate_id_token(
+      user,
+      application,
+      consent: consent,
+      access_token: new_access_token.plaintext_token
+    )
 
     # Return new tokens
     render json: {

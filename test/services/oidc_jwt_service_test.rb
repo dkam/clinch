@@ -476,4 +476,23 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     assert_includes decoded["roles"], "moderator"
     assert_includes decoded["roles"], "app_admin"
   end
+
+  test "should include at_hash when access token is provided" do
+    access_token = "test-access-token-abc123xyz"
+    token = @service.generate_id_token(@user, @application, access_token: access_token)
+
+    decoded = JWT.decode(token, nil, false).first
+    assert_includes decoded.keys, "at_hash", "Should include at_hash claim"
+
+    # Verify at_hash is correctly computed: base64url(sha256(access_token)[0:16])
+    expected_hash = Base64.urlsafe_encode64(Digest::SHA256.digest(access_token)[0..15], padding: false)
+    assert_equal expected_hash, decoded["at_hash"], "at_hash should match SHA-256 hash of access token"
+  end
+
+  test "should not include at_hash when access token is not provided" do
+    token = @service.generate_id_token(@user, @application)
+
+    decoded = JWT.decode(token, nil, false).first
+    refute_includes decoded.keys, "at_hash", "Should not include at_hash when no access token"
+  end
 end
