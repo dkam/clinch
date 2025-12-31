@@ -82,7 +82,7 @@ Features:
 - **Refresh tokens** - Long-lived tokens (30 days default) with automatic rotation and revocation
 - **Token family tracking** - Advanced security detects token replay attacks and revokes compromised token families
 - **Configurable token expiry** - Set access token (5min-24hr), refresh token (1-90 days), and ID token TTL per application
-- **Token security** - BCrypt-hashed tokens, automatic cleanup of expired tokens
+- **Token security** - HMAC-SHA256 hashed authorization codes, BCrypt-hashed access/refresh tokens, automatic cleanup of expired tokens
 - **Pairwise subject identifiers** - Each user gets a unique, stable `sub` claim per application for enhanced privacy
 
 Client apps (Audiobookshelf, Kavita, Proxmox, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
@@ -199,7 +199,7 @@ Configure different claims for different applications on a per-user basis:
 - Many-to-many with Groups (allowlist)
 
 **OIDC Tokens**
-- Authorization codes (10-minute expiry, one-time use, PKCE support)
+- Authorization codes (opaque, HMAC-SHA256 hashed, 10-minute expiry, one-time use, PKCE support)
 - Access tokens (opaque, BCrypt-hashed, configurable expiry 5min-24hr, revocable)
 - Refresh tokens (opaque, BCrypt-hashed, configurable expiry 1-90 days, single-use with rotation)
 - ID tokens (JWT, signed with RS256, configurable expiry 5min-24hr)

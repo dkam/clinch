@@ -154,11 +154,9 @@ class OidcController < ApplicationController
     existing_consent = user.has_oidc_consent?(@application, requested_scopes)
     if existing_consent
       # User has already consented, generate authorization code directly
-      code = SecureRandom.urlsafe_base64(32)
       auth_code = OidcAuthorizationCode.create!(
         application: @application,
         user: user,
-        code: code,
         redirect_uri: redirect_uri,
         scope: scope,
         nonce: nonce,
@@ -167,8 +165,8 @@ class OidcController < ApplicationController
         expires_at: 10.minutes.from_now
       )
 
-      # Redirect back to client with authorization code
-      redirect_uri = "#{redirect_uri}?code=#{code}"
+      # Redirect back to client with authorization code (plaintext)
+      redirect_uri = "#{redirect_uri}?code=#{auth_code.plaintext_code}"
       redirect_uri += "&state=#{CGI.escape(state)}" if state.present?
       redirect_to redirect_uri, allow_other_host: true
       return
@@ -258,11 +256,9 @@ class OidcController < ApplicationController
     )
 
     # Generate authorization code
-    code = SecureRandom.urlsafe_base64(32)
     auth_code = OidcAuthorizationCode.create!(
       application: application,
       user: user,
-      code: code,
       redirect_uri: oauth_params['redirect_uri'],
       scope: oauth_params['scope'],
       nonce: oauth_params['nonce'],
@@ -274,8 +270,8 @@ class OidcController < ApplicationController
     # Clear OAuth params from session
     session.delete(:oauth_params)
 
-    # Redirect back to client with authorization code
-    redirect_uri = "#{oauth_params['redirect_uri']}?code=#{code}"
+    # Redirect back to client with authorization code (plaintext)
+    redirect_uri = "#{oauth_params['redirect_uri']}?code=#{auth_code.plaintext_code}"
     redirect_uri += "&state=#{CGI.escape(oauth_params['state'])}" if oauth_params['state']
 
     redirect_to redirect_uri, allow_other_host: true
@@ -335,12 +331,10 @@ class OidcController < ApplicationController
     redirect_uri = params[:redirect_uri]
     code_verifier = params[:code_verifier]
 
-    auth_code = OidcAuthorizationCode.find_by(
-      application: application,
-      code: code
-    )
+    # Find authorization code using HMAC verification
+    auth_code = OidcAuthorizationCode.find_by_plaintext(code)
 
-    unless auth_code
+    unless auth_code && auth_code.application == application
       render json: { error: "invalid_grant" }, status: :bad_request
       return
     end
