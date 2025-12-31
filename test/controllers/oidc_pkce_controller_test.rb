@@ -127,7 +127,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -137,7 +136,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -165,7 +164,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -175,7 +173,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -203,7 +201,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -213,7 +210,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       # Use a properly formatted but wrong verifier (43+ chars, base64url)
       code_verifier: "wrongverifier_with_enough_characters_base64url"
@@ -249,7 +246,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -259,7 +255,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       code_verifier: code_verifier
     }
@@ -291,7 +287,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_verifier, # Same as verifier for plain method
@@ -301,7 +296,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       code_verifier: code_verifier
     }
@@ -342,7 +337,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: legacy_app,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:5000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -350,7 +344,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:5000/callback"
     }
 
@@ -408,7 +402,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: public_app,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:6000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now,
@@ -419,7 +412,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Token request with PKCE but no client_secret
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:6000/callback",
       client_id: public_app.client_id,
       code_verifier: code_verifier
@@ -467,7 +460,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: public_app,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:7000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -476,7 +468,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Token request without PKCE should fail
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:7000/callback",
       client_id: public_app.client_id
     }
@@ -514,7 +506,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -523,7 +514,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Token request without PKCE should fail
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -535,5 +526,173 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     error = JSON.parse(@response.body)
     assert_equal "invalid_request", error["error"]
     assert_match /PKCE is required/, error["error_description"]
+  end
+
+  # ====================
+  # AUTH_TIME CLAIM TESTS
+  # ====================
+
+  test "ID token includes auth_time claim from session" do
+    # Create consent
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-auth-time"
+    )
+
+    # Generate valid PKCE pair
+    code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    code_challenge = Digest::SHA256.base64digest(code_verifier)
+      .tr("+/", "-_")
+      .tr("=", "")
+
+    # Set auth_time in session (simulating user login)
+    session[:auth_time] = Time.now.to_i - 300  # 5 minutes ago
+
+    # Create authorization code
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
+      expires_at: 10.minutes.from_now
+    )
+
+    token_params = {
+      grant_type: "authorization_code",
+      code: auth_code.plaintext_code,
+      redirect_uri: "http://localhost:4000/callback",
+      code_verifier: code_verifier
+    }
+
+    post "/oauth/token", params: token_params, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@application.client_secret}")
+    }
+
+    assert_response :success
+    tokens = JSON.parse(@response.body)
+    assert tokens.key?("id_token")
+
+    # Decode and verify auth_time is present
+    decoded = JWT.decode(tokens["id_token"], nil, false).first
+    assert_includes decoded.keys, "auth_time", "ID token should include auth_time"
+    assert_equal session[:auth_time], decoded["auth_time"], "auth_time should match session value"
+  end
+
+  test "ID token includes auth_time in refresh token flow" do
+    # Create consent
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile offline_access",
+      granted_at: Time.current,
+      sid: "test-sid-refresh-auth-time"
+    )
+
+    # Set auth_time in session
+    session[:auth_time] = Time.now.to_i - 600  # 10 minutes ago
+
+    # Create initial access and refresh tokens (bypass PKCE for this test)
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile offline_access",
+      code_challenge: nil,
+      code_challenge_method: nil,
+      expires_at: 10.minutes.from_now
+    )
+
+    # Update application to not require PKCE for testing
+    @application.update!(require_pkce: false)
+
+    token_params = {
+      grant_type: "authorization_code",
+      code: auth_code.plaintext_code,
+      redirect_uri: "http://localhost:4000/callback"
+    }
+
+    post "/oauth/token", params: token_params, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@application.client_secret}")
+    }
+
+    assert_response :success
+    tokens = JSON.parse(@response.body)
+    refresh_token = tokens["refresh_token"]
+
+    # Now use the refresh token
+    refresh_params = {
+      grant_type: "refresh_token",
+      refresh_token: refresh_token
+    }
+
+    post "/oauth/token", params: refresh_params, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@application.client_secret}")
+    }
+
+    assert_response :success
+    new_tokens = JSON.parse(@response.body)
+    assert new_tokens.key?("id_token")
+
+    # Decode and verify auth_time is still present from refresh
+    decoded = JWT.decode(new_tokens["id_token"], nil, false).first
+    assert_includes decoded.keys, "auth_time", "Refreshed ID token should include auth_time"
+    assert_equal session[:auth_time], decoded["auth_time"], "auth_time should persist from original session"
+  end
+
+  test "at_hash is correctly computed and included in ID token" do
+    # Create consent
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-at-hash"
+    )
+
+    # Generate valid PKCE pair
+    code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    code_challenge = Digest::SHA256.base64digest(code_verifier)
+      .tr("+/", "-_")
+      .tr("=", "")
+
+    # Create authorization code
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
+      expires_at: 10.minutes.from_now
+    )
+
+    token_params = {
+      grant_type: "authorization_code",
+      code: auth_code.plaintext_code,
+      redirect_uri: "http://localhost:4000/callback",
+      code_verifier: code_verifier
+    }
+
+    post "/oauth/token", params: token_params, headers: {
+      "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@application.client_secret}")
+    }
+
+    assert_response :success
+    tokens = JSON.parse(@response.body)
+    access_token = tokens["access_token"]
+    id_token = tokens["id_token"]
+
+    # Decode ID token
+    decoded = JWT.decode(id_token, nil, false).first
+    assert_includes decoded.keys, "at_hash", "ID token should include at_hash"
+
+    # Verify at_hash matches the access token hash
+    expected_hash = Base64.urlsafe_encode64(Digest::SHA256.digest(access_token)[0..15], padding: false)
+    assert_equal expected_hash, decoded["at_hash"], "at_hash should match SHA-256 hash of access token"
   end
 end

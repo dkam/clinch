@@ -3,7 +3,7 @@ class OidcJwtService
 
   class << self
     # Generate an ID token (JWT) for the user
-    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil)
+    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil)
       now = Time.current.to_i
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
@@ -25,6 +25,9 @@ class OidcJwtService
 
       # Add nonce if provided (OIDC requires this for implicit flow)
       payload[:nonce] = nonce if nonce.present?
+
+      # Add auth_time if provided (OIDC Core §2 - required when max_age is used)
+      payload[:auth_time] = auth_time if auth_time.present?
 
       # Add at_hash if access token is provided (OIDC Core spec §3.1.3.6)
       # at_hash = left-most 128 bits of SHA-256 hash of access token, base64url encoded

@@ -495,4 +495,48 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     decoded = JWT.decode(token, nil, false).first
     refute_includes decoded.keys, "at_hash", "Should not include at_hash when no access token"
   end
+
+  test "should include auth_time when provided" do
+    auth_time = Time.now.to_i - 300  # 5 minutes ago
+    token = @service.generate_id_token(@user, @application, auth_time: auth_time)
+
+    decoded = JWT.decode(token, nil, false).first
+    assert_includes decoded.keys, "auth_time", "Should include auth_time claim"
+    assert_equal auth_time, decoded["auth_time"], "auth_time should match provided value"
+  end
+
+  test "should not include auth_time when not provided" do
+    token = @service.generate_id_token(@user, @application)
+
+    decoded = JWT.decode(token, nil, false).first
+    refute_includes decoded.keys, "auth_time", "Should not include auth_time when not provided"
+  end
+
+  test "auth_time should be included in both authorization code and refresh token flows" do
+    auth_time = Time.now.to_i - 600  # 10 minutes ago
+    access_token = "test-access-token"
+
+    # Authorization code flow (with nonce)
+    token_with_auth_code = @service.generate_id_token(
+      @user,
+      @application,
+      nonce: "test-nonce",
+      access_token: access_token,
+      auth_time: auth_time
+    )
+
+    # Refresh token flow (no nonce)
+    token_with_refresh = @service.generate_id_token(
+      @user,
+      @application,
+      access_token: access_token,
+      auth_time: auth_time
+    )
+
+    decoded_auth_code = JWT.decode(token_with_auth_code, nil, false).first
+    decoded_refresh = JWT.decode(token_with_refresh, nil, false).first
+
+    assert_equal auth_time, decoded_auth_code["auth_time"], "auth_time should be in authorization code flow"
+    assert_equal auth_time, decoded_refresh["auth_time"], "auth_time should be in refresh token flow"
+  end
 end

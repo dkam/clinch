@@ -47,7 +47,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -55,7 +54,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -94,7 +93,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -102,7 +100,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -149,7 +147,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       used: true,
@@ -158,7 +155,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -186,7 +183,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 5.minutes.ago
@@ -194,7 +190,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -221,7 +217,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -229,7 +224,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://evil.com/callback" # Wrong redirect URI
     }
 
@@ -284,7 +279,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -293,7 +287,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Try to use it with different application credentials
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -325,7 +319,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -333,7 +326,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -359,7 +352,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -367,7 +359,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -393,7 +385,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -401,7 +392,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       client_id: @application.client_id,
       client_secret: @plain_client_secret
@@ -428,7 +419,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -436,7 +426,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -495,7 +485,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -503,7 +492,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     token_params = {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }
 
@@ -616,7 +605,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       nonce: "test_nonce_123",
@@ -626,7 +614,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Exchange code for tokens
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }, headers: {
       "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
@@ -660,7 +648,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -669,7 +656,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Exchange code for tokens
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }, headers: {
       "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
@@ -705,7 +692,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -716,7 +702,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Try to exchange code without code_verifier
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback"
     }, headers: {
       "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
@@ -745,7 +731,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -756,7 +741,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Exchange code with correct code_verifier
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       code_verifier: code_verifier
     }, headers: {
@@ -785,7 +770,6 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -796,7 +780,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     # Try with wrong code_verifier
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: "http://localhost:4000/callback",
       code_verifier: "wrong_code_verifier_12345678901234567890"
     }, headers: {
@@ -855,9 +839,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     assert_not_equal old_refresh_token, new_refresh_token
 
     # Verify token family is preserved
-    new_token_record = OidcRefreshToken.where(application: @application).find do |rt|
-      rt.token_matches?(new_refresh_token)
-    end
+    new_token_record = OidcRefreshToken.find_by_token(new_refresh_token)
     assert_equal original_token_family_id, new_token_record.token_family_id
 
     # Old refresh token should be revoked

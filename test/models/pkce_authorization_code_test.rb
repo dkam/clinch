@@ -26,7 +26,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -46,7 +45,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: code_challenge,
@@ -63,7 +61,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now
@@ -78,7 +75,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
@@ -93,7 +89,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
@@ -112,7 +107,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: valid_challenge,
@@ -130,7 +124,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: invalid_challenge,
@@ -149,7 +142,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       code_challenge: short_challenge,
@@ -165,7 +157,6 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
       expires_at: 10.minutes.from_now

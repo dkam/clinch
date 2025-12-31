@@ -15,7 +15,6 @@ class OidcRefreshTokenControllerTest < ActionDispatch::IntegrationTest
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
-      code: SecureRandom.urlsafe_base64(32),
       redirect_uri: @application.parsed_redirect_uris.first,
       scope: "openid profile email",
       expires_at: 10.minutes.from_now
@@ -24,7 +23,7 @@ class OidcRefreshTokenControllerTest < ActionDispatch::IntegrationTest
     # Exchange authorization code for tokens
     post "/oauth/token", params: {
       grant_type: "authorization_code",
-      code: auth_code.code,
+      code: auth_code.plaintext_code,
       redirect_uri: @application.parsed_redirect_uris.first,
       client_id: @application.client_id,
       client_secret: @client_secret

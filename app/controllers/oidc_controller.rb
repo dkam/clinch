@@ -245,15 +245,10 @@ class OidcController < ApplicationController
 
     # Record user consent
     requested_scopes = oauth_params['scope'].split(' ')
-    OidcUserConsent.upsert(
-      {
-        user_id: user.id,
-        application_id: application.id,
-        scopes_granted: requested_scopes.join(' '),
-        granted_at: Time.current
-      },
-      unique_by: [:user_id, :application_id]
-    )
+    consent = OidcUserConsent.find_or_initialize_by(user: user, application: application)
+    consent.scopes_granted = requested_scopes.join(' ')
+    consent.granted_at = Time.current
+    consent.save!
 
     # Generate authorization code
     auth_code = OidcAuthorizationCode.create!(
@@ -416,13 +411,14 @@ class OidcController < ApplicationController
           return
         end
 
-        # Generate ID token (JWT) with pairwise SID and at_hash
+        # Generate ID token (JWT) with pairwise SID, at_hash, and auth_time
         id_token = OidcJwtService.generate_id_token(
           user,
           application,
           consent: consent,
           nonce: auth_code.nonce,
-          access_token: access_token_record.plaintext_token
+          access_token: access_token_record.plaintext_token,
+          auth_time: session[:auth_time]
         )
 
         # Return tokens
@@ -539,12 +535,13 @@ class OidcController < ApplicationController
       return
     end
 
-    # Generate new ID token (JWT with pairwise SID and at_hash, no nonce for refresh grants)
+    # Generate new ID token (JWT with pairwise SID, at_hash, and auth_time; no nonce for refresh grants)
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
-      access_token: new_access_token.plaintext_token
+      access_token: new_access_token.plaintext_token,
+      auth_time: session[:auth_time]
     )
 
     # Return new tokens
