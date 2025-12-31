@@ -1,16 +1,13 @@
 class OidcRefreshToken < ApplicationRecord
-  include TokenPrefixable
-
   belongs_to :application
   belongs_to :user
   belongs_to :oidc_access_token
 
-  before_validation :generate_token_with_prefix, on: :create
+  before_validation :generate_token, on: :create
   before_validation :set_expiry, on: :create
   before_validation :set_token_family_id, on: :create
 
-  validates :token_digest, presence: true, uniqueness: true
-  validates :token_prefix, presence: true
+  validates :token_hmac, presence: true, uniqueness: true
 
   scope :valid, -> { where("expires_at > ?", Time.current).where(revoked_at: nil) }
   scope :expired, -> { where("expires_at <= ?", Time.current) }
@@ -21,6 +18,19 @@ class OidcRefreshToken < ApplicationRecord
   scope :in_family, ->(family_id) { where(token_family_id: family_id) }
 
   attr_accessor :token  # Store plaintext token temporarily for returning to client
+
+  # Find refresh token by plaintext token using HMAC verification
+  def self.find_by_token(plaintext_token)
+    return nil if plaintext_token.blank?
+
+    token_hmac = compute_token_hmac(plaintext_token)
+    find_by(token_hmac: token_hmac)
+  end
+
+  # Compute HMAC for token lookup
+  def self.compute_token_hmac(plaintext_token)
+    OpenSSL::HMAC.hexdigest('SHA256', TokenHmac::KEY, plaintext_token)
+  end
 
   def expired?
     expires_at <= Time.current
@@ -45,10 +55,14 @@ class OidcRefreshToken < ApplicationRecord
     OidcRefreshToken.in_family(token_family_id).update_all(revoked_at: Time.current)
   end
 
-  # find_by_token, token_matches?, and generate_token_with_prefix
-  # are now provided by TokenPrefixable concern
-
   private
+
+  def generate_token
+    # Generate random plaintext token
+    self.token ||= SecureRandom.urlsafe_base64(48)
+    # Store HMAC in database (not plaintext)
+    self.token_hmac ||= self.class.compute_token_hmac(token)
+  end
 
   def set_expiry
     # Use application's configured refresh token TTL

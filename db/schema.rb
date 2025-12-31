@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_31_043838) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -101,24 +101,22 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
     t.datetime "expires_at", null: false
     t.datetime "revoked_at"
     t.string "scope"
-    t.string "token_digest"
-    t.string "token_prefix", limit: 8
+    t.string "token_hmac"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_access_tokens_on_application_id_and_user_id"
     t.index ["application_id"], name: "index_oidc_access_tokens_on_application_id"
     t.index ["expires_at"], name: "index_oidc_access_tokens_on_expires_at"
     t.index ["revoked_at"], name: "index_oidc_access_tokens_on_revoked_at"
-    t.index ["token_digest"], name: "index_oidc_access_tokens_on_token_digest", unique: true
-    t.index ["token_prefix"], name: "index_oidc_access_tokens_on_token_prefix"
+    t.index ["token_hmac"], name: "index_oidc_access_tokens_on_token_hmac", unique: true
     t.index ["user_id"], name: "index_oidc_access_tokens_on_user_id"
   end
 
   create_table "oidc_authorization_codes", force: :cascade do |t|
     t.integer "application_id", null: false
-    t.string "code", null: false
     t.string "code_challenge"
     t.string "code_challenge_method"
+    t.string "code_hmac", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.string "nonce"
@@ -129,8 +127,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_authorization_codes_on_application_id_and_user_id"
     t.index ["application_id"], name: "index_oidc_authorization_codes_on_application_id"
-    t.index ["code"], name: "index_oidc_authorization_codes_on_code", unique: true
     t.index ["code_challenge"], name: "index_oidc_authorization_codes_on_code_challenge"
+    t.index ["code_hmac"], name: "index_oidc_authorization_codes_on_code_hmac", unique: true
     t.index ["expires_at"], name: "index_oidc_authorization_codes_on_expires_at"
     t.index ["user_id"], name: "index_oidc_authorization_codes_on_user_id"
   end
@@ -142,9 +140,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
     t.integer "oidc_access_token_id", null: false
     t.datetime "revoked_at"
     t.string "scope"
-    t.string "token_digest", null: false
     t.integer "token_family_id"
-    t.string "token_prefix", limit: 8
+    t.string "token_hmac"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["application_id", "user_id"], name: "index_oidc_refresh_tokens_on_application_id_and_user_id"
@@ -152,9 +149,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_30_073656) do
     t.index ["expires_at"], name: "index_oidc_refresh_tokens_on_expires_at"
     t.index ["oidc_access_token_id"], name: "index_oidc_refresh_tokens_on_oidc_access_token_id"
     t.index ["revoked_at"], name: "index_oidc_refresh_tokens_on_revoked_at"
-    t.index ["token_digest"], name: "index_oidc_refresh_tokens_on_token_digest", unique: true
     t.index ["token_family_id"], name: "index_oidc_refresh_tokens_on_token_family_id"
-    t.index ["token_prefix"], name: "index_oidc_refresh_tokens_on_token_prefix"
+    t.index ["token_hmac"], name: "index_oidc_refresh_tokens_on_token_hmac", unique: true
     t.index ["user_id"], name: "index_oidc_refresh_tokens_on_user_id"
   end
 

@@ -7,7 +7,7 @@ class OidcAuthorizationCode < ApplicationRecord
   before_validation :generate_code, on: :create
   before_validation :set_expiry, on: :create
 
-  validates :code, presence: true, uniqueness: true
+  validates :code_hmac, presence: true, uniqueness: true
   validates :redirect_uri, presence: true
   validates :code_challenge_method, inclusion: { in: %w[plain S256], allow_nil: true }
   validate :validate_code_challenge_format, if: -> { code_challenge.present? }
@@ -20,7 +20,7 @@ class OidcAuthorizationCode < ApplicationRecord
     return nil if plaintext_code.blank?
 
     code_hmac = compute_code_hmac(plaintext_code)
-    find_by(code: code_hmac)
+    find_by(code_hmac: code_hmac)
   end
 
   # Compute HMAC for code lookup
@@ -50,7 +50,7 @@ class OidcAuthorizationCode < ApplicationRecord
     # Generate random plaintext code
     self.plaintext_code ||= SecureRandom.urlsafe_base64(32)
     # Store HMAC in database (not plaintext)
-    self.code ||= self.class.compute_code_hmac(plaintext_code)
+    self.code_hmac ||= self.class.compute_code_hmac(plaintext_code)
   end
 
   def set_expiry
