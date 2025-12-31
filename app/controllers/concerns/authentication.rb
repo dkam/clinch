@@ -44,9 +44,9 @@ module Authentication
       final_url
     end
 
-    def start_new_session_for(user)
+    def start_new_session_for(user, acr: "1")
       user.update!(last_sign_in_at: Time.current)
-      user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip).tap do |session|
+      user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip, acr: acr).tap do |session|
         Current.session = session
 
         # Extract root domain for cross-subdomain cookies (required for forward auth)

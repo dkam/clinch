@@ -3,7 +3,7 @@ class OidcJwtService
 
   class << self
     # Generate an ID token (JWT) for the user
-    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil)
+    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil)
       now = Time.current.to_i
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
@@ -28,6 +28,13 @@ class OidcJwtService
 
       # Add auth_time if provided (OIDC Core §2 - required when max_age is used)
       payload[:auth_time] = auth_time if auth_time.present?
+
+      # Add acr if provided (OIDC Core §2 - authentication context class reference)
+      payload[:acr] = acr if acr.present?
+
+      # Add azp (authorized party) - the client_id this token was issued to
+      # OIDC Core §2 - required when aud has multiple values, optional but useful for single
+      payload[:azp] = application.client_id
 
       # Add at_hash if access token is provided (OIDC Core spec §3.1.3.6)
       # at_hash = left-most 128 bits of SHA-256 hash of access token, base64url encoded

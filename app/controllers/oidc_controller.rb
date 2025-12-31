@@ -163,6 +163,7 @@ class OidcController < ApplicationController
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method,
         auth_time: Current.session.created_at.to_i,
+        acr: Current.session.acr,
         expires_at: 10.minutes.from_now
       )
 
@@ -261,6 +262,7 @@ class OidcController < ApplicationController
       code_challenge: oauth_params['code_challenge'],
       code_challenge_method: oauth_params['code_challenge_method'],
       auth_time: Current.session.created_at.to_i,
+      acr: Current.session.acr,
       expires_at: 10.minutes.from_now
     )
 
@@ -402,7 +404,8 @@ class OidcController < ApplicationController
           user: user,
           oidc_access_token: access_token_record,
           scope: auth_code.scope,
-          auth_time: auth_code.auth_time
+          auth_time: auth_code.auth_time,
+          acr: auth_code.acr
         )
 
         # Find user consent for this application
@@ -414,15 +417,16 @@ class OidcController < ApplicationController
           return
         end
 
-        # Generate ID token (JWT) with pairwise SID, at_hash, and auth_time
-        # auth_time comes from the authorization code (captured at /authorize time)
+        # Generate ID token (JWT) with pairwise SID, at_hash, auth_time, and acr
+        # auth_time and acr come from the authorization code (captured at /authorize time)
         id_token = OidcJwtService.generate_id_token(
           user,
           application,
           consent: consent,
           nonce: auth_code.nonce,
           access_token: access_token_record.plaintext_token,
-          auth_time: auth_code.auth_time
+          auth_time: auth_code.auth_time,
+          acr: auth_code.acr
         )
 
         # Return tokens
@@ -528,7 +532,8 @@ class OidcController < ApplicationController
       oidc_access_token: new_access_token,
       scope: refresh_token_record.scope,
       token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
-      auth_time: refresh_token_record.auth_time  # Carry over original auth_time
+      auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
+      acr: refresh_token_record.acr  # Carry over original acr
     )
 
     # Find user consent for this application
@@ -540,14 +545,15 @@ class OidcController < ApplicationController
       return
     end
 
-    # Generate new ID token (JWT with pairwise SID, at_hash, and auth_time; no nonce for refresh grants)
-    # auth_time comes from the original refresh token (carried over from initial auth)
+    # Generate new ID token (JWT with pairwise SID, at_hash, auth_time, acr; no nonce for refresh grants)
+    # auth_time and acr come from the original refresh token (carried over from initial auth)
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
       access_token: new_access_token.plaintext_token,
-      auth_time: refresh_token_record.auth_time
+      auth_time: refresh_token_record.auth_time,
+      acr: refresh_token_record.acr
     )
 
     # Return new tokens

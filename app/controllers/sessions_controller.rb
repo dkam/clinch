@@ -71,8 +71,8 @@ class SessionsController < ApplicationController
       return
     end
 
-    # Sign in successful
-    start_new_session_for user
+    # Sign in successful (password only)
+    start_new_session_for user, acr: "1"
     redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
   end
 
@@ -101,26 +101,26 @@ class SessionsController < ApplicationController
         return
       end
 
-      # Try TOTP verification first
+      # Try TOTP verification first (password + TOTP = 2FA)
       if user.verify_totp(code)
         session.delete(:pending_totp_user_id)
         # Restore redirect URL if it was preserved
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
-        start_new_session_for user
+        start_new_session_for user, acr: "2"
         redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
         return
       end
 
-      # Try backup code verification
+      # Try backup code verification (password + backup code = 2FA)
       if user.verify_backup_code(code)
         session.delete(:pending_totp_user_id)
         # Restore redirect URL if it was preserved
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
-        start_new_session_for user
+        start_new_session_for user, acr: "2"
         redirect_to after_authentication_url, notice: "Signed in successfully using backup code.", allow_other_host: true
         return
       end
@@ -268,8 +268,8 @@ class SessionsController < ApplicationController
         session[:return_to_after_authenticating] = session.delete(:webauthn_redirect_url)
       end
 
-      # Create session
-      start_new_session_for user
+      # Create session (WebAuthn/passkey = phishing-resistant, ACR = "2")
+      start_new_session_for user, acr: "2"
 
       render json: {
         success: true,

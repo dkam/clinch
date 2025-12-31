@@ -539,4 +539,27 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     assert_equal auth_time, decoded_auth_code["auth_time"], "auth_time should be in authorization code flow"
     assert_equal auth_time, decoded_refresh["auth_time"], "auth_time should be in refresh token flow"
   end
+
+  test "should include acr when provided" do
+    token = @service.generate_id_token(@user, @application, acr: "2")
+
+    decoded = JWT.decode(token, nil, false).first
+    assert_includes decoded.keys, "acr", "Should include acr claim"
+    assert_equal "2", decoded["acr"], "acr should match provided value"
+  end
+
+  test "should not include acr when not provided" do
+    token = @service.generate_id_token(@user, @application)
+
+    decoded = JWT.decode(token, nil, false).first
+    refute_includes decoded.keys, "acr", "Should not include acr when not provided"
+  end
+
+  test "should include azp (authorized party) with client_id" do
+    token = @service.generate_id_token(@user, @application)
+
+    decoded = JWT.decode(token, nil, false).first
+    assert_includes decoded.keys, "azp", "Should include azp claim"
+    assert_equal @application.client_id, decoded["azp"], "azp should be the application's client_id"
+  end
 end
