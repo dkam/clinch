@@ -28,7 +28,7 @@ What remains now is ensure test coverage, and validating correct implementation.
 
 ## Why Clinch?
 
-Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea? Rather than managing all those separate user accounts, set everyone up on Clinch and let it do the authentication and user management.
+Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea, Grafana, Proxmox? Rather than managing all those separate user accounts, set everyone up on Clinch and let it do the authentication and user management.
 
 Clinch sits in a sweet spot between two excellent open-source identity solutions:
 
@@ -86,6 +86,9 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 
 ### SSO Protocols
 
+Apps that speak OIDC use the OIDC flow.
+Apps that only need "who is it?", or you want available from the interenet behind authentication ( MeTube, Jellyfin ) use ForwardAuth.
+
 #### OpenID Connect (OIDC)
 Standard OAuth2/OIDC provider with endpoints:
 - `/.well-known/openid-configuration` - Discovery endpoint
@@ -101,7 +104,7 @@ Features:
 - **Token security** - BCrypt-hashed tokens, automatic cleanup of expired tokens
 - **Pairwise subject identifiers** - Each user gets a unique, stable `sub` claim per application for enhanced privacy
 
-Client apps (Audiobookshelf, Kavita, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
+Client apps (Audiobookshelf, Kavita, Proxmox, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
 
 #### Trusted-Header SSO (ForwardAuth)
 Works with reverse proxies (Caddy, Traefik, Nginx):
@@ -110,15 +113,12 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
    - **200 OK** → Proxy injects headers (`Remote-User`, `Remote-Groups`, `Remote-Email`) and forwards to app
    - **Any other status** → Proxy returns that response directly to client (typically 302 redirect to login page)
 
-Apps that speak OIDC use the OIDC flow; apps that only need "who is it?" headers use ForwardAuth.
-
 **Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
 
 ### SMTP Integration
 Send emails for:
 - Invitation links (one-time token, 7-day expiry)
 - Password reset links (one-time token, 1-hour expiry)
-- 2FA backup codes
 
 ### Session Management
 - **Device tracking** - See all active sessions with device names and IPs
