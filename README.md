@@ -1,30 +1,11 @@
 # Clinch
 
 > [!NOTE]
-> This software is experiemental. If you'd like to try it out, find bugs, security flaws and improvements, please do. 
+> This software is experimental. If you'd like to try it out, find bugs, security flaws and improvements, please do. 
 
 **A lightweight, self-hosted identity & SSO / IpD portal**
 
-Clinch gives you one place to manage users and lets any web app authenticate against it without managing it's own users. 
-
-All planned features are complete:
-
-* Create Admin user on first login
-* TOTP ( QR Code ) 2FA, with backup codes ( encrypted at rest )
-* Passkey generation and login, with detection of Passkey during login
-* Forward Auth configured and working
-* OIDC provider with auto discovery, refresh tokens, and token revocation
-* Configurable token expiry per application (access, refresh, ID tokens)
-* Backchannel Logout
-* Per-application logout / revoke
-* Invite users by email, assign to groups
-* Self managed password reset by email
-* Use Groups to assign Applications ( Family group can access Kavita, Developers can access Gitea )
-* Configurable Group, User & App+User custom claims for OIDC token
-* Display all Applications available to the user on their Dashboard
-* Display all logged in sessions and OIDC logged in sessions
-
-What remains now is ensure test coverage, and validating correct implementation. 
+Clinch gives you one place to manage users and lets any web app authenticate against it without managing its own users.
 
 ## Why Clinch?
 
@@ -87,7 +68,7 @@ Clinch sits in a sweet spot between two excellent open-source identity solutions
 ### SSO Protocols
 
 Apps that speak OIDC use the OIDC flow.
-Apps that only need "who is it?", or you want available from the interenet behind authentication ( MeTube, Jellyfin ) use ForwardAuth.
+Apps that only need "who is it?", or you want available from the internet behind authentication (MeTube, Jellyfin) use ForwardAuth.
 
 #### OpenID Connect (OIDC)
 Standard OAuth2/OIDC provider with endpoints:
@@ -335,44 +316,17 @@ OIDC_PRIVATE_KEY=<contents-of-private-key.pem>
 
 ---
 
-## Roadmap
-
-### In Progress
-- OIDC provider implementation
-- ForwardAuth endpoint
-- Admin UI for user/group/app management
-- First-run wizard
-
-### Planned Features
-- **Audit logging** - Track all authentication events
-- **WebAuthn/Passkeys** - Hardware key support
-
-#### Maybe
-- **SAML support** - SAML 2.0 identity provider
-- **Policy engine** - Rule-based access control
-  - Example: `IF user.email =~ "*@gmail.com" AND app.slug == "kavita" THEN DENY`
-  - Stored as JSON, evaluated after auth but before consent
-- **LDAP sync** - Import users from LDAP/Active Directory
-
----
-
 ## Rails Console
 
 One advantage of being a Rails application is direct access to the Rails console for administrative tasks. This is particularly useful for debugging, emergency access, or bulk operations.
 
-You can start the console with: 
-
-`bin/rails console`
-
-or in Docker compose with:
-
-`docker compose exec -it clinch bin/rails console`
-
 ### Starting the Console
 
 ```bash
-# Docker
+# Docker / Docker Compose
 docker exec -it clinch bin/rails console
+# or
+docker compose exec -it clinch bin/rails console
 
 # Local development
 bin/rails console
