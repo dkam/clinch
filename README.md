@@ -85,6 +85,34 @@ Features:
 - **Token security** - All tokens HMAC-SHA256 hashed (suitable for 256-bit random data), automatic cleanup of expired tokens
 - **Pairwise subject identifiers** - Each user gets a unique, stable `sub` claim per application for enhanced privacy
 
+**ID Token Claims** (JWT with RS256 signature):
+
+| Claim | Description | Notes |
+|-------|-------------|-------|
+| Standard Claims | | |
+| `iss` | Issuer (Clinch URL) | From `CLINCH_HOST` |
+| `sub` | Subject (user identifier) | Pairwise SID - unique per app |
+| `aud` | Audience | OAuth client_id |
+| `exp` | Expiration timestamp | Configurable TTL |
+| `iat` | Issued-at timestamp | Token creation time |
+| `email` | User email | |
+| `email_verified` | Email verification | Always `true` |
+| `preferred_username` | Username/email | Fallback to email |
+| `name` | Display name | User's name or email |
+| `nonce` | Random value | From auth request (prevents replay) |
+| **Security Claims** | | |
+| `at_hash` | Access token hash | SHA-256 hash of access_token (OIDC Core §3.1.3.6) |
+| `auth_time` | Authentication time | Unix timestamp of when user logged in (OIDC Core §2) |
+| `acr` | Auth context class | `"1"` = password, `"2"` = 2FA/passkey (OIDC Core §2) |
+| `azp` | Authorized party | OAuth client_id (OIDC Core §2) |
+| Custom Claims | | |
+| `groups` | User's groups | Array of group names |
+| *custom* | Arbitrary key-values | From groups, users, or app-specific config |
+
+**Authentication Context Class Reference (`acr`):**
+- `"1"` - Something you know (password only)
+- `"2"` - Two-factor or phishing-resistant (TOTP, backup codes, WebAuthn/passkey)
+
 Client apps (Audiobookshelf, Kavita, Proxmox, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
 
 #### Trusted-Header SSO (ForwardAuth)

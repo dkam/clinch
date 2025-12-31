@@ -30,7 +30,7 @@ class OidcController < ApplicationController
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: ["openid", "profile", "email", "groups", "offline_access"],
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
-      claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin"],
+      claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin", "auth_time", "acr", "azp", "at_hash"],
       code_challenge_methods_supported: ["plain", "S256"],
       backchannel_logout_supported: true,
       backchannel_logout_session_supported: true
