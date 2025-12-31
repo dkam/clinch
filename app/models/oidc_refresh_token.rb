@@ -10,6 +10,7 @@ class OidcRefreshToken < ApplicationRecord
   before_validation :set_token_family_id, on: :create
 
   validates :token_digest, presence: true, uniqueness: true
+  validates :token_prefix, presence: true
 
   scope :valid, -> { where("expires_at > ?", Time.current).where(revoked_at: nil) }
   scope :expired, -> { where("expires_at <= ?", Time.current) }

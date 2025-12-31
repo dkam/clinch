@@ -482,14 +482,11 @@ class OidcController < ApplicationController
       return
     end
 
-    # Find the refresh token record
-    # Note: This is inefficient with BCrypt hashing, but necessary for security
-    # In production, consider adding a token prefix for faster lookup
-    refresh_token_record = OidcRefreshToken.where(application: application).find do |rt|
-      rt.token_matches?(refresh_token)
-    end
+    # Find the refresh token record using indexed token prefix lookup
+    refresh_token_record = OidcRefreshToken.find_by_token(refresh_token)
 
-    unless refresh_token_record
+    # Verify the token belongs to the correct application
+    unless refresh_token_record && refresh_token_record.application == application
       render json: { error: "invalid_grant", error_description: "Invalid refresh token" }, status: :bad_request
       return
     end
@@ -668,9 +665,7 @@ class OidcController < ApplicationController
 
     if token_type_hint == "refresh_token" || token_type_hint.nil?
       # Try to find as refresh token
-      refresh_token_record = OidcRefreshToken.where(application: application).find do |rt|
-        rt.token_matches?(token)
-      end
+      refresh_token_record = OidcRefreshToken.find_by_token(token)
 
       if refresh_token_record
         refresh_token_record.revoke!
@@ -681,9 +676,7 @@ class OidcController < ApplicationController
 
     if !revoked && (token_type_hint == "access_token" || token_type_hint.nil?)
       # Try to find as access token
-      access_token_record = OidcAccessToken.where(application: application).find do |at|
-        at.token_matches?(token)
-      end
+      access_token_record = OidcAccessToken.find_by_token(token)
 
       if access_token_record
         access_token_record.revoke!
