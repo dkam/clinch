@@ -1,7 +1,20 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
+<%
+  # Generate a random code and compute HMAC
+  def generate_code_hmac
+    code = SecureRandom.urlsafe_base64(32)
+    hmac_key = Rails.application.key_generator.generate_key('oidc_token_prefix', 32)
+    hmac = OpenSSL::HMAC.hexdigest('SHA256', hmac_key, code)
+    [code, hmac]
+  end
+
+  code_one, hmac_one = generate_code_hmac
+  code_two, hmac_two = generate_code_hmac
+%>
+
 one:
-  code: <%= SecureRandom.urlsafe_base64(32) %>
+  code_hmac: <%= hmac_one %>
   application: kavita_app
   user: alice
   redirect_uri: "https://kavita.example.com/signin-oidc"
@@ -10,7 +23,7 @@ one:
   used: false
 
 two:
-  code: <%= SecureRandom.urlsafe_base64(32) %>
+  code_hmac: <%= hmac_two %>
   application: another_app
   user: bob
   redirect_uri: "https://app.example.com/auth/callback"

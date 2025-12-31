@@ -1,16 +1,27 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
+<%
+  # Generate a random token and compute HMAC
+  def generate_token_hmac
+    token = SecureRandom.urlsafe_base64(48)
+    hmac_key = Rails.application.key_generator.generate_key('oidc_token_prefix', 32)
+    hmac = OpenSSL::HMAC.hexdigest('SHA256', hmac_key, token)
+    [token, hmac]
+  end
+
+  token_one, hmac_one = generate_token_hmac
+  token_two, hmac_two = generate_token_hmac
+%>
+
 one:
-  token_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
-  token_prefix: <%= SecureRandom.urlsafe_base64(8)[0..7] %>
+  token_hmac: <%= hmac_one %>
   application: kavita_app
   user: alice
   scope: "openid profile email"
   expires_at: 2025-12-31 23:59:59
 
 two:
-  token_digest: <%= BCrypt::Password.create(SecureRandom.urlsafe_base64(48)) %>
-  token_prefix: <%= SecureRandom.urlsafe_base64(8)[0..7] %>
+  token_hmac: <%= hmac_two %>
   application: another_app
   user: bob
   scope: "openid profile email"
