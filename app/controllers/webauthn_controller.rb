@@ -109,14 +109,6 @@ class WebauthnController < ApplicationController
   # DELETE /webauthn/:id
   # Remove a passkey
   def destroy
-    user = Current.session&.user
-    return render json: { error: "Not authenticated" }, status: :unauthorized unless user
-
-    if @webauthn_credential.user != user
-      render json: { error: "Unauthorized" }, status: :forbidden
-      return
-    end
-
     nickname = @webauthn_credential.nickname
     @webauthn_credential.destroy
 
@@ -180,16 +172,13 @@ class WebauthnController < ApplicationController
   end
 
   def set_webauthn_credential
-    @webauthn_credential = WebauthnCredential.find(params[:id])
+    user = Current.session&.user
+    return render json: { error: "Not authenticated" }, status: :unauthorized unless user
+    @webauthn_credential = user.webauthn_credentials.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     respond_to do |format|
-      format.html {
-        redirect_to profile_path,
-        alert: "Passkey not found"
-      }
-      format.json {
-        render json: { error: "Passkey not found" }, status: :not_found
-      }
+      format.html { redirect_to profile_path, alert: "Passkey not found" }
+      format.json { render json: { error: "Passkey not found" }, status: :not_found }
     end
   end
 

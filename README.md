@@ -355,6 +355,189 @@ OIDC_PRIVATE_KEY=<contents-of-private-key.pem>
 
 ---
 
+## Rails Console
+
+One advantage of being a Rails application is direct access to the Rails console for administrative tasks. This is particularly useful for debugging, emergency access, or bulk operations.
+
+You can start the console with: 
+
+`bin/rails console`
+
+or in Docker compose with:
+
+`docker compose exec -it clinch bin/rails console`
+
+### Starting the Console
+
+```bash
+# Docker
+docker exec -it clinch bin/rails console
+
+# Local development
+bin/rails console
+```
+
+### Finding Users
+
+```ruby
+# Find by email
+user = User.find_by(email_address: 'alice@example.com')
+
+# Find by username
+user = User.find_by(username: 'alice')
+
+# List all users
+User.all.pluck(:id, :email_address, :status)
+
+# Find admins
+User.admins.pluck(:email_address)
+
+# Find users in a specific status
+User.active.count
+User.disabled.pluck(:email_address)
+User.pending_invitation.pluck(:email_address)
+```
+
+### Creating Users
+
+```ruby
+# Create a regular user
+User.create!(
+  email_address: 'newuser@example.com',
+  password: 'secure-password-here',
+  status: :active
+)
+
+# Create an admin user
+User.create!(
+  email_address: 'admin@example.com',
+  password: 'secure-password-here',
+  status: :active,
+  admin: true
+)
+```
+
+### Managing Passwords
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+user.password = 'new-secure-password'
+user.save!
+```
+
+### Two-Factor Authentication (TOTP)
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+
+# Check if TOTP is enabled
+user.totp_enabled?
+
+# Get current TOTP code (useful for testing/debugging)
+puts user.console_totp
+
+# Enable TOTP (generates secret and backup codes)
+backup_codes = user.enable_totp!
+puts backup_codes  # Display backup codes to give to user
+
+# Disable TOTP
+user.disable_totp!
+
+# Force user to set up TOTP on next login
+user.update!(totp_required: true)
+```
+
+### Managing User Status
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+
+# Disable a user (prevents login)
+user.disabled!
+
+# Re-enable a user
+user.active!
+
+# Check current status
+user.status  # => "active", "disabled", or "pending_invitation"
+
+# Grant admin privileges
+user.update!(admin: true)
+
+# Revoke admin privileges
+user.update!(admin: false)
+```
+
+### Managing Groups
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+
+# View user's groups
+user.groups.pluck(:name)
+
+# Add user to a group
+family = Group.find_by(name: 'family')
+user.groups << family
+
+# Remove user from a group
+user.groups.delete(family)
+
+# Create a new group
+Group.create!(name: 'developers', description: 'Development team')
+```
+
+### Managing Sessions
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+
+# View active sessions
+user.sessions.pluck(:id, :device_name, :client_ip, :created_at)
+
+# Revoke all sessions (force logout everywhere)
+user.sessions.destroy_all
+
+# Revoke a specific session
+user.sessions.find(123).destroy
+```
+
+### Managing Applications
+
+```ruby
+# List all OIDC applications
+Application.oidc.pluck(:name, :client_id)
+
+# Find an application
+app = Application.find_by(slug: 'kavita')
+
+# Regenerate client secret
+new_secret = app.generate_new_client_secret!
+puts new_secret  # Display once - not stored in plain text
+
+# Check which users can access an app
+app.allowed_groups.flat_map(&:users).uniq.pluck(:email_address)
+
+# Revoke all tokens for an application
+app.oidc_access_tokens.destroy_all
+app.oidc_refresh_tokens.destroy_all
+```
+
+### Revoking OIDC Consents
+
+```ruby
+user = User.find_by(email_address: 'alice@example.com')
+app = Application.find_by(slug: 'kavita')
+
+# Revoke consent for a specific app
+user.revoke_consent!(app)
+
+# Revoke all OIDC consents
+user.revoke_all_consents!
+```
+
+---
+
 ## Technology Stack
 
 - **Rails 8.1** - Modern Rails with authentication generator
