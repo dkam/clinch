@@ -1,0 +1,7 @@
+ignore:
+  - 'test_*.rb'  # Ignore test files in root directory
+  - 'tmp/**/*'
+  - 'vendor/**/*'
+  - 'node_modules/**/*'
+  - 'config/initializers/csp_local_logger.rb'  # Complex CSP logger with intentional block structure
+  - 'config/initializers/sentry_subscriber.rb'  # Sentry subscriber with module structure

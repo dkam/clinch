@@ -42,7 +42,7 @@ gem "sentry-ruby", "~> 6.2"
 gem "sentry-rails", "~> 6.2"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
-gem "tzinfo-data", platforms: %i[ windows jruby ]
+gem "tzinfo-data", platforms: %i[windows jruby]
 
 # Use the database-backed adapters for Rails.cache and Action Cable
 gem "solid_cache"
@@ -63,7 +63,7 @@ gem "image_processing", "~> 1.2"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
-  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+  gem "debug", platforms: %i[mri windows], require: "debug/prelude"
 
   # Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
   gem "bundler-audit", require: false
@@ -71,8 +71,8 @@ group :development, :test do
   # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
   gem "brakeman", require: false
 
-  # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
-  gem "rubocop-rails-omakase", require: false
+  # Standard Ruby style guide, linter, and formatter [https://github.com/standardrb/standard]
+  gem "standard", require: false
 end
 
 group :development do
@@ -91,4 +91,3 @@ group :test do
   # Code coverage analysis
   gem "simplecov", require: false
 end
-
