@@ -257,6 +257,24 @@ Configure different claims for different applications on a per-user basis:
    - Proxy redirects to Clinch login page
    - After login, redirect back to original URL
 
+#### Race Condition Handling
+
+After successful login, you may notice an `fa_token` query parameter appended to redirect URLs (e.g., `https://app.example.com/dashboard?fa_token=...`). This solves a timing issue:
+
+**The Problem:**
+1. User signs in → session cookie is set
+2. Browser gets redirected to protected resource
+3. Browser may not have processed the `Set-Cookie` header yet
+4. Reverse proxy checks `/api/verify` → no cookie yet → auth fails ❌
+
+**The Solution:**
+- A one-time token (`fa_token`) is added to the redirect URL as a query parameter
+- `/api/verify` checks for this token first, before checking cookies
+- Token is cached for 60 seconds and deleted immediately after use
+- This gives the browser's cookie handling time to catch up
+
+This is transparent to end users and requires no configuration.
+
 ---
 
 ## Setup & Installation
