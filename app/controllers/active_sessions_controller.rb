@@ -29,9 +29,9 @@ class ActiveSessionsController < ApplicationController
     # Revoke all tokens for this user-application pair
     now = Time.current
     revoked_access_tokens = OidcAccessToken.where(application: application, user: @user, revoked_at: nil)
-                                           .update_all(revoked_at: now)
+      .update_all(revoked_at: now)
     revoked_refresh_tokens = OidcRefreshToken.where(application: application, user: @user, revoked_at: nil)
-                                             .update_all(revoked_at: now)
+      .update_all(revoked_at: now)
 
     Rails.logger.info "ActiveSessionsController: Revoked #{revoked_access_tokens} access tokens and #{revoked_refresh_tokens} refresh tokens for #{application.name}"
 
@@ -64,9 +64,9 @@ class ActiveSessionsController < ApplicationController
     # Revoke all tokens for this user-application pair
     now = Time.current
     revoked_access_tokens = OidcAccessToken.where(application: application, user: @user, revoked_at: nil)
-                                           .update_all(revoked_at: now)
+      .update_all(revoked_at: now)
     revoked_refresh_tokens = OidcRefreshToken.where(application: application, user: @user, revoked_at: nil)
-                                             .update_all(revoked_at: now)
+      .update_all(revoked_at: now)
 
     Rails.logger.info "ActiveSessionsController: Logged out from #{application.name} - revoked #{revoked_access_tokens} access tokens and #{revoked_refresh_tokens} refresh tokens"
 
