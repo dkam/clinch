@@ -128,7 +128,10 @@ class WebauthnSecurityTest < ActionDispatch::IntegrationTest
       nickname: "Test Key"
     )
 
-    # Sign in with WebAuthn
+    # Sign in first
+    post signin_path, params: {email_address: user.email_address, password: "password123"}
+
+    # Get WebAuthn challenge
     post webauthn_challenge_path, params: {email: "webauthn_verify_origin_test@example.com"}
     assert_response :success
 
@@ -224,8 +227,8 @@ class WebauthnSecurityTest < ActionDispatch::IntegrationTest
     )
 
     credential.reload
-    assert_equal "192.168.1.100", credential.last_ip_address
-    assert_equal "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", credential.last_user_agent
+    assert_equal "192.168.1.100", credential.last_used_ip
+    assert_equal "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", credential.user_agent
 
     user.destroy
   end

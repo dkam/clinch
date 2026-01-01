@@ -136,7 +136,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [ ] Document required vs. optional configuration
 - [ ] Provide sensible defaults
 - [ ] Validate production SMTP configuration
-- [ ] Ensure OIDC private key generation process is documented
+- [x] Ensure OIDC private key generation process is documented
 
 ### Database
 - [x] Migrations are idempotent
@@ -187,7 +187,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 ## Known Limitations & Risks
 
 ### Documented Risks
-- [ ] Document that ForwardAuth requires same-domain setup
+- [x] Document that ForwardAuth requires same-domain setup
 - [ ] Document HTTPS requirement for production
 - [ ] Document backup code security (single-use, store securely)
 - [ ] Document admin password security requirements

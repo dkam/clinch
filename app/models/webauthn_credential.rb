@@ -1,6 +1,9 @@
 class WebauthnCredential < ApplicationRecord
   belongs_to :user
 
+  # Set default authenticator_type if not provided
+  after_initialize :set_default_authenticator_type, if: :new_record?
+
   # Validations
   validates :external_id, presence: true, uniqueness: true
   validates :public_key, presence: true
@@ -76,6 +79,10 @@ class WebauthnCredential < ApplicationRecord
   end
 
   private
+
+  def set_default_authenticator_type
+    self.authenticator_type ||= "cross-platform"
+  end
 
   def time_ago_in_words(time)
     seconds = Time.current - time
