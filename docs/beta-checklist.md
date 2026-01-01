@@ -154,7 +154,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [x] Docker support
 - [x] Docker Compose example
 - [ ] Production deployment guide
-- [ ] Backup and restore documentation
+- [x] Backup and restore documentation
 - [ ] Migration strategy documentation
 
 ## Security Hardening
@@ -212,7 +212,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 
 - [ ] Security best practices guide
 - [ ] Incident response guide
-- [ ] Backup and disaster recovery guide
+- [x] Backup and disaster recovery guide
 - [ ] Upgrade guide
 - [ ] Breaking change policy
 

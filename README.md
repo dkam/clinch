@@ -302,7 +302,11 @@ bin/rails db:migrate
 bin/dev
 ```
 
-### Docker Deployment
+---
+
+## Production Deployment
+
+### Docker
 
 ```bash
 # Build image
@@ -318,6 +322,93 @@ docker run -p 3000:3000 \
   -e SMTP_PASSWORD=your-password \
   clinch
 ```
+
+### Backup & Restore
+
+Clinch stores all persistent data in the `storage/` directory (or `/rails/storage` in Docker):
+- SQLite database (`production.sqlite3`)
+- Uploaded files via ActiveStorage (application icons)
+
+**Database Backup:**
+
+Use SQLite's `VACUUM INTO` command for safe, atomic backups of a running database:
+
+```bash
+# Local development
+sqlite3 storage/production.sqlite3 "VACUUM INTO 'backup.sqlite3';"
+
+# Docker
+docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup.sqlite3';"
+```
+
+This creates an optimized copy of the database that's safe to make even while Clinch is running.
+
+**Full Backup (Database + Uploads):**
+
+For complete backups including uploaded files, backup the database and uploads separately:
+
+```bash
+# 1. Backup database (safe while running)
+sqlite3 storage/production.sqlite3 "VACUUM INTO 'backup-$(date +%Y%m%d).sqlite3';"
+
+# 2. Backup uploaded files (ActiveStorage files are immutable)
+tar -czf uploads-backup-$(date +%Y%m%d).tar.gz storage/uploads/
+
+# Docker equivalent
+docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup-$(date +%Y%m%d).sqlite3';"
+docker exec clinch tar -czf /rails/storage/uploads-backup-$(date +%Y%m%d).tar.gz /rails/storage/uploads/
+```
+
+**Restore:**
+
+```bash
+# Stop Clinch first
+# Then restore database
+cp backup-YYYYMMDD.sqlite3 storage/production.sqlite3
+
+# Restore uploads
+tar -xzf uploads-backup-YYYYMMDD.tar.gz -C storage/
+```
+
+**Docker Volume Backup:**
+
+**Option 1: While Running (Online Backup)**
+
+a) **Mapped volumes** (recommended, e.g., `-v /host/path:/rails/storage`):
+```bash
+# Database backup (safe while running)
+sqlite3 /host/path/production.sqlite3 "VACUUM INTO '/host/path/backup-$(date +%Y%m%d).sqlite3';"
+
+# Then sync to off-server storage
+rsync -av /host/path/backup-*.sqlite3 /host/path/uploads/ remote:/backups/clinch/
+```
+
+b) **Docker volumes** (e.g., `-v clinch_storage:/rails/storage`):
+```bash
+# Database backup (safe while running)
+docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup.sqlite3';"
+
+# Copy out of container
+docker cp clinch:/rails/storage/backup.sqlite3 ./backup-$(date +%Y%m%d).sqlite3
+```
+
+**Option 2: While Stopped (Offline Backup)**
+
+If Docker is stopped, you can copy the entire storage:
+```bash
+docker compose down
+
+# For mapped volumes
+tar -czf clinch-backup-$(date +%Y%m%d).tar.gz /host/path/
+
+# For docker volumes
+docker run --rm -v clinch_storage:/data -v $(pwd):/backup ubuntu \
+  tar czf /backup/clinch-backup-$(date +%Y%m%d).tar.gz /data
+
+docker compose up -d
+```
+
+**Important:** Do not use tar/snapshots on a running database - use `VACUUM INTO` instead or stop the container first.
 
 ---
 
