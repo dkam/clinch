@@ -521,6 +521,63 @@ user.revoke_all_consents!
 
 ---
 
+## Testing & Security
+
+### Running Tests
+
+Clinch has comprehensive test coverage with 341 tests covering integration, models, controllers, services, and system tests.
+
+```bash
+# Run all tests
+bin/rails test
+
+# Run specific test types
+bin/rails test:integration
+bin/rails test:models
+bin/rails test:controllers
+bin/rails test:system
+
+# Run with code coverage report
+COVERAGE=1 bin/rails test
+# View coverage report at coverage/index.html
+```
+
+### Security Scanning
+
+Clinch uses multiple automated security tools to ensure code quality and security:
+
+```bash
+# Run all security checks
+bin/rake security
+
+# Individual security scans
+bin/brakeman --no-pager              # Static security analysis
+bin/bundler-audit check --update     # Dependency vulnerability scan
+bin/importmap audit                  # JavaScript dependency scan
+```
+
+**CI/CD Integration:**
+All security scans run automatically on every pull request and push to main via GitHub Actions.
+
+**Security Tools:**
+- **Brakeman** - Static analysis for Rails security vulnerabilities
+- **bundler-audit** - Checks gems for known CVEs
+- **SimpleCov** - Code coverage tracking
+- **RuboCop** - Code style and quality enforcement
+
+**Current Status:**
+- ✅ All security scans passing
+- ✅ 341 tests, 1349 assertions, 0 failures
+- ✅ No known dependency vulnerabilities
+- ✅ Phases 1-4 security hardening complete (18+ vulnerabilities fixed)
+- 🟡 3 outstanding security issues (all MEDIUM/LOW priority)
+
+**Security Documentation:**
+- [docs/security-todo.md](docs/security-todo.md) - Detailed vulnerability tracking and remediation history
+- [docs/beta-checklist.md](docs/beta-checklist.md) - Beta release readiness criteria
+
+---
+
 ## Technology Stack
 
 - **Rails 8.1** - Modern Rails with authentication generator
