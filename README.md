@@ -11,6 +11,8 @@ Clinch gives you one place to manage users and lets any web app authenticate aga
 
 Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea, Grafana, Proxmox? Rather than managing all those separate user accounts, set everyone up on Clinch and let it do the authentication and user management.
 
+Clinch runs as a single Docker container, using SQLite as the database, the job queue (Solid Queue) and the shared cache (Solid Cache). The webserver, Puma, runs the job queue in-process, avoiding the need for another container.
+
 Clinch sits in a sweet spot between two excellent open-source identity solutions:
 
 **[Authelia](https://www.authelia.com)** is a fantastic choice for those who prefer external user management through LDAP and enjoy comprehensive YAML-based configuration. It's lightweight, secure, and works beautifully with reverse proxies.

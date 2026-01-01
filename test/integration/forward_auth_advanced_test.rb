@@ -271,7 +271,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
       else
         # Should have no auth headers
         auth_headers = response.headers.select { |k, v| k.match?(/^(x-remote-|x-webauth-|x-admin-)/i) }
-        assert_empty auth_headers, "Should have no headers for #{app[:domain]}, got: #{auth_headers.keys.join(', ')}"
+        assert_empty auth_headers, "Should have no headers for #{app[:domain]}, got: #{auth_headers.keys.join(", ")}"
       end
     end
   end
@@ -348,5 +348,4 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
     rps = request_count / total_time
     assert rps > 10, "Requests per second #{rps} is too low"
   end
-
 end
