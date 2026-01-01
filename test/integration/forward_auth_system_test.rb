@@ -1,7 +1,8 @@
 require "test_helper"
 
-class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
-  driven_by :rack_test
+# Note: This file tests API endpoints directly (post/get/assert_response)
+# so it should use IntegrationTest, not SystemTestCase
+class ForwardAuthSystemTest < ActionDispatch::IntegrationTest
 
   setup do
     @user = users(:one)

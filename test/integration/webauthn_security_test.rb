@@ -1,7 +1,9 @@
 require "test_helper"
 require "webauthn/fake_client"
 
-class WebauthnSecurityTest < ActionDispatch::SystemTestCase
+# Note: This file tests API endpoints directly (post/get/assert_response)
+# so it should use IntegrationTest, not SystemTestCase
+class WebauthnSecurityTest < ActionDispatch::IntegrationTest
   # ====================
   # REPLAY ATTACK PREVENTION (SIGN COUNT TRACKING) TESTS
   # ====================
