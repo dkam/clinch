@@ -319,4 +319,35 @@ class UserTest < ActiveSupport::TestCase
 
   # Note: parsed_backup_codes method and legacy tests removed
   # All users now use BCrypt hashes stored in JSON column
+
+  # WebAuthn user handle tests
+  test "generates and persists unique webauthn user handle" do
+    user = User.create!(email_address: "webauthn_test@example.com", password: "password123")
+
+    # User should not have a webauthn_id initially
+    assert_nil user.webauthn_id
+
+    # Getting the user handle should generate and persist it
+    handle = user.webauthn_user_handle
+    assert_not_nil handle
+    assert_equal 86, handle.length # Base64-urlsafe-encoded 64 bytes (no padding)
+
+    # Reload and verify it was persisted
+    user.reload
+    assert_equal handle, user.webauthn_id
+
+    # Subsequent calls should return the same handle (stable)
+    assert_equal handle, user.webauthn_user_handle
+  end
+
+  test "webauthn user handles are unique across users" do
+    user1 = User.create!(email_address: "user1@example.com", password: "password123")
+    user2 = User.create!(email_address: "user2@example.com", password: "password123")
+
+    handle1 = user1.webauthn_user_handle
+    handle2 = user2.webauthn_user_handle
+
+    # Each user should get a unique handle
+    assert_not_equal handle1, handle2
+  end
 end

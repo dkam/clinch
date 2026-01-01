@@ -54,45 +54,39 @@ class WebauthnSecurityTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # USER HANDLE BINDING TESTS
+  # USER HANDLE SECURITY TESTS
   # ====================
 
-  test "user handle is properly bound to WebAuthn credential" do
-    user = User.create!(email_address: "webauthn_handle_test@example.com", password: "password123")
+  test "WebAuthn challenge includes authenticated user's handle (not another user's)" do
+    # Create two users
+    user_a = User.create!(email_address: "usera@example.com", password: "password123")
+    user_b = User.create!(email_address: "userb@example.com", password: "password123")
 
-    # Create a WebAuthn credential with user handle
-    user_handle = SecureRandom.uuid
-    credential = user.webauthn_credentials.create!(
-      external_id: Base64.urlsafe_encode64("fake_credential_id"),
-      public_key: Base64.urlsafe_encode64("fake_public_key"),
-      sign_count: 0,
-      nickname: "Test Key",
-      user_handle: user_handle
-    )
+    # Generate handles for both users
+    handle_a = user_a.webauthn_user_handle
+    handle_b = user_b.webauthn_user_handle
 
-    # Verify user handle is associated with the credential
-    assert_equal user_handle, credential.user_handle
+    # Sign in as User A
+    post signin_path, params: {email_address: user_a.email_address, password: "password123"}
+    assert_response :redirect
 
-    user.destroy
-  end
+    # Request WebAuthn challenge (for registration)
+    post webauthn_challenge_path, params: {email: user_a.email_address}
+    assert_response :success
 
-  test "WebAuthn authentication validates user handle" do
-    user = User.create!(email_address: "webauthn_handle_auth_test@example.com", password: "password123")
+    # Parse the JSON response
+    challenge_data = JSON.parse(response.body)
 
-    user_handle = SecureRandom.uuid
-    user.webauthn_credentials.create!(
-      external_id: Base64.urlsafe_encode64("fake_credential_id"),
-      public_key: Base64.urlsafe_encode64("fake_public_key"),
-      sign_count: 0,
-      nickname: "Test Key",
-      user_handle: user_handle
-    )
+    # SECURITY: Verify challenge includes User A's handle
+    assert challenge_data.key?("user")
+    assert_equal handle_a, challenge_data["user"]["id"], "Challenge should include authenticated user's handle"
+    assert_equal user_a.email_address, challenge_data["user"]["name"]
 
-    # Sign in with WebAuthn
-    # The implementation should verify the user handle matches
-    # This test documents the expected behavior
+    # SECURITY: Verify challenge does NOT include User B's handle
+    assert_not_equal handle_b, challenge_data["user"]["id"], "Challenge should NOT include another user's handle"
 
-    user.destroy
+    user_a.destroy
+    user_b.destroy
   end
 
   # ====================
@@ -316,7 +310,7 @@ class WebauthnSecurityTest < ActionDispatch::IntegrationTest
 
   test "WebAuthn can be required for authentication" do
     user = User.create!(email_address: "webauthn_required_test@example.com", password: "password123")
-    user.update!(webauthn_enabled: true)
+    user.update!(webauthn_required: true)
 
     # Sign in with password should still work
     post signin_path, params: {email_address: "webauthn_required_test@example.com", password: "password123"}
@@ -329,7 +323,7 @@ class WebauthnSecurityTest < ActionDispatch::IntegrationTest
 
   test "WebAuthn can be used for passwordless authentication" do
     user = User.create!(email_address: "webauthn_passwordless_test@example.com", password: "password123")
-    user.update!(webauthn_enabled: true)
+    user.update!(webauthn_required: true)
 
     user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("passwordless_credential"),
