@@ -14,11 +14,11 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     valid_code = totp.now
 
     # Set up pending TOTP session
-    post signin_path, params: { email_address: "totp_replay_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_replay_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # First use of the code should succeed
-    post totp_verification_path, params: { code: valid_code }
+    post totp_verification_path, params: {code: valid_code}
     assert_response :redirect
     assert_redirected_to root_path
 
@@ -50,12 +50,12 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     original_codes = user.reload.backup_codes
 
     # Set up pending TOTP session
-    post signin_path, params: { email_address: "backup_code_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "backup_code_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Use a backup code
     backup_code = backup_codes.first
-    post totp_verification_path, params: { code: backup_code }
+    post totp_verification_path, params: {code: backup_code}
 
     # Should successfully sign in
     assert_response :redirect
@@ -70,11 +70,11 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     assert_response :redirect
 
     # Sign in again
-    post signin_path, params: { email_address: "backup_code_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "backup_code_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Try the same backup code
-    post totp_verification_path, params: { code: backup_code }
+    post totp_verification_path, params: {code: backup_code}
 
     # Should fail - backup code already used
     assert_response :redirect
@@ -91,13 +91,13 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
 
     # Generate backup codes
     user.totp_secret = ROTP::Base32.random
-    backup_codes = user.send(:generate_backup_codes) # Call private method
+    user.send(:generate_backup_codes) # Call private method
     user.save!
 
     # Check that stored codes are BCrypt hashes (start with $2a$)
     # backup_codes is already an Array (JSON column), no need to parse
     user.backup_codes.each do |code|
-      assert_match /^\$2[aby]\$/, code, "Backup codes should be BCrypt hashed"
+      assert_match(/^\$2[aby]\$/, code, "Backup codes should be BCrypt hashed")
     end
 
     user.destroy
@@ -116,7 +116,7 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     user.save!
 
     # Set up pending TOTP session
-    post signin_path, params: { email_address: "totp_time_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_time_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Generate a TOTP code for a time far in the future (outside valid window)
@@ -124,7 +124,7 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     future_code = totp.at(Time.now.to_i + 300) # 5 minutes in the future
 
     # Try to use the future code
-    post totp_verification_path, params: { code: future_code }
+    post totp_verification_path, params: {code: future_code}
 
     # Should fail - code is outside valid time window
     assert_response :redirect
@@ -145,16 +145,16 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
 
     # Verify the TOTP secret exists (sanity check)
     assert user.totp_secret.present?
-    totp_secret = user.totp_secret
+    user.totp_secret
 
     # Sign in with TOTP
-    post signin_path, params: { email_address: "totp_secret_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_secret_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Complete TOTP verification
     totp = ROTP::TOTP.new(user.totp_secret)
     valid_code = totp.now
-    post totp_verification_path, params: { code: valid_code }
+    post totp_verification_path, params: {code: valid_code}
     assert_response :redirect
 
     # The TOTP secret should never be exposed in the response body or headers
@@ -210,7 +210,7 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     user.update!(totp_required: true, totp_secret: nil)
 
     # Sign in
-    post signin_path, params: { email_address: "totp_setup_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_setup_test@example.com", password: "password123"}
 
     # Should redirect to TOTP setup, not verification
     assert_response :redirect
@@ -232,7 +232,7 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     user.save!
 
     # Set up pending TOTP session
-    post signin_path, params: { email_address: "totp_format_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_format_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Try invalid formats
@@ -245,7 +245,7 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     ]
 
     invalid_codes.each do |invalid_code|
-      post totp_verification_path, params: { code: invalid_code }
+      post totp_verification_path, params: {code: invalid_code}
       assert_response :redirect
       assert_redirected_to totp_verification_path
     end
@@ -266,11 +266,11 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     user.save!
 
     # Sign in
-    post signin_path, params: { email_address: "totp_recovery_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "totp_recovery_test@example.com", password: "password123"}
     assert_redirected_to totp_verification_path
 
     # Use backup code instead of TOTP
-    post totp_verification_path, params: { code: backup_codes.first }
+    post totp_verification_path, params: {code: backup_codes.first}
 
     # Should successfully sign in
     assert_response :redirect

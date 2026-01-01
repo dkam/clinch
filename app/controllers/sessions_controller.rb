@@ -1,22 +1,22 @@
 class SessionsController < ApplicationController
-  allow_unauthenticated_access only: %i[ new create verify_totp webauthn_challenge webauthn_verify ]
+  allow_unauthenticated_access only: %i[new create verify_totp webauthn_challenge webauthn_verify]
   rate_limit to: 20, within: 3.minutes, only: :create, with: -> { redirect_to signin_path, alert: "Too many attempts. Try again later." }
   rate_limit to: 10, within: 3.minutes, only: :verify_totp, with: -> { redirect_to totp_verification_path, alert: "Too many attempts. Try again later." }
-  rate_limit to: 10, within: 3.minutes, only: [:webauthn_challenge, :webauthn_verify], with: -> { render json: { error: "Too many attempts. Try again later." }, status: :too_many_requests }
+  rate_limit to: 10, within: 3.minutes, only: [:webauthn_challenge, :webauthn_verify], with: -> { render json: {error: "Too many attempts. Try again later."}, status: :too_many_requests }
 
   def new
     # Redirect to signup if this is first run
     if User.count.zero?
       respond_to do |format|
         format.html { redirect_to signup_path }
-        format.json { render json: { error: "No users exist. Please complete initial setup." }, status: :service_unavailable }
+        format.json { render json: {error: "No users exist. Please complete initial setup."}, status: :service_unavailable }
       end
       return
     end
 
     respond_to do |format|
       format.html # render HTML login page
-      format.json { render json: { error: "Authentication required" }, status: :unauthorized }
+      format.json { render json: {error: "Authentication required"}, status: :unauthorized }
     end
   end
 
@@ -127,7 +127,7 @@ class SessionsController < ApplicationController
 
       # Invalid code
       redirect_to totp_verification_path, alert: "Invalid verification code. Please try again."
-      return
+      nil
     end
 
     # Just render the form
@@ -155,14 +155,14 @@ class SessionsController < ApplicationController
     email = params[:email]&.strip&.downcase
 
     if email.blank?
-      render json: { error: "Email is required" }, status: :unprocessable_entity
+      render json: {error: "Email is required"}, status: :unprocessable_entity
       return
     end
 
     user = User.find_by(email_address: email)
 
     if user.nil? || !user.can_authenticate_with_webauthn?
-      render json: { error: "User not found or WebAuthn not available" }, status: :unprocessable_entity
+      render json: {error: "User not found or WebAuthn not available"}, status: :unprocessable_entity
       return
     end
 
@@ -191,10 +191,9 @@ class SessionsController < ApplicationController
       session[:webauthn_challenge] = options.challenge
 
       render json: options
-
     rescue => e
       Rails.logger.error "WebAuthn challenge generation error: #{e.message}"
-      render json: { error: "Failed to generate WebAuthn challenge" }, status: :internal_server_error
+      render json: {error: "Failed to generate WebAuthn challenge"}, status: :internal_server_error
     end
   end
 
@@ -202,21 +201,21 @@ class SessionsController < ApplicationController
     # Get pending user from session
     user_id = session[:pending_webauthn_user_id]
     unless user_id
-      render json: { error: "Session expired. Please try again." }, status: :unprocessable_entity
+      render json: {error: "Session expired. Please try again."}, status: :unprocessable_entity
       return
     end
 
     user = User.find_by(id: user_id)
     unless user
       session.delete(:pending_webauthn_user_id)
-      render json: { error: "Session expired. Please try again." }, status: :unprocessable_entity
+      render json: {error: "Session expired. Please try again."}, status: :unprocessable_entity
       return
     end
 
     # Get the credential and assertion from params
     credential_data = params[:credential]
     if credential_data.blank?
-      render json: { error: "Credential data is required" }, status: :unprocessable_entity
+      render json: {error: "Credential data is required"}, status: :unprocessable_entity
       return
     end
 
@@ -224,7 +223,7 @@ class SessionsController < ApplicationController
     challenge = session.delete(:webauthn_challenge)
 
     if challenge.blank?
-      render json: { error: "Invalid or expired session" }, status: :unprocessable_entity
+      render json: {error: "Invalid or expired session"}, status: :unprocessable_entity
       return
     end
 
@@ -237,7 +236,7 @@ class SessionsController < ApplicationController
       stored_credential = user.webauthn_credential_for(external_id)
 
       if stored_credential.nil?
-        render json: { error: "Credential not found" }, status: :unprocessable_entity
+        render json: {error: "Credential not found"}, status: :unprocessable_entity
         return
       end
 
@@ -276,16 +275,15 @@ class SessionsController < ApplicationController
         redirect_to: after_authentication_url,
         message: "Signed in successfully with passkey"
       }
-
     rescue WebAuthn::Error => e
       Rails.logger.error "WebAuthn verification error: #{e.message}"
-      render json: { error: "Authentication failed: #{e.message}" }, status: :unprocessable_entity
+      render json: {error: "Authentication failed: #{e.message}"}, status: :unprocessable_entity
     rescue JSON::ParserError => e
       Rails.logger.error "WebAuthn JSON parsing error: #{e.message}"
-      render json: { error: "Invalid credential format" }, status: :unprocessable_entity
+      render json: {error: "Invalid credential format"}, status: :unprocessable_entity
     rescue => e
       Rails.logger.error "Unexpected WebAuthn verification error: #{e.class} - #{e.message}"
-      render json: { error: "An unexpected error occurred" }, status: :internal_server_error
+      render json: {error: "An unexpected error occurred"}, status: :internal_server_error
     end
   end
 
@@ -301,7 +299,7 @@ class SessionsController < ApplicationController
       return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
 
       # Only allow HTTPS in production
-      return nil unless Rails.env.development? || uri.scheme == 'https'
+      return nil unless Rails.env.development? || uri.scheme == "https"
 
       redirect_domain = uri.host.downcase
       return nil unless redirect_domain.present?
@@ -312,7 +310,6 @@ class SessionsController < ApplicationController
       end
 
       matching_app ? url : nil
-
     rescue URI::InvalidURIError
       nil
     end

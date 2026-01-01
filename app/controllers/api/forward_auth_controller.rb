@@ -81,22 +81,26 @@ module Api
 
       # User is authenticated and authorized
       # Return 200 with user information headers using app-specific configuration
-      headers = app ? app.headers_for_user(user) : Application::DEFAULT_HEADERS.map { |key, header_name|
-        case key
-        when :user, :email, :name
-          [header_name, user.email_address]
-        when :groups
-          user.groups.any? ? [header_name, user.groups.pluck(:name).join(",")] : nil
-        when :admin
-          [header_name, user.admin? ? "true" : "false"]
-        end
-      }.compact.to_h
+      headers = if app
+        app.headers_for_user(user)
+      else
+        Application::DEFAULT_HEADERS.map { |key, header_name|
+          case key
+          when :user, :email, :name
+            [header_name, user.email_address]
+          when :groups
+            user.groups.any? ? [header_name, user.groups.pluck(:name).join(",")] : nil
+          when :admin
+            [header_name, user.admin? ? "true" : "false"]
+          end
+        }.compact.to_h
+      end
 
       headers.each { |key, value| response.headers[key] = value }
 
       # Log what headers we're sending (helpful for debugging)
       if headers.any?
-        Rails.logger.debug "ForwardAuth: Headers sent: #{headers.keys.join(', ')}"
+        Rails.logger.debug "ForwardAuth: Headers sent: #{headers.keys.join(", ")}"
       else
         Rails.logger.debug "ForwardAuth: No headers sent (access only)"
       end
@@ -123,14 +127,13 @@ module Api
       # Delete the token immediately (one-time use)
       Rails.cache.delete("forward_auth_token:#{token}")
 
-            session_id
+      session_id
     end
 
     def extract_session_id
       # Extract session ID from cookie
       # Rails uses signed cookies by default
-      session_id = cookies.signed[:session_id]
-            session_id
+      cookies.signed[:session_id]
     end
 
     def extract_app_from_headers
@@ -155,7 +158,7 @@ module Api
       original_uri = request.headers["X-Forwarded-Uri"] || request.headers["X-Forwarded-Path"] || "/"
 
       # Debug logging to see what headers we're getting
-      Rails.logger.info "ForwardAuth Headers: Host=#{request.headers['Host']}, X-Forwarded-Host=#{original_host}, X-Forwarded-Uri=#{request.headers['X-Forwarded-Uri']}, X-Forwarded-Path=#{request.headers['X-Forwarded-Path']}"
+      Rails.logger.info "ForwardAuth Headers: Host=#{request.headers["Host"]}, X-Forwarded-Host=#{original_host}, X-Forwarded-Uri=#{request.headers["X-Forwarded-Uri"]}, X-Forwarded-Path=#{request.headers["X-Forwarded-Path"]}"
 
       original_url = if original_host
         # Use the forwarded host and URI (original behavior)
@@ -203,7 +206,7 @@ module Api
         return nil unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
 
         # Only allow HTTPS in production
-        return nil unless Rails.env.development? || uri.scheme == 'https'
+        return nil unless Rails.env.development? || uri.scheme == "https"
 
         redirect_domain = uri.host.downcase
         return nil unless redirect_domain.present?
@@ -214,7 +217,6 @@ module Api
         end
 
         matching_app ? url : nil
-
       rescue URI::InvalidURIError
         nil
       end
@@ -233,13 +235,13 @@ module Api
       return redirect_url if redirect_url.present?
 
       # Try CLINCH_HOST environment variable first
-      if ENV['CLINCH_HOST'].present?
-        host = ENV['CLINCH_HOST']
+      if ENV["CLINCH_HOST"].present?
+        host = ENV["CLINCH_HOST"]
         # Ensure URL has https:// protocol
         host.match?(/^https?:\/\//) ? host : "https://#{host}"
       else
         # Fallback to the request host
-        request_host = request.host || request.headers['X-Forwarded-Host']
+        request_host = request.host || request.headers["X-Forwarded-Host"]
         if request_host.present?
           Rails.logger.warn "ForwardAuth: CLINCH_HOST not set, using request host: #{request_host}"
           "https://#{request_host}"

@@ -10,10 +10,14 @@ class AuthenticationTest < ActiveSupport::TestCase
       return nil if host.blank? || host.match?(/^(localhost|127\.0\.0\.1|::1)$/)
 
       # Strip port number for domain parsing
-      host_without_port = host.split(':').first
+      host_without_port = host.split(":").first
 
       # Check if it's an IP address (IPv4 or IPv6) - if so, don't set domain cookie
-      return nil if IPAddr.new(host_without_port) rescue false
+      begin
+        return nil if IPAddr.new(host_without_port)
+      rescue
+        false
+      end
 
       # Use Public Suffix List for accurate domain parsing
       domain = PublicSuffix.parse(host_without_port)

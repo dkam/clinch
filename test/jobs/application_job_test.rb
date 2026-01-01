@@ -37,7 +37,7 @@ class ApplicationJobTest < ActiveJob::TestCase
     end
 
     assert_enqueued_jobs 1 do
-      test_job.perform_later("arg1", "arg2", { "key" => "value" })
+      test_job.perform_later("arg1", "arg2", {"key" => "value"})
     end
 
     # ActiveJob serializes all hash keys as strings
@@ -77,7 +77,7 @@ class ApplicationJobTest < ActiveJob::TestCase
     args = enqueued_jobs.last[:args]
     if args.is_a?(Array) && args.first.is_a?(Hash)
       # GlobalID serialization format
-      assert_equal user.to_global_id.to_s, args.first['_aj_globalid']
+      assert_equal user.to_global_id.to_s, args.first["_aj_globalid"]
     else
       # Direct object serialization
       assert_equal user.id, args.first.id

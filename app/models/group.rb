@@ -11,7 +11,7 @@ class Group < ApplicationRecord
     groups
   ].freeze
 
-  validates :name, presence: true, uniqueness: { case_sensitive: false }
+  validates :name, presence: true, uniqueness: {case_sensitive: false}
   normalizes :name, with: ->(name) { name.strip.downcase }
   validate :no_reserved_claim_names
 
@@ -28,7 +28,7 @@ class Group < ApplicationRecord
 
     reserved_used = parsed_custom_claims.keys.map(&:to_s) & RESERVED_CLAIMS
     if reserved_used.any?
-      errors.add(:custom_claims, "cannot override reserved OIDC claims: #{reserved_used.join(', ')}")
+      errors.add(:custom_claims, "cannot override reserved OIDC claims: #{reserved_used.join(", ")}")
     end
   end
 end

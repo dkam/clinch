@@ -13,7 +13,7 @@ module Api
 
     # Authentication Tests
     test "should redirect to login when no session cookie" do
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 302
       assert_match %r{/signin}, response.location
@@ -23,7 +23,7 @@ module Api
     test "should redirect when user is inactive" do
       sign_in_as(@inactive_user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 302
       assert_equal "User account is not active", response.headers["x-auth-reason"]
@@ -32,7 +32,7 @@ module Api
     test "should return 200 when user is authenticated" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
     end
@@ -41,7 +41,7 @@ module Api
     test "should return 200 when matching rule exists" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
     end
@@ -49,7 +49,7 @@ module Api
     test "should return 403 when no rule matches (fail-closed security)" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "unknown.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "unknown.example.com"}
 
       assert_response 403
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
@@ -58,7 +58,7 @@ module Api
     test "should return 403 when rule exists but is inactive" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "inactive.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "inactive.example.com"}
 
       assert_response 403
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
@@ -68,7 +68,7 @@ module Api
       @rule.allowed_groups << @group
       sign_in_as(@user)  # User not in group
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 403
       assert_match %r{permission to access this domain}, response.headers["x-auth-reason"]
@@ -79,35 +79,35 @@ module Api
       @user.groups << @group
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
     end
 
     # Domain Pattern Tests
     test "should match wildcard domains correctly" do
-      wildcard_rule = Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
+      Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
       assert_response 200
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "api.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "api.example.com"}
       assert_response 200
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "other.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "other.com"}
       assert_response 403  # No rule configured - fail-closed
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
     test "should match exact domains correctly" do
-      exact_rule = Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
+      Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "api.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "api.example.com"}
       assert_response 200
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "app.api.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "app.api.example.com"}
       assert_response 403  # No rule configured - fail-closed
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
@@ -116,7 +116,7 @@ module Api
     test "should return default headers when rule has no custom config" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
       assert_equal @user.email_address, response.headers["x-remote-user"]
@@ -126,7 +126,7 @@ module Api
     end
 
     test "should return custom headers when configured" do
-      custom_rule = Application.create!(
+      Application.create!(
         name: "Custom App",
         slug: "custom-app",
         app_type: "forward_auth",
@@ -140,7 +140,7 @@ module Api
       )
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "custom.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "custom.example.com"}
 
       assert_response 200
       assert_equal @user.email_address, response.headers["x-webauth-user"]
@@ -151,17 +151,17 @@ module Api
     end
 
     test "should return no headers when all headers disabled" do
-      no_headers_rule = Application.create!(
+      Application.create!(
         name: "No Headers App",
         slug: "no-headers-app",
         app_type: "forward_auth",
         domain_pattern: "noheaders.example.com",
         active: true,
-        headers_config: { user: "", email: "", name: "", groups: "", admin: "" }
+        headers_config: {user: "", email: "", name: "", groups: "", admin: ""}
       )
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "noheaders.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "noheaders.example.com"}
 
       assert_response 200
       # Check that auth-specific headers are not present (exclude Rails security headers)
@@ -173,7 +173,7 @@ module Api
       @user.groups << @group
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
       groups_header = response.headers["x-remote-groups"]
@@ -186,7 +186,7 @@ module Api
       @user.groups.clear  # Remove fixture groups
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
       assert_nil response.headers["x-remote-groups"]
@@ -195,7 +195,7 @@ module Api
     test "should include admin header correctly" do
       sign_in_as(@admin_user)  # Assuming users(:two) is admin
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
       assert_equal "true", response.headers["x-remote-admin"]
@@ -207,7 +207,7 @@ module Api
       @user.groups << group2
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
       groups_header = response.headers["x-remote-groups"]
@@ -219,7 +219,7 @@ module Api
     test "should fall back to Host header when X-Forwarded-Host is missing" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "Host" => "test.example.com" }
+      get "/api/verify", headers: {"Host" => "test.example.com"}
 
       assert_response 200
     end
@@ -239,7 +239,7 @@ module Api
       long_domain = "a" * 250 + ".example.com"
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => long_domain }
+      get "/api/verify", headers: {"X-Forwarded-Host" => long_domain}
 
       assert_response 403  # No rule configured - fail-closed
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
@@ -248,7 +248,7 @@ module Api
     test "should handle case insensitive domain matching" do
       sign_in_as(@user)
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "TEST.Example.COM" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "TEST.Example.COM"}
 
       assert_response 200
     end
@@ -262,7 +262,7 @@ module Api
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "test.example.com",
         "X-Forwarded-Uri" => "/admin"
-      }, params: { rd: evil_url }
+      }, params: {rd: evil_url}
 
       assert_response 302
       assert_match %r{/signin}, response.location
@@ -292,8 +292,8 @@ module Api
       # This should be allowed (domain has ForwardAuthRule)
       allowed_url = "https://test.example.com/dashboard"
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
-          params: { rd: allowed_url }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"},
+        params: {rd: allowed_url}
 
       assert_response 302
       assert_match allowed_url, response.location
@@ -305,8 +305,8 @@ module Api
       # This should be rejected (no ForwardAuthRule for evil-site.com)
       evil_url = "https://evil-site.com/steal-credentials"
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
-          params: { rd: evil_url }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"},
+        params: {rd: evil_url}
 
       assert_response 302
       # Should redirect to login page or default URL, NOT to evil_url
@@ -320,8 +320,8 @@ module Api
       # This should be rejected (HTTP not HTTPS)
       http_url = "http://test.example.com/dashboard"
 
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
-          params: { rd: http_url }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"},
+        params: {rd: http_url}
 
       assert_response 302
       # Should redirect to login page or default URL, NOT to HTTP URL
@@ -340,8 +340,8 @@ module Api
       ]
 
       dangerous_schemes.each do |dangerous_url|
-        get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" },
-            params: { rd: dangerous_url }
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"},
+          params: {rd: dangerous_url}
 
         assert_response 302, "Should reject dangerous URL: #{dangerous_url}"
         # Should redirect to login page or default URL, NOT to dangerous URL
@@ -355,7 +355,7 @@ module Api
       sign_in_as(@user)
 
       # Authenticated GET requests should return 200
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 200
     end
 
@@ -461,11 +461,11 @@ module Api
       sign_in_as(@user)
 
       # First request
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 200
 
       # Second request with same session
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 200
 
       # Should maintain user identity across requests
@@ -481,8 +481,8 @@ module Api
 
       5.times do |i|
         threads << Thread.new do
-          get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
-          results << { status: response.status }
+          get "/api/verify", headers: {"X-Forwarded-Host" => "app#{i}.example.com"}
+          results << {status: response.status}
         end
       end
 
@@ -524,7 +524,7 @@ module Api
       request_count = 10
 
       request_count.times do |i|
-        get "/api/verify", headers: { "X-Forwarded-Host" => "app#{i}.example.com" }
+        get "/api/verify", headers: {"X-Forwarded-Host" => "app#{i}.example.com"}
         assert_response 403  # No rules configured for these domains
       end
 

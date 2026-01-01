@@ -9,7 +9,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "session_test@example.com", password: "password123")
 
     # Sign in
-    post signin_path, params: { email_address: "session_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "session_test@example.com", password: "password123"}
     assert_response :redirect
     follow_redirect!
     assert_response :success
@@ -75,7 +75,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "session_fixation_test@example.com", password: "password123")
 
     # Sign in creates a new session
-    post signin_path, params: { email_address: "session_fixation_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "session_fixation_test@example.com", password: "password123"}
     assert_response :redirect
 
     # User should be authenticated after sign in
@@ -92,21 +92,21 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "concurrent_session_test@example.com", password: "password123")
 
     # Create multiple sessions from different devices
-    session1 = user.sessions.create!(
+    user.sessions.create!(
       ip_address: "192.168.1.1",
       user_agent: "Mozilla/5.0 (Windows)",
       device_name: "Windows PC",
       last_activity_at: Time.current
     )
 
-    session2 = user.sessions.create!(
+    user.sessions.create!(
       ip_address: "192.168.1.2",
       user_agent: "Mozilla/5.0 (iPhone)",
       device_name: "iPhone",
       last_activity_at: Time.current
     )
 
-    session3 = user.sessions.create!(
+    user.sessions.create!(
       ip_address: "192.168.1.3",
       user_agent: "Mozilla/5.0 (Macintosh)",
       device_name: "MacBook",
@@ -157,14 +157,14 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "logout_test@example.com", password: "password123")
 
     # Create multiple sessions
-    session1 = user.sessions.create!(
+    user.sessions.create!(
       ip_address: "192.168.1.1",
       user_agent: "Mozilla/5.0 (Windows)",
       device_name: "Windows PC",
       last_activity_at: Time.current
     )
 
-    session2 = user.sessions.create!(
+    user.sessions.create!(
       ip_address: "192.168.1.2",
       user_agent: "Mozilla/5.0 (iPhone)",
       device_name: "iPhone",
@@ -172,7 +172,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in (creates a new session via the sign-in flow)
-    post signin_path, params: { email_address: "logout_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "logout_test@example.com", password: "password123"}
     assert_response :redirect
 
     # Should have 3 sessions now
@@ -204,7 +204,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     )
 
     # Create consent with backchannel logout enabled
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: user,
       application: application,
       scopes_granted: "openid profile",
@@ -212,7 +212,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in
-    post signin_path, params: { email_address: "logout_notification_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "logout_notification_test@example.com", password: "password123"}
     assert_response :redirect
 
     # Sign out
@@ -237,8 +237,8 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "hijacking_test@example.com", password: "password123")
 
     # Sign in
-    post signin_path, params: { email_address: "hijacking_test@example.com", password: "password123" },
-      headers: { "HTTP_USER_AGENT" => "TestBrowser/1.0" }
+    post signin_path, params: {email_address: "hijacking_test@example.com", password: "password123"},
+      headers: {"HTTP_USER_AGENT" => "TestBrowser/1.0"}
     assert_response :redirect
 
     # Check that session includes IP and user agent
@@ -295,7 +295,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
 
     # Test forward auth endpoint with valid session
     get api_verify_path(rd: "https://test.example.com/protected"),
-      headers: { cookie: "_session_id=#{user_session.id}" }
+      headers: {cookie: "_session_id=#{user_session.id}"}
 
     # Should accept the request and redirect back
     assert_response :redirect

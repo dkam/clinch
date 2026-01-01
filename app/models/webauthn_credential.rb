@@ -4,9 +4,9 @@ class WebauthnCredential < ApplicationRecord
   # Validations
   validates :external_id, presence: true, uniqueness: true
   validates :public_key, presence: true
-  validates :sign_count, presence: true, numericality: { greater_than_or_equal_to: 0, only_integer: true }
+  validates :sign_count, presence: true, numericality: {greater_than_or_equal_to: 0, only_integer: true}
   validates :nickname, presence: true
-  validates :authenticator_type, inclusion: { in: %w[platform cross-platform] }
+  validates :authenticator_type, inclusion: {in: %w[platform cross-platform]}
 
   # Scopes for querying
   scope :active, -> { where(nil) } # All credentials are active (we can add revoked_at later if needed)
@@ -84,11 +84,11 @@ class WebauthnCredential < ApplicationRecord
     days = hours / 24
 
     if days > 0
-      "#{days.floor} day#{'s' if days > 1} ago"
+      "#{days.floor} day#{"s" if days > 1} ago"
     elsif hours > 0
-      "#{hours.floor} hour#{'s' if hours > 1} ago"
+      "#{hours.floor} hour#{"s" if hours > 1} ago"
     elsif minutes > 0
-      "#{minutes.floor} minute#{'s' if minutes > 1} ago"
+      "#{minutes.floor} minute#{"s" if minutes > 1} ago"
     else
       "Just now"
     end

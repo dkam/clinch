@@ -61,18 +61,18 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     assert_not_nil token, "Should generate token"
     assert token.length > 100, "Token should be substantial"
-    assert token.include?('.')
+    assert token.include?(".")
 
     # Decode without verification for testing the payload
     decoded = JWT.decode(token, nil, false).first
-    assert_equal @application.client_id, decoded['aud'], "Should have correct audience"
-    assert_equal @user.id.to_s, decoded['sub'], "Should have correct subject"
-    assert_equal @user.email_address, decoded['email'], "Should have correct email"
-    assert_equal true, decoded['email_verified'], "Should have email verified"
-    assert_equal @user.email_address, decoded['preferred_username'], "Should have preferred username"
-    assert_equal @user.email_address, decoded['name'], "Should have name"
-    assert_equal @service.issuer_url, decoded['iss'], "Should have correct issuer"
-    assert_in_delta Time.current.to_i + 3600, decoded['exp'], 5, "Should have correct expiration"
+    assert_equal @application.client_id, decoded["aud"], "Should have correct audience"
+    assert_equal @user.id.to_s, decoded["sub"], "Should have correct subject"
+    assert_equal @user.email_address, decoded["email"], "Should have correct email"
+    assert_equal true, decoded["email_verified"], "Should have email verified"
+    assert_equal @user.email_address, decoded["preferred_username"], "Should have preferred username"
+    assert_equal @user.email_address, decoded["name"], "Should have name"
+    assert_equal @service.issuer_url, decoded["iss"], "Should have correct issuer"
+    assert_in_delta Time.current.to_i + 3600, decoded["exp"], 5, "Should have correct expiration"
   end
 
   test "should handle nonce in id token" do
@@ -80,8 +80,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     token = @service.generate_id_token(@user, @application, nonce: nonce)
 
     decoded = JWT.decode(token, nil, false).first
-    assert_equal nonce, decoded['nonce'], "Should preserve nonce in token"
-    assert_in_delta Time.current.to_i + 3600, decoded['exp'], 5, "Should have correct expiration with nonce"
+    assert_equal nonce, decoded["nonce"], "Should preserve nonce in token"
+    assert_in_delta Time.current.to_i + 3600, decoded["exp"], 5, "Should have correct expiration with nonce"
   end
 
   test "should include groups in token when user has groups" do
@@ -91,7 +91,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     token = @service.generate_id_token(@user, @application)
 
     decoded = JWT.decode(token, nil, false).first
-    assert_includes decoded['groups'], "Administrators", "Should include user's groups"
+    assert_includes decoded["groups"], "Administrators", "Should include user's groups"
   end
 
   test "admin claim should not be included in token" do
@@ -100,14 +100,14 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     token = @service.generate_id_token(@user, @application)
 
     decoded = JWT.decode(token, nil, false).first
-    refute decoded.key?('admin'), "Admin claim should not be included in ID tokens (use groups instead)"
+    refute decoded.key?("admin"), "Admin claim should not be included in ID tokens (use groups instead)"
   end
 
   test "should handle missing roles gracefully" do
     token = @service.generate_id_token(@user, @application)
 
     decoded = JWT.decode(token, nil, false).first
-    refute_includes decoded, 'roles', "Should not have roles when not configured"
+    refute_includes decoded, "roles", "Should not have roles when not configured"
   end
 
   test "should load RSA private key from environment with escaped newlines" do
@@ -168,7 +168,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       OidcJwtService.send(:private_key)
     end
 
-    assert_match /Invalid OIDC private key format/, error.message
+    assert_match(/Invalid OIDC private key format/, error.message)
   ensure
     # Restore original value and clear cached key
     ENV["OIDC_PRIVATE_KEY"] = original_value
@@ -193,7 +193,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       OidcJwtService.send(:private_key)
     end
 
-    assert_match /OIDC private key not configured/, error.message
+    assert_match(/OIDC private key not configured/, error.message)
   ensure
     # Restore original environment and clear cached key
     ENV["OIDC_PRIVATE_KEY"] = original_value if original_value
@@ -214,9 +214,9 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     assert_not_nil decoded_array, "Should decode valid token"
     decoded = decoded_array.first # JWT.decode returns an array
-    assert_equal @user.id.to_s, decoded['sub'], "Should decode subject correctly"
-    assert_equal @application.client_id, decoded['aud'], "Should decode audience correctly"
-    assert decoded['exp'] > Time.current.to_i, "Token should not be expired"
+    assert_equal @user.id.to_s, decoded["sub"], "Should decode subject correctly"
+    assert_equal @application.client_id, decoded["aud"], "Should decode audience correctly"
+    assert decoded["exp"] > Time.current.to_i, "Token should not be expired"
   end
 
   test "should reject invalid id tokens" do
@@ -252,9 +252,9 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     decoded = JWT.decode(token, nil, false).first
     # ID tokens always include email_verified
-    assert_includes decoded.keys, 'email_verified'
-    assert_equal @user.id.to_s, decoded['sub'], "Should decode subject correctly"
-    assert_equal @application.client_id, decoded['aud'], "Should decode audience correctly"
+    assert_includes decoded.keys, "email_verified"
+    assert_equal @user.id.to_s, decoded["sub"], "Should decode subject correctly"
+    assert_equal @application.client_id, decoded["aud"], "Should decode audience correctly"
   end
 
   test "should validate JWT configuration" do
@@ -275,7 +275,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     ApplicationUserClaim.create!(
       user: user,
       application: app,
-      custom_claims: { "app_groups": ["admin"], "library_access": "all" }
+      custom_claims: {app_groups: ["admin"], library_access: "all"}
     )
 
     token = @service.generate_id_token(user, app)
@@ -292,17 +292,17 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # Add user to group with claims
     group = groups(:admin_group)
-    group.update!(custom_claims: { "role": "viewer", "max_items": 10 })
+    group.update!(custom_claims: {role: "viewer", max_items: 10})
     user.groups << group
 
     # Add user custom claims
-    user.update!(custom_claims: { "role": "editor", "theme": "dark" })
+    user.update!(custom_claims: {role: "editor", theme: "dark"})
 
     # Add app-specific claims (should override both)
     ApplicationUserClaim.create!(
       user: user,
       application: app,
-      custom_claims: { "role": "admin", "app_specific": true }
+      custom_claims: {role: "admin", app_specific: true}
     )
 
     token = @service.generate_id_token(user, app)
@@ -324,11 +324,11 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # Group has roles: ["user"]
     group = groups(:admin_group)
-    group.update!(custom_claims: { "roles" => ["user"], "permissions" => ["read"] })
+    group.update!(custom_claims: {"roles" => ["user"], "permissions" => ["read"]})
     user.groups << group
 
     # User adds roles: ["admin"]
-    user.update!(custom_claims: { "roles" => ["admin"], "permissions" => ["write"] })
+    user.update!(custom_claims: {"roles" => ["admin"], "permissions" => ["write"]})
 
     token = @service.generate_id_token(user, app)
     decoded = JWT.decode(token, nil, false).first
@@ -349,16 +349,16 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # First group has roles: ["user"]
     group1 = groups(:admin_group)
-    group1.update!(custom_claims: { "roles" => ["user"] })
+    group1.update!(custom_claims: {"roles" => ["user"]})
     user.groups << group1
 
     # Second group has roles: ["moderator"]
     group2 = Group.create!(name: "moderators", description: "Moderators group")
-    group2.update!(custom_claims: { "roles" => ["moderator"] })
+    group2.update!(custom_claims: {"roles" => ["moderator"]})
     user.groups << group2
 
     # User adds roles: ["admin"]
-    user.update!(custom_claims: { "roles" => ["admin"] })
+    user.update!(custom_claims: {"roles" => ["admin"]})
 
     token = @service.generate_id_token(user, app)
     decoded = JWT.decode(token, nil, false).first
@@ -376,11 +376,11 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # Group has roles: ["user", "reader"]
     group = groups(:admin_group)
-    group.update!(custom_claims: { "roles" => ["user", "reader"] })
+    group.update!(custom_claims: {"roles" => ["user", "reader"]})
     user.groups << group
 
     # User also has "user" role (duplicate)
-    user.update!(custom_claims: { "roles" => ["user", "admin"] })
+    user.update!(custom_claims: {"roles" => ["user", "admin"]})
 
     token = @service.generate_id_token(user, app)
     decoded = JWT.decode(token, nil, false).first
@@ -398,11 +398,11 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # Group has roles array and max_items scalar
     group = groups(:admin_group)
-    group.update!(custom_claims: { "roles" => ["user"], "max_items" => 10, "theme" => "light" })
+    group.update!(custom_claims: {"roles" => ["user"], "max_items" => 10, "theme" => "light"})
     user.groups << group
 
     # User overrides max_items and theme, adds to roles
-    user.update!(custom_claims: { "roles" => ["admin"], "max_items" => 100, "theme" => "dark" })
+    user.update!(custom_claims: {"roles" => ["admin"], "max_items" => 100, "theme" => "dark"})
 
     token = @service.generate_id_token(user, app)
     decoded = JWT.decode(token, nil, false).first
@@ -425,7 +425,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     group.update!(custom_claims: {
       "config" => {
         "theme" => "light",
-        "notifications" => { "email" => true }
+        "notifications" => {"email" => true}
       }
     })
     user.groups << group
@@ -434,7 +434,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     user.update!(custom_claims: {
       "config" => {
         "language" => "en",
-        "notifications" => { "sms" => true }
+        "notifications" => {"sms" => true}
       }
     })
 
@@ -454,17 +454,17 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     # Group has roles: ["user"]
     group = groups(:admin_group)
-    group.update!(custom_claims: { "roles" => ["user"] })
+    group.update!(custom_claims: {"roles" => ["user"]})
     user.groups << group
 
     # User has roles: ["moderator"]
-    user.update!(custom_claims: { "roles" => ["moderator"] })
+    user.update!(custom_claims: {"roles" => ["moderator"]})
 
     # App-specific has roles: ["app_admin"]
     ApplicationUserClaim.create!(
       user: user,
       application: app,
-      custom_claims: { "roles" => ["app_admin"] }
+      custom_claims: {"roles" => ["app_admin"]}
     )
 
     token = @service.generate_id_token(user, app)

@@ -1,7 +1,8 @@
 class InvitationsController < ApplicationController
   include Authentication
+
   allow_unauthenticated_access
-  before_action :set_user_by_invitation_token, only: %i[ show update ]
+  before_action :set_user_by_invitation_token, only: %i[show update]
 
   def show
     # Show the password setup form
@@ -35,16 +36,16 @@ class InvitationsController < ApplicationController
     # Check if user is still pending invitation
     if @user.nil?
       redirect_to signin_path, alert: "Invitation link is invalid or has expired."
-      return false
+      false
     elsif @user.pending_invitation?
       # User is valid and pending - proceed
-      return true
+      true
     else
       redirect_to signin_path, alert: "This invitation has already been used or is no longer valid."
-      return false
+      false
     end
   rescue ActiveSupport::MessageVerifier::InvalidSignature
     redirect_to signin_path, alert: "Invitation link is invalid or has expired."
-    return false
+    false
   end
 end

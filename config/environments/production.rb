@@ -16,7 +16,7 @@ Rails.application.configure do
   config.action_controller.perform_caching = true
 
   # Cache assets for far-future expiry since they are all digest stamped.
-  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
+  config.public_file_server.headers = {"cache-control" => "public, max-age=#{1.year.to_i}"}
 
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
@@ -34,16 +34,16 @@ Rails.application.configure do
   # Note: Rails already sets X-Content-Type-Options: nosniff by default
   # Note: Permissions-Policy is configured in config/initializers/permissions_policy.rb
   config.action_dispatch.default_headers.merge!(
-    'X-Frame-Options' => 'DENY',  # Override default SAMEORIGIN to prevent clickjacking
-    'Referrer-Policy' => 'strict-origin-when-cross-origin'  # Control referrer information
+    "X-Frame-Options" => "DENY",  # Override default SAMEORIGIN to prevent clickjacking
+    "Referrer-Policy" => "strict-origin-when-cross-origin"  # Control referrer information
   )
 
   # Skip http-to-https redirect for the default health check endpoint.
   # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
-  config.log_tags = [ :request_id ]
-  config.logger   = ActiveSupport::TaggedLogging.logger(STDOUT)
+  config.log_tags = [:request_id]
+  config.logger = ActiveSupport::TaggedLogging.logger($stdout)
 
   # Change to "debug" to log everything (including potentially personally-identifiable information!).
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
@@ -66,7 +66,7 @@ Rails.application.configure do
 
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = {
-    host: ENV.fetch('CLINCH_HOST', 'example.com')
+    host: ENV.fetch("CLINCH_HOST", "example.com")
   }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
@@ -86,13 +86,13 @@ Rails.application.configure do
   config.active_record.dump_schema_after_migration = false
 
   # Only use :id for inspections in production.
-  config.active_record.attributes_for_inspect = [ :id ]
+  config.active_record.attributes_for_inspect = [:id]
 
   # Helper method to extract domain from CLINCH_HOST (removes protocol if present)
   def self.extract_domain(host)
     return host if host.blank?
     # Remove protocol (http:// or https://) if present
-    host.gsub(/^https?:\/\//, '')
+    host.gsub(/^https?:\/\//, "")
   end
 
   # Helper method to ensure URL has https:// protocol
@@ -105,11 +105,11 @@ Rails.application.configure do
   # Enable DNS rebinding protection and other `Host` header attacks.
   # Configure allowed hosts based on deployment scenario
   allowed_hosts = [
-    extract_domain(ENV.fetch('CLINCH_HOST', 'auth.example.com')),  # External domain (auth service itself)
+    extract_domain(ENV.fetch("CLINCH_HOST", "auth.example.com"))  # External domain (auth service itself)
   ]
 
   # Use PublicSuffix to extract registrable domain and allow all subdomains
-  host_domain = extract_domain(ENV.fetch('CLINCH_HOST', 'auth.example.com'))
+  host_domain = extract_domain(ENV.fetch("CLINCH_HOST", "auth.example.com"))
   if host_domain.present?
     begin
       # Use PublicSuffix to properly extract the domain
@@ -123,20 +123,20 @@ Rails.application.configure do
     rescue PublicSuffix::DomainInvalid
       # Fallback to simple domain extraction if PublicSuffix fails
       Rails.logger.warn "Could not parse domain '#{host_domain}' with PublicSuffix, using fallback"
-      base_domain = host_domain.split('.').last(2).join('.')
+      base_domain = host_domain.split(".").last(2).join(".")
       allowed_hosts << /.*#{Regexp.escape(base_domain)}/
     end
   end
 
   # Allow Docker service names if running in same compose
-  if ENV['CLINCH_DOCKER_SERVICE_NAME']
-    allowed_hosts << ENV['CLINCH_DOCKER_SERVICE_NAME']
+  if ENV["CLINCH_DOCKER_SERVICE_NAME"]
+    allowed_hosts << ENV["CLINCH_DOCKER_SERVICE_NAME"]
   end
 
   # Allow internal IP access for cross-compose or host networking
-  if ENV['CLINCH_ALLOW_INTERNAL_IPS'] == 'true'
+  if ENV["CLINCH_ALLOW_INTERNAL_IPS"] == "true"
     # Specific host IP
-    allowed_hosts << '192.168.2.246'
+    allowed_hosts << "192.168.2.246"
 
     # Private IP ranges for internal network access
     allowed_hosts += [
@@ -147,14 +147,14 @@ Rails.application.configure do
   end
 
   # Local development fallbacks
-  if ENV['CLINCH_ALLOW_LOCALHOST'] == 'true'
-    allowed_hosts += ['localhost', '127.0.0.1', '0.0.0.0']
+  if ENV["CLINCH_ALLOW_LOCALHOST"] == "true"
+    allowed_hosts += ["localhost", "127.0.0.1", "0.0.0.0"]
   end
 
   config.hosts = allowed_hosts
 
   # Skip DNS rebinding protection for the default health check endpoint.
-  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  config.host_authorization = {exclude: ->(request) { request.path == "/up" }}
 
   # Sentry configuration for production
   # Only enabled if SENTRY_DSN environment variable is set

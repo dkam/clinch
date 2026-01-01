@@ -33,7 +33,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "does not find user with invalid invitation token" do
-    user = User.create!(
+    User.create!(
       email_address: "test@example.com",
       password: "password123",
       status: :pending_invitation
@@ -222,7 +222,7 @@ class UserTest < ActiveSupport::TestCase
     # Should store 10 BCrypt hashes
     assert_equal 10, stored_hashes.length
     stored_hashes.each do |hash|
-      assert hash.start_with?('$2a$'), "Should be BCrypt hash"
+      assert hash.start_with?("$2a$"), "Should be BCrypt hash"
     end
 
     # Verify each plain code matches its corresponding hash
@@ -298,7 +298,7 @@ class UserTest < ActiveSupport::TestCase
     # Make 5 failed attempts to trigger rate limit
     5.times do |i|
       result = user.verify_backup_code("INVALID123")
-      assert_not result, "Failed attempt #{i+1} should return false"
+      assert_not result, "Failed attempt #{i + 1} should return false"
     end
 
     # Check that the cache is tracking attempts

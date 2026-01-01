@@ -11,6 +11,6 @@ class CreateOidcAccessTokens < ActiveRecord::Migration[8.1]
     end
     add_index :oidc_access_tokens, :token, unique: true
     add_index :oidc_access_tokens, :expires_at
-    add_index :oidc_access_tokens, [ :application_id, :user_id ]
+    add_index :oidc_access_tokens, [:application_id, :user_id]
   end
 end

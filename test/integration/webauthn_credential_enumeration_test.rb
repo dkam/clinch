@@ -10,7 +10,7 @@ class WebauthnCredentialEnumerationTest < ActionDispatch::IntegrationTest
     user2 = User.create!(email_address: "user2@example.com", password: "password123")
 
     # Create a credential for user1
-    credential1 = user1.webauthn_credentials.create!(
+    user1.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("user1_credential"),
       public_key: Base64.urlsafe_encode64("public_key_1"),
       sign_count: 0,
@@ -28,7 +28,7 @@ class WebauthnCredentialEnumerationTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in as user1
-    post signin_path, params: { email_address: "user1@example.com", password: "password123" }
+    post signin_path, params: {email_address: "user1@example.com", password: "password123"}
     assert_response :redirect
     follow_redirect!
 
@@ -66,7 +66,7 @@ class WebauthnCredentialEnumerationTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in
-    post signin_path, params: { email_address: "user@example.com", password: "password123" }
+    post signin_path, params: {email_address: "user@example.com", password: "password123"}
     assert_response :redirect
     follow_redirect!
 

@@ -100,7 +100,7 @@ class InvitationsControllerTest < ActionDispatch::IntegrationTest
 
   test "should destroy existing sessions when accepting invitation" do
     # Create an existing session for the user
-    existing_session = @user.sessions.create!
+    @user.sessions.create!
 
     put invitation_path(@token), params: {
       password: "newpassword123",

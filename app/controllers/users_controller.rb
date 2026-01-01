@@ -1,6 +1,6 @@
 class UsersController < ApplicationController
-  allow_unauthenticated_access only: %i[ new create ]
-  before_action :ensure_first_run, only: %i[ new create ]
+  allow_unauthenticated_access only: %i[new create]
+  before_action :ensure_first_run, only: %i[new create]
 
   def new
     @user = User.new

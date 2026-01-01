@@ -5,7 +5,7 @@ class CreateWebauthnCredentials < ActiveRecord::Migration[8.1]
       t.references :user, null: false, foreign_key: true, index: true
 
       # WebAuthn specification fields
-      t.string :external_id, null: false, index: { unique: true }  # credential ID (base64)
+      t.string :external_id, null: false, index: {unique: true}  # credential ID (base64)
       t.string :public_key, null: false                             # public key (base64)
       t.integer :sign_count, null: false, default: 0                # signature counter (clone detection)
 

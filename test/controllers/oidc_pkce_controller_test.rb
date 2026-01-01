@@ -38,7 +38,6 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "authorization endpoint accepts PKCE parameters (S256)" do
-    code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     code_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 
     auth_params = {
@@ -56,7 +55,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     # Should show consent page (user is already authenticated)
     assert_response :success
-    assert_match /consent/, @response.body.downcase
+    assert_match(/consent/, @response.body.downcase)
   end
 
   test "authorization endpoint accepts PKCE parameters (plain)" do
@@ -77,7 +76,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     # Should show consent page (user is already authenticated)
     assert_response :success
-    assert_match /consent/, @response.body.downcase
+    assert_match(/consent/, @response.body.downcase)
   end
 
   test "authorization endpoint rejects invalid code_challenge_method" do
@@ -478,7 +477,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
     error = JSON.parse(@response.body)
     assert_equal "invalid_request", error["error"]
-    assert_match /PKCE is required for public clients/, error["error_description"]
+    assert_match(/PKCE is required for public clients/, error["error_description"])
 
     # Cleanup
     OidcRefreshToken.where(application: public_app).delete_all
@@ -525,7 +524,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
     error = JSON.parse(@response.body)
     assert_equal "invalid_request", error["error"]
-    assert_match /PKCE is required/, error["error_description"]
+    assert_match(/PKCE is required/, error["error_description"])
   end
 
   # ====================

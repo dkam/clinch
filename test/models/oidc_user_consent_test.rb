@@ -218,7 +218,7 @@ class OidcUserConsentTest < ActiveSupport::TestCase
 
     # Application requests more than granted
     assert_not @consent.covers_scopes?(["openid", "profile", "groups"]),
-                  "Should not cover scopes not granted"
+      "Should not cover scopes not granted"
 
     # Application requests subset
     assert @consent.covers_scopes?(["email"]), "Should cover subset of granted scopes"

@@ -28,7 +28,7 @@ class OidcAuthorizationCodeTest < ActiveSupport::TestCase
     assert_nil new_code.code_hmac
     assert new_code.save
     assert_not_nil new_code.code_hmac
-    assert_match /^[a-f0-9]{64}$/, new_code.code_hmac # SHA256 hex digest
+    assert_match(/^[a-f0-9]{64}$/, new_code.code_hmac) # SHA256 hex digest
   end
 
   test "should set expiry before validation on create" do
@@ -186,7 +186,7 @@ class OidcAuthorizationCodeTest < ActiveSupport::TestCase
 
     # All codes should be SHA256 hex digests
     codes.each do |code|
-      assert_match /^[a-f0-9]{64}$/, code
+      assert_match(/^[a-f0-9]{64}$/, code)
       assert_equal 64, code.length # SHA256 hex digest
     end
   end

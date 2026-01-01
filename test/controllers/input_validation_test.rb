@@ -31,7 +31,7 @@ class InputValidationTest < ActionDispatch::IntegrationTest
     user = User.create!(email_address: "xss_test@example.com", password: "password123", name: xss_payload)
 
     # Sign in
-    post signin_path, params: { email_address: "xss_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "xss_test@example.com", password: "password123"}
     assert_response :redirect
 
     # Get a page that displays user name
@@ -59,7 +59,7 @@ class InputValidationTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in
-    post signin_path, params: { email_address: "oauth_tamper_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "oauth_tamper_test@example.com", password: "password123"}
     assert_response :redirect
 
     # Try to tamper with OAuth authorization parameters
@@ -112,7 +112,7 @@ class InputValidationTest < ActionDispatch::IntegrationTest
   test "JSON input validation prevents malicious payloads" do
     # Try to send malformed JSON
     post "/oauth/token", params: '{"grant_type":"authorization_code",}'.to_json,
-      headers: { "CONTENT_TYPE" => "application/json" }
+      headers: {"CONTENT_TYPE" => "application/json"}
 
     # Should handle malformed JSON gracefully
     assert_includes [400, 422], response.status
@@ -124,9 +124,9 @@ class InputValidationTest < ActionDispatch::IntegrationTest
       grant_type: "authorization_code",
       code: "test_code",
       redirect_uri: "http://localhost:4000/callback",
-      nested: { __proto__: "tampered", constructor: { prototype: "tampered" } }
+      nested: {__proto__: "tampered", constructor: {prototype: "tampered"}}
     }.to_json,
-    headers: { "CONTENT_TYPE" => "application/json" }
+      headers: {"CONTENT_TYPE" => "application/json"}
 
     # Should sanitize or reject prototype pollution attempts
     # The request should be handled (either accept or reject, not crash)
@@ -165,7 +165,7 @@ class InputValidationTest < ActionDispatch::IntegrationTest
 
     malicious_paths.each do |malicious_path|
       # Try to access files with path traversal
-      get root_path, params: { file: malicious_path }
+      get root_path, params: {file: malicious_path}
 
       # Should prevent access to files outside public directory
       assert_response :redirect, "Should reject path traversal attempt"

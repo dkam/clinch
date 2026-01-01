@@ -19,16 +19,16 @@ class Application < ApplicationRecord
   has_many :oidc_user_consents, dependent: :destroy
 
   validates :name, presence: true
-  validates :slug, presence: true, uniqueness: { case_sensitive: false },
-                  format: { with: /\A[a-z0-9\-]+\z/, message: "only lowercase letters, numbers, and hyphens" }
+  validates :slug, presence: true, uniqueness: {case_sensitive: false},
+    format: {with: /\A[a-z0-9-]+\z/, message: "only lowercase letters, numbers, and hyphens"}
   validates :app_type, presence: true,
-                      inclusion: { in: %w[oidc forward_auth] }
-  validates :client_id, uniqueness: { allow_nil: true }
+    inclusion: {in: %w[oidc forward_auth]}
+  validates :client_id, uniqueness: {allow_nil: true}
   validates :client_secret, presence: true, on: :create, if: -> { oidc? && confidential_client? }
-  validates :domain_pattern, presence: true, uniqueness: { case_sensitive: false }, if: :forward_auth?
-  validates :landing_url, format: { with: URI::regexp(%w[http https]), allow_nil: true, message: "must be a valid URL" }
+  validates :domain_pattern, presence: true, uniqueness: {case_sensitive: false}, if: :forward_auth?
+  validates :landing_url, format: {with: URI::RFC2396_PARSER.make_regexp(%w[http https]), allow_nil: true, message: "must be a valid URL"}
   validates :backchannel_logout_uri, format: {
-    with: URI::regexp(%w[http https]),
+    with: URI::RFC2396_PARSER.make_regexp(%w[http https]),
     allow_nil: true,
     message: "must be a valid HTTP or HTTPS URL"
   }
@@ -38,9 +38,9 @@ class Application < ApplicationRecord
   validate :icon_validation, if: -> { icon.attached? }
 
   # Token TTL validations (for OIDC apps)
-  validates :access_token_ttl, numericality: { greater_than_or_equal_to: 300, less_than_or_equal_to: 86400 }, if: :oidc?  # 5 min - 24 hours
-  validates :refresh_token_ttl, numericality: { greater_than_or_equal_to: 86400, less_than_or_equal_to: 7776000 }, if: :oidc?  # 1 day - 90 days
-  validates :id_token_ttl, numericality: { greater_than_or_equal_to: 300, less_than_or_equal_to: 86400 }, if: :oidc?  # 5 min - 24 hours
+  validates :access_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 86400}, if: :oidc?  # 5 min - 24 hours
+  validates :refresh_token_ttl, numericality: {greater_than_or_equal_to: 86400, less_than_or_equal_to: 7776000}, if: :oidc?  # 1 day - 90 days
+  validates :id_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 86400}, if: :oidc?  # 5 min - 24 hours
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }
   normalizes :domain_pattern, with: ->(pattern) {
@@ -56,11 +56,11 @@ class Application < ApplicationRecord
 
   # Default header configuration for ForwardAuth
   DEFAULT_HEADERS = {
-    user: 'X-Remote-User',
-    email: 'X-Remote-Email',
-    name: 'X-Remote-Name',
-    groups: 'X-Remote-Groups',
-    admin: 'X-Remote-Admin'
+    user: "X-Remote-User",
+    email: "X-Remote-Email",
+    name: "X-Remote-Name",
+    groups: "X-Remote-Groups",
+    admin: "X-Remote-Admin"
   }.freeze
 
   # Scopes
@@ -135,8 +135,8 @@ class Application < ApplicationRecord
   def matches_domain?(domain)
     return false if domain.blank? || !forward_auth?
 
-    pattern = domain_pattern.gsub('.', '\.')
-    pattern = pattern.gsub('*', '[^.]*')
+    pattern = domain_pattern.gsub(".", '\.')
+    pattern = pattern.gsub("*", "[^.]*")
 
     regex = Regexp.new("^#{pattern}$", Regexp::IGNORECASE)
     regex.match?(domain.downcase)
@@ -144,18 +144,18 @@ class Application < ApplicationRecord
 
   # Policy determination based on user status (for ForwardAuth)
   def policy_for_user(user)
-    return 'deny' unless active?
-    return 'deny' unless user.active?
+    return "deny" unless active?
+    return "deny" unless user.active?
 
     # If no groups specified, bypass authentication
-    return 'bypass' if allowed_groups.empty?
+    return "bypass" if allowed_groups.empty?
 
     # If user is in allowed groups, determine auth level
     if user_allowed?(user)
       # Require 2FA if user has TOTP configured, otherwise one factor
-      user.totp_enabled? ? 'two_factor' : 'one_factor'
+      user.totp_enabled? ? "two_factor" : "one_factor"
     else
-      'deny'
+      "deny"
     end
   end
 
@@ -197,7 +197,7 @@ class Application < ApplicationRecord
   def generate_new_client_secret!
     secret = SecureRandom.urlsafe_base64(48)
     self.client_secret = secret
-    self.save!
+    save!
     secret
   end
 
@@ -242,7 +242,7 @@ class Application < ApplicationRecord
   # (i.e., has valid, non-revoked tokens)
   def user_has_active_session?(user)
     oidc_access_tokens.where(user: user).valid.exists? ||
-    oidc_refresh_tokens.where(user: user).valid.exists?
+      oidc_refresh_tokens.where(user: user).valid.exists?
   end
 
   private
@@ -260,14 +260,14 @@ class Application < ApplicationRecord
     return unless icon.attached?
 
     # Check content type
-    allowed_types = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/svg+xml']
+    allowed_types = ["image/png", "image/jpg", "image/jpeg", "image/gif", "image/svg+xml"]
     unless allowed_types.include?(icon.content_type)
-      errors.add(:icon, 'must be a PNG, JPG, GIF, or SVG image')
+      errors.add(:icon, "must be a PNG, JPG, GIF, or SVG image")
     end
 
     # Check file size (2MB limit)
     if icon.blob.byte_size > 2.megabytes
-      errors.add(:icon, 'must be less than 2MB')
+      errors.add(:icon, "must be less than 2MB")
     end
   end
 
@@ -302,8 +302,8 @@ class Application < ApplicationRecord
 
     begin
       uri = URI.parse(backchannel_logout_uri)
-      unless uri.scheme == 'https'
-        errors.add(:backchannel_logout_uri, 'must use HTTPS in production')
+      unless uri.scheme == "https"
+        errors.add(:backchannel_logout_uri, "must use HTTPS in production")
       end
     rescue URI::InvalidURIError
       # Let the format validator handle invalid URIs

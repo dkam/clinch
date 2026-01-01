@@ -32,13 +32,11 @@ module Admin
           client_secret = @application.generate_new_client_secret!
         end
 
+        flash[:notice] = "Application created successfully."
         if @application.oidc?
-          flash[:notice] = "Application created successfully."
           flash[:client_id] = @application.client_id
           flash[:client_secret] = client_secret if client_secret
           flash[:public_client] = true if @application.public_client?
-        else
-          flash[:notice] = "Application created successfully."
         end
 
         redirect_to admin_application_path(@application)

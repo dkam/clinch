@@ -7,6 +7,6 @@ class CreateApplicationGroups < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :application_groups, [ :application_id, :group_id ], unique: true
+    add_index :application_groups, [:application_id, :group_id], unique: true
   end
 end

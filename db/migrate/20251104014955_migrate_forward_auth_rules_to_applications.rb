@@ -41,7 +41,7 @@ class MigrateForwardAuthRulesToApplications < ActiveRecord::Migration[8.1]
       app = application_class.create!(
         name: rule.domain_pattern.titleize,
         slug: rule.domain_pattern.parameterize.presence || "forward-auth-#{rule.id}",
-        app_type: 'forward_auth',
+        app_type: "forward_auth",
         domain_pattern: rule.domain_pattern,
         headers_config: rule.headers_config || {},
         active: rule.active
@@ -59,7 +59,7 @@ class MigrateForwardAuthRulesToApplications < ActiveRecord::Migration[8.1]
 
   def down
     # Remove all forward_auth applications created by this migration
-    Application.where(app_type: 'forward_auth').destroy_all
+    Application.where(app_type: "forward_auth").destroy_all
   end
 
   private

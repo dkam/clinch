@@ -35,7 +35,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "prevents authorization code reuse - sequential attempts" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -81,7 +81,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "revokes existing tokens when authorization code is reused" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -135,7 +135,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects already used authorization code" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -171,7 +171,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects expired authorization code" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -206,7 +206,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects authorization code with mismatched redirect_uri" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -256,7 +256,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects authorization code for different application" do
     # Create consent for the first application
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -308,7 +308,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects invalid client_id in Basic auth" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -341,7 +341,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects invalid client_secret in Basic auth" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -374,7 +374,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "accepts client credentials in POST body" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -408,7 +408,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "rejects request with no client authentication" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -474,7 +474,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "client authentication uses constant-time comparison" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -546,7 +546,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in first
-    post signin_path, params: { email_address: "security_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "security_test@example.com", password: "password123"}
 
     # Test authorization with state parameter
     get "/oauth/authorize", params: {
@@ -573,7 +573,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     )
 
     # Sign in first
-    post signin_path, params: { email_address: "security_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "security_test@example.com", password: "password123"}
 
     # Test authorization without state parameter
     get "/oauth/authorize", params: {
@@ -593,7 +593,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "nonce parameter is included in ID token" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -637,7 +637,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "access tokens are not exposed in referer header" do
     # Create consent and authorization code
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -664,7 +664,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     response_body = JSON.parse(@response.body)
-    access_token = response_body["access_token"]
+    response_body["access_token"]
 
     # Verify token is not in response headers (especially Referer)
     assert_nil response.headers["Referer"], "Access token should not leak in Referer header"
@@ -677,7 +677,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "PKCE code_verifier is required when code_challenge was provided" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -716,7 +716,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "PKCE with S256 method validates correctly" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -755,7 +755,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "PKCE rejects invalid code_verifier" do
     # Create consent
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",
@@ -798,7 +798,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
 
   test "refresh token rotation is enforced" do
     # Create consent for the refresh token endpoint
-    consent = OidcUserConsent.create!(
+    OidcUserConsent.create!(
       user: @user,
       application: @application,
       scopes_granted: "openid profile",

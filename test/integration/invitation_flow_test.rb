@@ -94,7 +94,7 @@ class InvitationFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "expired invitation token flow" do
-    user = User.create!(
+    User.create!(
       email_address: "expired@example.com",
       password: "temppassword",
       status: :pending_invitation

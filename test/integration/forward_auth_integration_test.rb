@@ -20,27 +20,27 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Basic Authentication Flow Tests
   test "complete authentication flow: unauthenticated to authenticated" do
     # Step 1: Unauthenticated request should redirect
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 302
     assert_match %r{/signin}, response.location
     assert_equal "No session cookie", response.headers["x-auth-reason"]
 
     # Step 2: Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
     # Signin now redirects back with fa_token parameter
     assert_match(/\?fa_token=/, response.location)
     assert cookies[:session_id]
 
     # Step 3: Authenticated request should succeed
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
   end
 
   test "session expiration handling" do
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     # Manually expire the session (get the most recent session for this user)
     session = Session.where(user: @user).order(created_at: :desc).first
@@ -48,7 +48,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     session.update!(expires_at: 1.hour.ago)
 
     # Request should fail and redirect to login
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 302
     assert_equal "Session expired", response.headers["x-auth-reason"]
   end
@@ -56,24 +56,24 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Domain and Rule Integration Tests
   test "different domain patterns with same session" do
     # Create test rules
-    wildcard_rule = Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
-    exact_rule = Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
+    Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
+    Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
 
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     # Test wildcard domain
-    get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
 
     # Test exact domain
-    get "/api/verify", headers: { "X-Forwarded-Host" => "api.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "api.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
 
     # Test non-matching domain (should use defaults)
-    get "/api/verify", headers: { "X-Forwarded-Host" => "other.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "other.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
   end
@@ -84,10 +84,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     restricted_rule.allowed_groups << @group
 
     # Sign in user without group
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     # Should be denied access
-    get "/api/verify", headers: { "X-Forwarded-Host" => "restricted.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "restricted.example.com"}
     assert_response 403
     assert_match %r{permission to access this domain}, response.headers["x-auth-reason"]
 
@@ -95,7 +95,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     @user.groups << @group
 
     # Should now be allowed
-    get "/api/verify", headers: { "X-Forwarded-Host" => "restricted.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "restricted.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
   end
@@ -103,18 +103,18 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Header Configuration Integration Tests
   test "different header configurations with same user" do
     # Create applications with different configs
-    default_rule = Application.create!(name: "Default App", slug: "default-app", app_type: "forward_auth", domain_pattern: "default.example.com", active: true)
-    custom_rule = Application.create!(
+    Application.create!(name: "Default App", slug: "default-app", app_type: "forward_auth", domain_pattern: "default.example.com", active: true)
+    Application.create!(
       name: "Custom App", slug: "custom-app", app_type: "forward_auth",
       domain_pattern: "custom.example.com",
       active: true,
-      headers_config: { user: "X-WEBAUTH-USER", groups: "X-WEBAUTH-ROLES" }
+      headers_config: {user: "X-WEBAUTH-USER", groups: "X-WEBAUTH-ROLES"}
     )
-    no_headers_rule = Application.create!(
+    Application.create!(
       name: "No Headers App", slug: "no-headers-app", app_type: "forward_auth",
       domain_pattern: "noheaders.example.com",
       active: true,
-      headers_config: { user: "", email: "", name: "", groups: "", admin: "" }
+      headers_config: {user: "", email: "", name: "", groups: "", admin: ""}
     )
 
     # Add user to groups
@@ -122,10 +122,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     @user.groups << @group2
 
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     # Test default headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "default.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "default.example.com"}
     assert_response 200
     # Rails normalizes header keys to lowercase
     assert_equal @user.email_address, response.headers["x-remote-user"]
@@ -133,7 +133,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert_equal "Group Two,Group One", response.headers["x-remote-groups"]
 
     # Test custom headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "custom.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "custom.example.com"}
     assert_response 200
     # Custom headers are also normalized to lowercase
     assert_equal @user.email_address, response.headers["x-webauth-user"]
@@ -141,7 +141,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert_equal "Group Two,Group One", response.headers["x-webauth-roles"]
 
     # Test no headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "noheaders.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "noheaders.example.com"}
     assert_response 200
     # Check that no auth-related headers are present (excluding security headers)
     auth_headers = response.headers.select { |k, v| k.match?(/^x-remote-|^x-webauth-|^x-admin-/i) }
@@ -174,7 +174,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     get "/api/verify", headers: {
       "X-Forwarded-Host" => "app.example.com",
       "X-Forwarded-Uri" => "/admin"
-    }, params: { rd: "https://app.example.com/admin" }
+    }, params: {rd: "https://app.example.com/admin"}
 
     assert_response 302
     location = response.location
@@ -194,16 +194,16 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     admin_user = users(:two)
 
     # Create restricted rule
-    admin_rule = Application.create!(
+    Application.create!(
       name: "Admin App", slug: "admin-app", app_type: "forward_auth",
       domain_pattern: "admin.example.com",
       active: true,
-      headers_config: { user: "X-Admin-User", admin: "X-Admin-Flag" }
+      headers_config: {user: "X-Admin-User", admin: "X-Admin-Flag"}
     )
 
     # Test regular user
-    post "/signin", params: { email_address: regular_user.email_address, password: "password" }
-    get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
+    post "/signin", params: {email_address: regular_user.email_address, password: "password"}
+    get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 200
     assert_equal regular_user.email_address, response.headers["x-admin-user"]
 
@@ -211,8 +211,8 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     delete "/session"
 
     # Test admin user
-    post "/signin", params: { email_address: admin_user.email_address, password: "password" }
-    get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
+    post "/signin", params: {email_address: admin_user.email_address, password: "password"}
+    get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 200
     assert_equal admin_user.email_address, response.headers["x-admin-user"]
     assert_equal "true", response.headers["x-admin-flag"]
@@ -221,10 +221,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Security Integration Tests
   test "session hijacking prevention" do
     # User A signs in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     # Verify User A can access protected resources
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
     user_a_session_id = Session.where(user: @user).last.id
@@ -233,10 +233,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     reset!
 
     # User B signs in (creates a new session)
-    post "/signin", params: { email_address: @admin_user.email_address, password: "password" }
+    post "/signin", params: {email_address: @admin_user.email_address, password: "password"}
 
     # Verify User B can access protected resources
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 200
     assert_equal @admin_user.email_address, response.headers["x-remote-user"]
     user_b_session_id = Session.where(user: @admin_user).last.id
@@ -245,5 +245,4 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert Session.exists?(user_a_session_id), "User A's session should still exist"
     assert Session.exists?(user_b_session_id), "User B's session should still exist"
   end
-
 end

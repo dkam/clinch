@@ -73,7 +73,7 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
     assert_not authenticated_user.authenticate("WrongPassword"), "Should not authenticate with wrong password"
 
     # Test password changes invalidate old sessions
-    old_password_digest = @user.password_digest
+    @user.password_digest
     @user.password = "NewPassword123!"
     @user.save!
 
@@ -102,7 +102,7 @@ class UserPasswordManagementTest < ActiveSupport::TestCase
     assert new_user.password_digest.length > 50, "Password digest should be substantial"
 
     # Test digest format (bcrypt hashes start with $2a$)
-    assert_match /^\$2a\$/, new_user.password_digest, "Password digest should be bcrypt format"
+    assert_match(/^\$2a\$/, new_user.password_digest, "Password digest should be bcrypt format")
 
     # Test authentication against digest
     authenticated_user = User.find(new_user.id)

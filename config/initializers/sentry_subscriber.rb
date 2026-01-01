@@ -47,7 +47,7 @@ Rails.application.config.after_initialize do
               timestamp: csp_data[:timestamp]
             }
           },
-          user: csp_data[:current_user_id] ? { id: csp_data[:current_user_id] } : nil
+          user: csp_data[:current_user_id] ? {id: csp_data[:current_user_id]} : nil
         )
 
         # Log to Rails logger for redundancy
@@ -69,10 +69,10 @@ Rails.application.config.after_initialize do
           parsed.host
         rescue URI::InvalidURIError
           # Handle cases where URI might be malformed or just a path
-          if uri.start_with?('/')
+          if uri.start_with?("/")
             nil  # It's a relative path, no domain
           else
-            uri.split('/').first  # Best effort extraction
+            uri.split("/").first  # Best effort extraction
           end
         end
       end

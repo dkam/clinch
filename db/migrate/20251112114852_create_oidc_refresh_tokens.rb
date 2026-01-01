@@ -17,6 +17,6 @@ class CreateOidcRefreshTokens < ActiveRecord::Migration[8.1]
     add_index :oidc_refresh_tokens, :expires_at
     add_index :oidc_refresh_tokens, :revoked_at
     add_index :oidc_refresh_tokens, :token_family_id
-    add_index :oidc_refresh_tokens, [ :application_id, :user_id ]
+    add_index :oidc_refresh_tokens, [:application_id, :user_id]
   end
 end

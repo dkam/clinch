@@ -29,16 +29,16 @@ class User < ApplicationRecord
     groups
   ].freeze
 
-  validates :email_address, presence: true, uniqueness: { case_sensitive: false },
-                           format: { with: URI::MailTo::EMAIL_REGEXP }
-  validates :username, uniqueness: { case_sensitive: false }, allow_nil: true,
-                      format: { with: /\A[a-zA-Z0-9_-]+\z/, message: "can only contain letters, numbers, underscores, and hyphens" },
-                      length: { minimum: 2, maximum: 30 }
-  validates :password, length: { minimum: 8 }, allow_nil: true
+  validates :email_address, presence: true, uniqueness: {case_sensitive: false},
+    format: {with: URI::MailTo::EMAIL_REGEXP}
+  validates :username, uniqueness: {case_sensitive: false}, allow_nil: true,
+    format: {with: /\A[a-zA-Z0-9_-]+\z/, message: "can only contain letters, numbers, underscores, and hyphens"},
+    length: {minimum: 2, maximum: 30}
+  validates :password, length: {minimum: 8}, allow_nil: true
   validate :no_reserved_claim_names
 
   # Enum - automatically creates scopes (User.active, User.disabled, etc.)
-  enum :status, { active: 0, disabled: 1, pending_invitation: 2 }
+  enum :status, {active: 0, disabled: 1, pending_invitation: 2}
 
   # Scopes
   scope :admins, -> { where(admin: true) }
@@ -122,12 +122,7 @@ class User < ApplicationRecord
     cache_key = "backup_code_failed_attempts_#{id}"
     attempts = Rails.cache.read(cache_key) || 0
 
-    if attempts >= 5  # Allow max 5 failed attempts per hour
-      true
-    else
-      # Don't increment here - increment only on failed attempts
-      false
-    end
+    attempts >= 5
   end
 
   # Increment failed attempt counter
@@ -231,7 +226,7 @@ class User < ApplicationRecord
 
     reserved_used = parsed_custom_claims.keys.map(&:to_s) & RESERVED_CLAIMS
     if reserved_used.any?
-      errors.add(:custom_claims, "cannot override reserved OIDC claims: #{reserved_used.join(', ')}")
+      errors.add(:custom_claims, "cannot override reserved OIDC claims: #{reserved_used.join(", ")}")
     end
   end
 

@@ -74,7 +74,7 @@ Rails.application.configure do
       app_environment: Rails.env,
       # Add CSP policy status
       csp_enabled: defined?(Rails.application.config.content_security_policy) &&
-                   Rails.application.config.content_security_policy.present?
+        Rails.application.config.content_security_policy.present?
     }
   end
 
@@ -120,13 +120,13 @@ Rails.application.configure do
     if breadcrumb[:data]
       breadcrumb[:data].reject! { |key, value|
         key.to_s.match?(/password|secret|token|key|authorization/i) ||
-        value.to_s.match?(/password|secret/i)
+          value.to_s.match?(/password|secret/i)
       }
     end
 
     # Mark CSP-related events
     if breadcrumb[:message]&.include?("CSP Violation") ||
-       breadcrumb[:category]&.include?("csp")
+        breadcrumb[:category]&.include?("csp")
       breadcrumb[:data] ||= {}
       breadcrumb[:data][:security_event] = true
       breadcrumb[:data][:csp_violation] = true

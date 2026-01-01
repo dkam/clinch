@@ -60,7 +60,7 @@ class OidcJwtService
       # Merge app-specific custom claims (highest priority, arrays are combined)
       payload = deep_merge_claims(payload, application.custom_claims_for_user(user))
 
-      JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
+      JWT.encode(payload, private_key, "RS256", {kid: key_id, typ: "JWT"})
     end
 
     # Generate a backchannel logout token (JWT)
@@ -84,12 +84,12 @@ class OidcJwtService
       }
 
       # Important: Do NOT include nonce in logout tokens (spec requirement)
-      JWT.encode(payload, private_key, "RS256", { kid: key_id, typ: "JWT" })
+      JWT.encode(payload, private_key, "RS256", {kid: key_id, typ: "JWT"})
     end
 
     # Decode and verify an ID token
     def decode_id_token(token)
-      JWT.decode(token, public_key, true, { algorithm: "RS256" })
+      JWT.decode(token, public_key, true, {algorithm: "RS256"})
     end
 
     # Get the public key in JWK format for the JWKS endpoint

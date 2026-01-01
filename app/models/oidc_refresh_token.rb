@@ -29,7 +29,7 @@ class OidcRefreshToken < ApplicationRecord
 
   # Compute HMAC for token lookup
   def self.compute_token_hmac(plaintext_token)
-    OpenSSL::HMAC.hexdigest('SHA256', TokenHmac::KEY, plaintext_token)
+    OpenSSL::HMAC.hexdigest("SHA256", TokenHmac::KEY, plaintext_token)
   end
 
   def expired?

@@ -13,13 +13,13 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   # End-to-End Authentication Flow Tests
   test "complete forward auth flow with default headers" do
     # Create an application with default headers
-    rule = Application.create!(name: "App", slug: "app-system-test", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+    Application.create!(name: "App", slug: "app-system-test", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
 
     # Step 1: Unauthenticated request to protected resource
     get "/api/verify", headers: {
       "X-Forwarded-Host" => "app.example.com",
       "X-Forwarded-Uri" => "/dashboard"
-    }, params: { rd: "https://app.example.com/dashboard" }
+    }, params: {rd: "https://app.example.com/dashboard"}
 
     assert_response 302
     location = response.location
@@ -30,13 +30,13 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     assert_equal "https://app.example.com/dashboard", session[:return_to_after_authenticating]
 
     # Step 3: Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
 
     assert_response 302
     assert_redirected_to "https://app.example.com/dashboard"
 
     # Step 4: Authenticated request to protected resource
-    get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
 
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
@@ -46,38 +46,38 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
   test "multiple domain access with single session" do
     # Create applications for different domains
-    app_rule = Application.create!(name: "App Domain", slug: "app-domain", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
-    grafana_rule = Application.create!(
+    Application.create!(name: "App Domain", slug: "app-domain", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+    Application.create!(
       name: "Grafana", slug: "grafana-system-test", app_type: "forward_auth",
       domain_pattern: "grafana.example.com",
       active: true,
-      headers_config: { user: "X-WEBAUTH-USER", email: "X-WEBAUTH-EMAIL" }
+      headers_config: {user: "X-WEBAUTH-USER", email: "X-WEBAUTH-EMAIL"}
     )
-    metube_rule = Application.create!(
+    Application.create!(
       name: "Metube", slug: "metube-system-test", app_type: "forward_auth",
       domain_pattern: "metube.example.com",
       active: true,
-      headers_config: { user: "", email: "", name: "", groups: "", admin: "" }
+      headers_config: {user: "", email: "", name: "", groups: "", admin: ""}
     )
 
     # Sign in once
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
     assert_redirected_to "/"
 
     # Test access to different applications
     # App with default headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "app.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
     assert_response 200
     assert response.headers.key?("x-remote-user")
 
     # Grafana with custom headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "grafana.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "grafana.example.com"}
     assert_response 200
     assert response.headers.key?("x-webauth-user")
 
     # Metube with no headers
-    get "/api/verify", headers: { "X-Forwarded-Host" => "metube.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "metube.example.com"}
     assert_response 200
     auth_headers = response.headers.select { |k, v| k.match?(/^x-remote-|^x-webauth-|^x-admin-/i) }
     assert_empty auth_headers
@@ -98,11 +98,11 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     @user.groups << @group
 
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
 
     # Should have access (in allowed group)
-    get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 200
     assert_equal @group.name, response.headers["x-remote-groups"]
 
@@ -110,7 +110,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     @user.groups << @group2
 
     # Should show multiple groups
-    get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 200
     groups_header = response.headers["x-remote-groups"]
     assert_includes groups_header, @group.name
@@ -120,13 +120,13 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     @user.groups.clear
 
     # Should be denied
-    get "/api/verify", headers: { "X-Forwarded-Host" => "admin.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 403
   end
 
   test "bypass mode when no groups assigned to rule" do
     # Create bypass application (no groups)
-    bypass_rule = Application.create!(
+    Application.create!(
       name: "Public", slug: "public-system-test", app_type: "forward_auth",
       domain_pattern: "public.example.com",
       active: true
@@ -136,11 +136,11 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     @user.groups.clear
 
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
 
     # Should have access (bypass mode)
-    get "/api/verify", headers: { "X-Forwarded-Host" => "public.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "public.example.com"}
     assert_response 200
     assert_equal @user.email_address, response.headers["x-remote-user"]
   end
@@ -148,12 +148,12 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   # Security System Tests
   test "session security and isolation" do
     # User A signs in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     user_a_session = cookies[:session_id]
 
     # User B signs in
     delete "/session"
-    post "/signin", params: { email_address: @admin_user.email_address, password: "password" }
+    post "/signin", params: {email_address: @admin_user.email_address, password: "password"}
     user_b_session = cookies[:session_id]
 
     # User A should still be able to access resources
@@ -178,11 +178,11 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
   test "session expiration and cleanup" do
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     session_id = cookies[:session_id]
 
     # Should work initially
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 200
 
     # Manually expire session
@@ -190,7 +190,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     session.update!(expires_at: 1.hour.ago)
 
     # Should redirect to login
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 302
     assert_equal "Session expired", response.headers["x-auth-reason"]
 
@@ -200,7 +200,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
   test "concurrent access with rate limiting considerations" do
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     session_cookie = cookies[:session_id]
 
     # Simulate multiple concurrent requests from different IPs
@@ -244,23 +244,23 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     apps = [
       {
         domain: "dashboard.example.com",
-        headers_config: { user: "X-DASHBOARD-USER", groups: "X-DASHBOARD-GROUPS" },
+        headers_config: {user: "X-DASHBOARD-USER", groups: "X-DASHBOARD-GROUPS"},
         groups: [@group]
       },
       {
         domain: "api.example.com",
-        headers_config: { user: "X-API-USER", email: "X-API-EMAIL" },
+        headers_config: {user: "X-API-USER", email: "X-API-EMAIL"},
         groups: []
       },
       {
         domain: "logs.example.com",
-        headers_config: { user: "", email: "", name: "", groups: "", admin: "" },
+        headers_config: {user: "", email: "", name: "", groups: "", admin: ""},
         groups: []
       }
     ]
 
     # Create applications for each app
-    rules = apps.map.with_index do |app, idx|
+    apps.map.with_index do |app, idx|
       rule = Application.create!(
         name: "Multi App #{idx}", slug: "multi-app-#{idx}", app_type: "forward_auth",
         domain_pattern: app[:domain],
@@ -275,19 +275,19 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     @user.groups << @group
 
     # Sign in once
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
 
     # Test access to each application
     apps.each do |app|
-      get "/api/verify", headers: { "X-Forwarded-Host" => app[:domain] }
+      get "/api/verify", headers: {"X-Forwarded-Host" => app[:domain]}
       assert_response 200, "Failed for #{app[:domain]}"
 
       # Verify headers are correct
       if app[:headers_config][:user].present?
         assert_equal app[:headers_config][:user],
-                     response.headers.keys.find { |k| k.include?("USER") },
-                     "Wrong user header for #{app[:domain]}"
+          response.headers.keys.find { |k| k.include?("USER") },
+          "Wrong user header for #{app[:domain]}"
         assert_equal @user.email_address, response.headers[app[:headers_config][:user]]
       else
         # Should have no auth headers
@@ -300,24 +300,24 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   test "domain pattern edge cases" do
     # Test various domain patterns
     patterns = [
-      { pattern: "*.example.com", domains: ["app.example.com", "api.example.com", "sub.app.example.com"] },
-      { pattern: "api.*.com", domains: ["api.example.com", "api.test.com"] },
-      { pattern: "*.*.example.com", domains: ["app.dev.example.com", "api.staging.example.com"] }
+      {pattern: "*.example.com", domains: ["app.example.com", "api.example.com", "sub.app.example.com"]},
+      {pattern: "api.*.com", domains: ["api.example.com", "api.test.com"]},
+      {pattern: "*.*.example.com", domains: ["app.dev.example.com", "api.staging.example.com"]}
     ]
 
     patterns.each_with_index do |pattern_config, idx|
-      rule = Application.create!(
+      Application.create!(
         name: "Pattern Test #{idx}", slug: "pattern-test-#{idx}", app_type: "forward_auth",
         domain_pattern: pattern_config[:pattern],
         active: true
       )
 
       # Sign in
-      post "/signin", params: { email_address: @user.email_address, password: "password" }
+      post "/signin", params: {email_address: @user.email_address, password: "password"}
 
       # Test each domain
       pattern_config[:domains].each do |domain|
-        get "/api/verify", headers: { "X-Forwarded-Host" => domain }
+        get "/api/verify", headers: {"X-Forwarded-Host" => domain}
         assert_response 200, "Failed for pattern #{pattern_config[:pattern]} with domain #{domain}"
         assert_equal @user.email_address, response.headers["x-remote-user"]
       end
@@ -330,10 +330,10 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   # Performance System Tests
   test "system performance under load" do
     # Create test application
-    rule = Application.create!(name: "Load Test", slug: "loadtest", app_type: "forward_auth", domain_pattern: "loadtest.example.com", active: true)
+    Application.create!(name: "Load Test", slug: "loadtest", app_type: "forward_auth", domain_pattern: "loadtest.example.com", active: true)
 
     # Sign in
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     session_cookie = cookies[:session_id]
 
     # Performance test
@@ -374,7 +374,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
   # Error Recovery System Tests
   test "graceful degradation with database issues" do
     # Sign in first
-    post "/signin", params: { email_address: @user.email_address, password: "password" }
+    post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 302
 
     # Simulate database connection issue by mocking
@@ -387,7 +387,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
 
     begin
       # Request should handle the error gracefully
-      get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       # Should return 302 (redirect to login) rather than 500 error
       assert_response 302, "Should gracefully handle database issues"
@@ -398,7 +398,7 @@ class ForwardAuthSystemTest < ActionDispatch::SystemTestCase
     end
 
     # Normal operation should still work
-    get "/api/verify", headers: { "X-Forwarded-Host" => "test.example.com" }
+    get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
     assert_response 200
   end
 end

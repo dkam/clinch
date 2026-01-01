@@ -13,6 +13,6 @@ class CreateOidcAuthorizationCodes < ActiveRecord::Migration[8.1]
     end
     add_index :oidc_authorization_codes, :code, unique: true
     add_index :oidc_authorization_codes, :expires_at
-    add_index :oidc_authorization_codes, [ :application_id, :user_id ]
+    add_index :oidc_authorization_codes, [:application_id, :user_id]
   end
 end

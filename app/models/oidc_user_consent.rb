@@ -3,19 +3,19 @@ class OidcUserConsent < ApplicationRecord
   belongs_to :application
 
   validates :user, :application, :scopes_granted, :granted_at, presence: true
-  validates :user_id, uniqueness: { scope: :application_id }
+  validates :user_id, uniqueness: {scope: :application_id}
 
   before_validation :set_granted_at, on: :create
   before_validation :set_sid, on: :create
 
   # Parse scopes_granted into an array
   def scopes
-    scopes_granted.split(' ')
+    scopes_granted.split(" ")
   end
 
   # Set scopes from an array
   def scopes=(scope_array)
-    self.scopes_granted = Array(scope_array).uniq.join(' ')
+    self.scopes_granted = Array(scope_array).uniq.join(" ")
   end
 
   # Check if this consent covers the requested scopes
@@ -31,18 +31,18 @@ class OidcUserConsent < ApplicationRecord
   def formatted_scopes
     scopes.map do |scope|
       case scope
-      when 'openid'
-        'Basic authentication'
-      when 'profile'
-        'Profile information'
-      when 'email'
-        'Email address'
-      when 'groups'
-        'Group membership'
+      when "openid"
+        "Basic authentication"
+      when "profile"
+        "Profile information"
+      when "email"
+        "Email address"
+      when "groups"
+        "Group membership"
       else
         scope.humanize
       end
-    end.join(', ')
+    end.join(", ")
   end
 
   # Find consent by SID

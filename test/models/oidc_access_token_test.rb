@@ -27,7 +27,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
     assert_nil new_token.plaintext_token
     assert new_token.save
     assert_not_nil new_token.plaintext_token
-    assert_match /^[A-Za-z0-9_-]+$/, new_token.plaintext_token
+    assert_match(/^[A-Za-z0-9_-]+$/, new_token.plaintext_token)
   end
 
   test "should set expiry before validation on create" do
@@ -144,7 +144,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
 
     # All tokens should match the expected pattern
     tokens.each do |token|
-      assert_match /^[A-Za-z0-9_-]+$/, token
+      assert_match(/^[A-Za-z0-9_-]+$/, token)
       # Base64 token length may vary due to padding, just ensure it's reasonable
       assert token.length >= 43, "Token should be at least 43 characters"
       assert token.length <= 64, "Token should not exceed 64 characters"
@@ -164,7 +164,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
     )
 
     assert access_token.plaintext_token.length > auth_code.plaintext_code.length,
-           "Access tokens should be longer than authorization codes"
+      "Access tokens should be longer than authorization codes"
   end
 
   test "should have appropriate expiry times" do
@@ -181,7 +181,7 @@ class OidcAccessTokenTest < ActiveSupport::TestCase
 
     # Authorization codes expire in 10 minutes, access tokens in 1 hour
     assert access_token.expires_at > auth_code.expires_at,
-           "Access tokens should have longer expiry than authorization codes"
+      "Access tokens should have longer expiry than authorization codes"
   end
 
   test "revoked tokens should not appear in valid scope" do

@@ -8,7 +8,7 @@ Rails.application.routes.draw do
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
-  get "up" => "rails/health#show", as: :rails_health_check
+  get "up" => "rails/health#show", :as => :rails_health_check
 
   # Authentication routes
   get "/signup", to: "users#new", as: :signup
@@ -61,21 +61,21 @@ Rails.application.routes.draw do
   end
 
   # TOTP (2FA) routes
-  get '/totp/new', to: 'totp#new', as: :new_totp
-  post '/totp', to: 'totp#create', as: :totp
-  delete '/totp', to: 'totp#destroy'
-  get '/totp/backup_codes', to: 'totp#backup_codes', as: :backup_codes_totp
-  post '/totp/verify_password', to: 'totp#verify_password', as: :verify_password_totp
-  get '/totp/regenerate_backup_codes', to: 'totp#regenerate_backup_codes', as: :regenerate_backup_codes_totp
-  post '/totp/regenerate_backup_codes', to: 'totp#create_new_backup_codes', as: :create_new_backup_codes_totp
-  post '/totp/complete_setup', to: 'totp#complete_setup', as: :complete_totp_setup
+  get "/totp/new", to: "totp#new", as: :new_totp
+  post "/totp", to: "totp#create", as: :totp
+  delete "/totp", to: "totp#destroy"
+  get "/totp/backup_codes", to: "totp#backup_codes", as: :backup_codes_totp
+  post "/totp/verify_password", to: "totp#verify_password", as: :verify_password_totp
+  get "/totp/regenerate_backup_codes", to: "totp#regenerate_backup_codes", as: :regenerate_backup_codes_totp
+  post "/totp/regenerate_backup_codes", to: "totp#create_new_backup_codes", as: :create_new_backup_codes_totp
+  post "/totp/complete_setup", to: "totp#complete_setup", as: :complete_totp_setup
 
   # WebAuthn (Passkeys) routes
-  get '/webauthn/new', to: 'webauthn#new', as: :new_webauthn
-  post '/webauthn/challenge', to: 'webauthn#challenge'
-  post '/webauthn/create', to: 'webauthn#create'
-  delete '/webauthn/:id', to: 'webauthn#destroy', as: :webauthn_credential
-  get '/webauthn/check', to: 'webauthn#check'
+  get "/webauthn/new", to: "webauthn#new", as: :new_webauthn
+  post "/webauthn/challenge", to: "webauthn#challenge"
+  post "/webauthn/create", to: "webauthn#create"
+  delete "/webauthn/:id", to: "webauthn#destroy", as: :webauthn_credential
+  get "/webauthn/check", to: "webauthn#check"
 
   # Admin routes
   namespace :admin do

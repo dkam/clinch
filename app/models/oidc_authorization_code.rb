@@ -9,7 +9,7 @@ class OidcAuthorizationCode < ApplicationRecord
 
   validates :code_hmac, presence: true, uniqueness: true
   validates :redirect_uri, presence: true
-  validates :code_challenge_method, inclusion: { in: %w[plain S256], allow_nil: true }
+  validates :code_challenge_method, inclusion: {in: %w[plain S256], allow_nil: true}
   validate :validate_code_challenge_format, if: -> { code_challenge.present? }
 
   scope :valid, -> { where(used: false).where("expires_at > ?", Time.current) }
@@ -25,7 +25,7 @@ class OidcAuthorizationCode < ApplicationRecord
 
   # Compute HMAC for code lookup
   def self.compute_code_hmac(plaintext_code)
-    OpenSSL::HMAC.hexdigest('SHA256', TokenHmac::KEY, plaintext_code)
+    OpenSSL::HMAC.hexdigest("SHA256", TokenHmac::KEY, plaintext_code)
   end
 
   def expired?

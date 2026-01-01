@@ -5,7 +5,7 @@ class OidcController < ApplicationController
 
   # Rate limiting to prevent brute force and abuse
   rate_limit to: 60, within: 1.minute, only: [:token, :revoke], with: -> {
-    render json: { error: "too_many_requests", error_description: "Rate limit exceeded. Try again later." }, status: :too_many_requests
+    render json: {error: "too_many_requests", error_description: "Rate limit exceeded. Try again later."}, status: :too_many_requests
   }
   rate_limit to: 30, within: 1.minute, only: [:authorize, :consent], with: -> {
     render plain: "Too many authorization attempts. Try again later.", status: :too_many_requests
@@ -63,7 +63,7 @@ class OidcController < ApplicationController
       error_details << "redirect_uri is required" unless redirect_uri.present?
       error_details << "response_type must be 'code'" unless response_type == "code"
 
-      render plain: "Invalid request: #{error_details.join(', ')}", status: :bad_request
+      render plain: "Invalid request: #{error_details.join(", ")}", status: :bad_request
       return
     end
 
@@ -90,7 +90,7 @@ class OidcController < ApplicationController
       Rails.logger.error "OAuth: Available OIDC applications: #{all_oidc_apps.pluck(:id, :client_id, :name)}"
 
       error_msg = if Rails.env.development?
-        "Invalid request: Application not found for client_id '#{client_id}'. Available OIDC applications: #{all_oidc_apps.pluck(:name, :client_id).map { |name, id| "#{name} (#{id})" }.join(', ')}"
+        "Invalid request: Application not found for client_id '#{client_id}'. Available OIDC applications: #{all_oidc_apps.pluck(:name, :client_id).map { |name, id| "#{name} (#{id})" }.join(", ")}"
       else
         "Invalid request: Application not found"
       end
@@ -105,7 +105,7 @@ class OidcController < ApplicationController
 
       # For development, show detailed error
       error_msg = if Rails.env.development?
-        "Invalid request: Redirect URI mismatch. Application is configured for: #{@application.parsed_redirect_uris.join(', ')}, but received: #{redirect_uri}"
+        "Invalid request: Redirect URI mismatch. Application is configured for: #{@application.parsed_redirect_uris.join(", ")}, but received: #{redirect_uri}"
       else
         "Invalid request: Redirect URI not registered for this application"
       end
@@ -223,22 +223,22 @@ class OidcController < ApplicationController
     # User denied consent
     if params[:deny].present?
       session.delete(:oauth_params)
-      error_uri = "#{oauth_params['redirect_uri']}?error=access_denied"
-      error_uri += "&state=#{CGI.escape(oauth_params['state'])}" if oauth_params['state']
+      error_uri = "#{oauth_params["redirect_uri"]}?error=access_denied"
+      error_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"]
       redirect_to error_uri, allow_other_host: true
       return
     end
 
     # Find the application
-    client_id = oauth_params['client_id']
+    client_id = oauth_params["client_id"]
     application = Application.find_by(client_id: client_id, app_type: "oidc")
 
     # Check if application is active (redirect with OAuth error)
     unless application&.active?
       Rails.logger.error "OAuth: Application is not active: #{application&.name || client_id}"
       session.delete(:oauth_params)
-      error_uri = "#{oauth_params['redirect_uri']}?error=unauthorized_client&error_description=Application+is+not+active"
-      error_uri += "&state=#{CGI.escape(oauth_params['state'])}" if oauth_params['state'].present?
+      error_uri = "#{oauth_params["redirect_uri"]}?error=unauthorized_client&error_description=Application+is+not+active"
+      error_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"].present?
       redirect_to error_uri, allow_other_host: true
       return
     end
@@ -246,9 +246,9 @@ class OidcController < ApplicationController
     user = Current.session.user
 
     # Record user consent
-    requested_scopes = oauth_params['scope'].split(' ')
+    requested_scopes = oauth_params["scope"].split(" ")
     consent = OidcUserConsent.find_or_initialize_by(user: user, application: application)
-    consent.scopes_granted = requested_scopes.join(' ')
+    consent.scopes_granted = requested_scopes.join(" ")
     consent.granted_at = Time.current
     consent.save!
 
@@ -256,11 +256,11 @@ class OidcController < ApplicationController
     auth_code = OidcAuthorizationCode.create!(
       application: application,
       user: user,
-      redirect_uri: oauth_params['redirect_uri'],
-      scope: oauth_params['scope'],
-      nonce: oauth_params['nonce'],
-      code_challenge: oauth_params['code_challenge'],
-      code_challenge_method: oauth_params['code_challenge_method'],
+      redirect_uri: oauth_params["redirect_uri"],
+      scope: oauth_params["scope"],
+      nonce: oauth_params["nonce"],
+      code_challenge: oauth_params["code_challenge"],
+      code_challenge_method: oauth_params["code_challenge_method"],
       auth_time: Current.session.created_at.to_i,
       acr: Current.session.acr,
       expires_at: 10.minutes.from_now
@@ -270,8 +270,8 @@ class OidcController < ApplicationController
     session.delete(:oauth_params)
 
     # Redirect back to client with authorization code (plaintext)
-    redirect_uri = "#{oauth_params['redirect_uri']}?code=#{auth_code.plaintext_code}"
-    redirect_uri += "&state=#{CGI.escape(oauth_params['state'])}" if oauth_params['state']
+    redirect_uri = "#{oauth_params["redirect_uri"]}?code=#{auth_code.plaintext_code}"
+    redirect_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"]
 
     redirect_to redirect_uri, allow_other_host: true
   end
@@ -286,7 +286,7 @@ class OidcController < ApplicationController
     when "refresh_token"
       handle_refresh_token_grant
     else
-      render json: { error: "unsupported_grant_type" }, status: :bad_request
+      render json: {error: "unsupported_grant_type"}, status: :bad_request
     end
   end
 
@@ -295,14 +295,14 @@ class OidcController < ApplicationController
     client_id, client_secret = extract_client_credentials
 
     unless client_id
-      render json: { error: "invalid_client", error_description: "client_id is required" }, status: :unauthorized
+      render json: {error: "invalid_client", error_description: "client_id is required"}, status: :unauthorized
       return
     end
 
     # Find the application
     application = Application.find_by(client_id: client_id)
     unless application
-      render json: { error: "invalid_client", error_description: "Unknown client" }, status: :unauthorized
+      render json: {error: "invalid_client", error_description: "Unknown client"}, status: :unauthorized
       return
     end
 
@@ -313,7 +313,7 @@ class OidcController < ApplicationController
     else
       # Confidential clients MUST provide valid client_secret
       unless client_secret.present? && application.authenticate_client_secret(client_secret)
-        render json: { error: "invalid_client", error_description: "Invalid client credentials" }, status: :unauthorized
+        render json: {error: "invalid_client", error_description: "Invalid client credentials"}, status: :unauthorized
         return
       end
     end
@@ -321,7 +321,7 @@ class OidcController < ApplicationController
     # Check if application is active
     unless application.active?
       Rails.logger.error "OAuth: Token request for inactive application: #{application.name}"
-      render json: { error: "invalid_client", error_description: "Application is not active" }, status: :forbidden
+      render json: {error: "invalid_client", error_description: "Application is not active"}, status: :forbidden
       return
     end
 
@@ -334,7 +334,7 @@ class OidcController < ApplicationController
     auth_code = OidcAuthorizationCode.find_by_plaintext(code)
 
     unless auth_code && auth_code.application == application
-      render json: { error: "invalid_grant" }, status: :bad_request
+      render json: {error: "invalid_grant"}, status: :bad_request
       return
     end
 
@@ -365,13 +365,13 @@ class OidcController < ApplicationController
 
         # Check if code is expired
         if auth_code.expires_at < Time.current
-          render json: { error: "invalid_grant", error_description: "Authorization code expired" }, status: :bad_request
+          render json: {error: "invalid_grant", error_description: "Authorization code expired"}, status: :bad_request
           return
         end
 
         # Validate redirect URI matches
         unless auth_code.redirect_uri == redirect_uri
-          render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
+          render json: {error: "invalid_grant", error_description: "Redirect URI mismatch"}, status: :bad_request
           return
         end
 
@@ -413,7 +413,7 @@ class OidcController < ApplicationController
 
         unless consent
           Rails.logger.error "OIDC Security: Token requested without consent record (user: #{user.id}, app: #{application.id})"
-          render json: { error: "invalid_grant", error_description: "Authorization consent not found" }, status: :bad_request
+          render json: {error: "invalid_grant", error_description: "Authorization consent not found"}, status: :bad_request
           return
         end
 
@@ -440,7 +440,7 @@ class OidcController < ApplicationController
         }
       end
     rescue ActiveRecord::RecordNotFound
-      render json: { error: "invalid_grant" }, status: :bad_request
+      render json: {error: "invalid_grant"}, status: :bad_request
     end
   end
 
@@ -449,14 +449,14 @@ class OidcController < ApplicationController
     client_id, client_secret = extract_client_credentials
 
     unless client_id
-      render json: { error: "invalid_client", error_description: "client_id is required" }, status: :unauthorized
+      render json: {error: "invalid_client", error_description: "client_id is required"}, status: :unauthorized
       return
     end
 
     # Find the application
     application = Application.find_by(client_id: client_id)
     unless application
-      render json: { error: "invalid_client", error_description: "Unknown client" }, status: :unauthorized
+      render json: {error: "invalid_client", error_description: "Unknown client"}, status: :unauthorized
       return
     end
 
@@ -467,7 +467,7 @@ class OidcController < ApplicationController
     else
       # Confidential clients MUST provide valid client_secret
       unless client_secret.present? && application.authenticate_client_secret(client_secret)
-        render json: { error: "invalid_client", error_description: "Invalid client credentials" }, status: :unauthorized
+        render json: {error: "invalid_client", error_description: "Invalid client credentials"}, status: :unauthorized
         return
       end
     end
@@ -475,14 +475,14 @@ class OidcController < ApplicationController
     # Check if application is active
     unless application.active?
       Rails.logger.error "OAuth: Refresh token request for inactive application: #{application.name}"
-      render json: { error: "invalid_client", error_description: "Application is not active" }, status: :forbidden
+      render json: {error: "invalid_client", error_description: "Application is not active"}, status: :forbidden
       return
     end
 
     # Get the refresh token
     refresh_token = params[:refresh_token]
     unless refresh_token.present?
-      render json: { error: "invalid_request", error_description: "refresh_token is required" }, status: :bad_request
+      render json: {error: "invalid_request", error_description: "refresh_token is required"}, status: :bad_request
       return
     end
 
@@ -491,13 +491,13 @@ class OidcController < ApplicationController
 
     # Verify the token belongs to the correct application
     unless refresh_token_record && refresh_token_record.application == application
-      render json: { error: "invalid_grant", error_description: "Invalid refresh token" }, status: :bad_request
+      render json: {error: "invalid_grant", error_description: "Invalid refresh token"}, status: :bad_request
       return
     end
 
     # Check if refresh token is expired
     if refresh_token_record.expired?
-      render json: { error: "invalid_grant", error_description: "Refresh token expired" }, status: :bad_request
+      render json: {error: "invalid_grant", error_description: "Refresh token expired"}, status: :bad_request
       return
     end
 
@@ -508,7 +508,7 @@ class OidcController < ApplicationController
       Rails.logger.warn "OAuth Security: Revoked refresh token reuse detected for token family #{refresh_token_record.token_family_id}"
       refresh_token_record.revoke_family!
 
-      render json: { error: "invalid_grant", error_description: "Refresh token has been revoked" }, status: :bad_request
+      render json: {error: "invalid_grant", error_description: "Refresh token has been revoked"}, status: :bad_request
       return
     end
 
@@ -541,7 +541,7 @@ class OidcController < ApplicationController
 
     unless consent
       Rails.logger.error "OIDC Security: Refresh token used without consent record (user: #{user.id}, app: #{application.id})"
-      render json: { error: "invalid_grant", error_description: "Authorization consent not found" }, status: :bad_request
+      render json: {error: "invalid_grant", error_description: "Authorization consent not found"}, status: :bad_request
       return
     end
 
@@ -566,7 +566,7 @@ class OidcController < ApplicationController
       scope: refresh_token_record.scope
     }
   rescue ActiveRecord::RecordNotFound
-    render json: { error: "invalid_grant" }, status: :bad_request
+    render json: {error: "invalid_grant"}, status: :bad_request
   end
 
   # GET /oauth/userinfo
@@ -650,7 +650,7 @@ class OidcController < ApplicationController
 
     # Find and validate the application
     application = Application.find_by(client_id: client_id)
-    unless application && application.authenticate_client_secret(client_secret)
+    unless application&.authenticate_client_secret(client_secret)
       Rails.logger.warn "OAuth: Token revocation attempted for invalid application: #{client_id}"
       head :ok
       return
@@ -669,7 +669,7 @@ class OidcController < ApplicationController
 
     unless token.present?
       # RFC 7009: Missing token parameter is an error
-      render json: { error: "invalid_request", error_description: "token parameter is required" }, status: :bad_request
+      render json: {error: "invalid_request", error_description: "token parameter is required"}, status: :bad_request
       return
     end
 
@@ -695,7 +695,7 @@ class OidcController < ApplicationController
       if access_token_record
         access_token_record.revoke!
         Rails.logger.info "OAuth: Access token revoked for application #{application.name}"
-        revoked = true
+        true
       end
     end
 
@@ -709,7 +709,7 @@ class OidcController < ApplicationController
     # OpenID Connect RP-Initiated Logout
     # Handle id_token_hint and post_logout_redirect_uri parameters
 
-    id_token_hint = params[:id_token_hint]
+    params[:id_token_hint]
     post_logout_redirect_uri = params[:post_logout_redirect_uri]
     state = params[:state]
 
@@ -763,7 +763,7 @@ class OidcController < ApplicationController
     end
 
     # Skip validation if no code challenge was stored (legacy clients without PKCE requirement)
-    return { valid: true } unless pkce_provided
+    return {valid: true} unless pkce_provided
 
     # PKCE was provided during authorization but no verifier sent with token request
     unless code_verifier.present?
@@ -787,18 +787,18 @@ class OidcController < ApplicationController
 
     # Recreate code challenge based on method
     expected_challenge = case auth_code.code_challenge_method
-                        when "plain"
-                          code_verifier
-                        when "S256"
-                          Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
-                        else
-                          return {
-                            valid: false,
-                            error: "server_error",
-                            error_description: "Unsupported code challenge method",
-                            status: :internal_server_error
-                          }
-                        end
+    when "plain"
+      code_verifier
+    when "S256"
+      Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
+    else
+      return {
+        valid: false,
+        error: "server_error",
+        error_description: "Unsupported code challenge method",
+        status: :internal_server_error
+      }
+    end
 
     # Validate the code challenge
     unless auth_code.code_challenge == expected_challenge
@@ -810,7 +810,7 @@ class OidcController < ApplicationController
       }
     end
 
-    { valid: true }
+    {valid: true}
   end
 
   def extract_client_credentials
@@ -835,7 +835,7 @@ class OidcController < ApplicationController
       return nil unless parsed_uri.is_a?(URI::HTTP) || parsed_uri.is_a?(URI::HTTPS)
 
       # Only allow HTTPS in production
-      return nil if Rails.env.production? && parsed_uri.scheme != 'https'
+      return nil if Rails.env.production? && parsed_uri.scheme != "https"
 
       # Check if URI matches any registered OIDC application's redirect URIs
       # According to OIDC spec, post_logout_redirect_uri should be pre-registered

@@ -10,7 +10,7 @@ class ApplicationUserClaimTest < ActiveSupport::TestCase
     claim = ApplicationUserClaim.new(
       user: @user,
       application: @application,
-      custom_claims: { "role": "admin" }
+      custom_claims: {role: "admin"}
     )
     assert claim.valid?
     assert claim.save
@@ -20,13 +20,13 @@ class ApplicationUserClaimTest < ActiveSupport::TestCase
     ApplicationUserClaim.create!(
       user: @user,
       application: @application,
-      custom_claims: { "role": "admin" }
+      custom_claims: {role: "admin"}
     )
 
     duplicate = ApplicationUserClaim.new(
       user: @user,
       application: @application,
-      custom_claims: { "role": "user" }
+      custom_claims: {role: "user"}
     )
 
     assert_not duplicate.valid?
@@ -37,7 +37,7 @@ class ApplicationUserClaimTest < ActiveSupport::TestCase
     claim = ApplicationUserClaim.new(
       user: @user,
       application: @application,
-      custom_claims: { "role": "admin", "level": 5 }
+      custom_claims: {role: "admin", level: 5}
     )
 
     parsed = claim.parsed_custom_claims
@@ -59,7 +59,7 @@ class ApplicationUserClaimTest < ActiveSupport::TestCase
     claim = ApplicationUserClaim.new(
       user: @user,
       application: @application,
-      custom_claims: { "groups": ["admin"], "role": "user" }
+      custom_claims: {groups: ["admin"], role: "user"}
     )
 
     assert_not claim.valid?
@@ -70,7 +70,7 @@ class ApplicationUserClaimTest < ActiveSupport::TestCase
     claim = ApplicationUserClaim.new(
       user: @user,
       application: @application,
-      custom_claims: { "kavita_groups": ["admin"], "role": "user" }
+      custom_claims: {kavita_groups: ["admin"], role: "user"}
     )
 
     assert claim.valid?

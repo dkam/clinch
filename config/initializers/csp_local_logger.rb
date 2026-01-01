@@ -8,7 +8,7 @@ Rails.application.config.after_initialize do
   # Configure log rotation
   csp_logger = Logger.new(
     csp_log_path,
-    'daily',  # Rotate daily
+    "daily",  # Rotate daily
     30        # Keep 30 old log files
   )
 
@@ -16,7 +16,7 @@ Rails.application.config.after_initialize do
 
   # Format: [TIMESTAMP] LEVEL MESSAGE
   csp_logger.formatter = proc do |severity, datetime, progname, msg|
-    "[#{datetime.strftime('%Y-%m-%d %H:%M:%S')}] #{severity} #{msg}\n"
+    "[#{datetime.strftime("%Y-%m-%d %H:%M:%S")}] #{severity} #{msg}\n"
   end
 
   module CspViolationLocalLogger
@@ -25,9 +25,9 @@ Rails.application.config.after_initialize do
 
       # Skip logging if there's no meaningful violation data
       return if csp_data.empty? ||
-                (csp_data[:violated_directive].nil? &&
-                 csp_data[:blocked_uri].nil? &&
-                 csp_data[:document_uri].nil?)
+        (csp_data[:violated_directive].nil? &&
+         csp_data[:blocked_uri].nil? &&
+         csp_data[:document_uri].nil?)
 
       # Build a structured log message
       violated_directive = csp_data[:violated_directive] || "unknown"
@@ -69,7 +69,6 @@ Rails.application.config.after_initialize do
 
       # Also log to main Rails logger for visibility
       Rails.logger.info "CSP violation logged to csp_violations.log: #{violated_directive} - #{blocked_uri}"
-
     rescue => e
       # Ensure logger errors don't break the CSP reporting flow
       Rails.logger.error "Failed to log CSP violation to file: #{e.message}"
@@ -81,12 +80,12 @@ Rails.application.config.after_initialize do
         csp_log_path = Rails.root.join("log", "csp_violations.log")
         logger = Logger.new(
           csp_log_path,
-          'daily',  # Rotate daily
+          "daily",  # Rotate daily
           30        # Keep 30 old log files
         )
         logger.level = Logger::INFO
         logger.formatter = proc do |severity, datetime, progname, msg|
-          "[#{datetime.strftime('%Y-%m-%d %H:%M:%S')}] #{severity} #{msg}\n"
+          "[#{datetime.strftime("%Y-%m-%d %H:%M:%S")}] #{severity} #{msg}\n"
         end
         logger
       end
@@ -120,7 +119,6 @@ Rails.application.config.after_initialize do
 
     # Test write to ensure permissions are correct
     csp_logger.info "CSP Logger initialized at #{Time.current}"
-
   rescue => e
     Rails.logger.error "Failed to initialize CSP local logger: #{e.message}"
     Rails.logger.error "CSP violations will only be sent to Sentry (if configured)"

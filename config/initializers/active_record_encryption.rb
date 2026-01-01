@@ -8,14 +8,14 @@
 #   - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
 
 # Use env vars if set, otherwise derive from SECRET_KEY_BASE (deterministic)
-primary_key = ENV.fetch('ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY') do
-  Rails.application.key_generator.generate_key('active_record_encryption_primary', 32)
+primary_key = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY") do
+  Rails.application.key_generator.generate_key("active_record_encryption_primary", 32)
 end
-deterministic_key = ENV.fetch('ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY') do
-  Rails.application.key_generator.generate_key('active_record_encryption_deterministic', 32)
+deterministic_key = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY") do
+  Rails.application.key_generator.generate_key("active_record_encryption_deterministic", 32)
 end
-key_derivation_salt = ENV.fetch('ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT') do
-  Rails.application.key_generator.generate_key('active_record_encryption_salt', 32)
+key_derivation_salt = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT") do
+  Rails.application.key_generator.generate_key("active_record_encryption_salt", 32)
 end
 
 # Configure Rails 7.1+ ActiveRecord encryption

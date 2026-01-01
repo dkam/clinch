@@ -3,12 +3,12 @@
 
 Rails.application.config.permissions_policy do |f|
   # Disable sensitive browser features for security
-  f.camera           :none
-  f.gyroscope        :none
-  f.microphone       :none
-  f.payment          :none
-  f.usb              :none
-  f.magnetometer     :none
+  f.camera :none
+  f.gyroscope :none
+  f.microphone :none
+  f.payment :none
+  f.usb :none
+  f.magnetometer :none
 
   # You can enable specific features as needed:
   # f.fullscreen      :self

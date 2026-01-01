@@ -78,7 +78,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     user = User.create!(email_address: "webauthn_handle_auth_test@example.com", password: "password123")
 
     user_handle = SecureRandom.uuid
-    credential = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("fake_credential_id"),
       public_key: Base64.urlsafe_encode64("fake_public_key"),
       sign_count: 0,
@@ -99,7 +99,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
 
   test "WebAuthn request validates origin" do
     user = User.create!(email_address: "webauthn_origin_test@example.com", password: "password123")
-    credential = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("fake_credential_id"),
       public_key: Base64.urlsafe_encode64("fake_public_key"),
       sign_count: 0,
@@ -107,14 +107,14 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     )
 
     # Test WebAuthn challenge from valid origin
-    post webauthn_challenge_path, params: { email: "webauthn_origin_test@example.com" },
-      headers: { "HTTP_ORIGIN": "http://localhost:3000" }
+    post webauthn_challenge_path, params: {email: "webauthn_origin_test@example.com"},
+      headers: {HTTP_ORIGIN: "http://localhost:3000"}
 
     # Should succeed for valid origin
 
     # Test WebAuthn challenge from invalid origin
-    post webauthn_challenge_path, params: { email: "webauthn_origin_test@example.com" },
-      headers: { "HTTP_ORIGIN": "http://evil.com" }
+    post webauthn_challenge_path, params: {email: "webauthn_origin_test@example.com"},
+      headers: {HTTP_ORIGIN: "http://evil.com"}
 
     # Should reject invalid origin
 
@@ -125,7 +125,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     user = User.create!(email_address: "webauthn_verify_origin_test@example.com", password: "password123")
     user.update!(webauthn_id: SecureRandom.uuid)
 
-    credential = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("fake_credential_id"),
       public_key: Base64.urlsafe_encode64("fake_public_key"),
       sign_count: 0,
@@ -133,10 +133,10 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     )
 
     # Sign in with WebAuthn
-    post webauthn_challenge_path, params: { email: "webauthn_verify_origin_test@example.com" }
+    post webauthn_challenge_path, params: {email: "webauthn_verify_origin_test@example.com"}
     assert_response :success
 
-    challenge = JSON.parse(@response.body)["challenge"]
+    JSON.parse(@response.body)["challenge"]
 
     # Simulate WebAuthn verification with wrong origin
     # This should fail
@@ -155,7 +155,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     # Standard attestation formats: none, packed, tpm, android-key, android-safetynet, fido-u2f, etc.
 
     # Test with 'none' attestation (most common for privacy)
-    attestation_object = {
+    {
       fmt: "none",
       attStmt: {},
       authData: Base64.strict_encode64("fake_auth_data")
@@ -170,7 +170,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     user = User.create!(email_address: "webauthn_invalid_attestation_test@example.com", password: "password123")
 
     # Try to register with invalid attestation format
-    invalid_attestation = {
+    {
       fmt: "invalid_format",
       attStmt: {},
       authData: Base64.strict_encode64("fake_auth_data")
@@ -263,7 +263,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
 
   test "WebAuthn requires user presence for authentication" do
     user = User.create!(email_address: "webauthn_presence_test@example.com", password: "password123")
-    credential = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("fake_credential_id"),
       public_key: Base64.urlsafe_encode64("fake_public_key"),
       sign_count: 0,
@@ -291,7 +291,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
       nickname: "USB Key"
     )
 
-    credential2 = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("credential_2"),
       public_key: Base64.urlsafe_encode64("public_key_2"),
       sign_count: 0,
@@ -317,7 +317,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     user.update!(webauthn_enabled: true)
 
     # Sign in with password should still work
-    post signin_path, params: { email_address: "webauthn_required_test@example.com", password: "password123" }
+    post signin_path, params: {email_address: "webauthn_required_test@example.com", password: "password123"}
 
     # If WebAuthn is enabled, should offer WebAuthn as an option
     # Implementation should handle password + WebAuthn or passwordless flow
@@ -329,7 +329,7 @@ class WebauthnSecurityTest < ActionDispatch::SystemTestCase
     user = User.create!(email_address: "webauthn_passwordless_test@example.com", password: "password123")
     user.update!(webauthn_enabled: true)
 
-    credential = user.webauthn_credentials.create!(
+    user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("passwordless_credential"),
       public_key: Base64.urlsafe_encode64("public_key"),
       sign_count: 0,

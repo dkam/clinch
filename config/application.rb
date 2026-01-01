@@ -24,16 +24,16 @@ module Clinch
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-      # Configure SMTP settings using environment variables
+    # Configure SMTP settings using environment variables
     config.action_mailer.delivery_method = :smtp
     config.action_mailer.smtp_settings = {
-      address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
-      port: ENV.fetch('SMTP_PORT', 587),
-      domain: ENV.fetch('SMTP_DOMAIN', 'localhost'),
-      user_name: ENV.fetch('SMTP_USERNAME', nil),
-      password: ENV.fetch('SMTP_PASSWORD', nil),
-      authentication: ENV.fetch('SMTP_AUTHENTICATION', 'plain').to_sym,
-      enable_starttls_auto: ENV.fetch('SMTP_STARTTLS_AUTO', 'true') == 'true',
+      address: ENV.fetch("SMTP_ADDRESS", "localhost"),
+      port: ENV.fetch("SMTP_PORT", 587),
+      domain: ENV.fetch("SMTP_DOMAIN", "localhost"),
+      user_name: ENV.fetch("SMTP_USERNAME", nil),
+      password: ENV.fetch("SMTP_PASSWORD", nil),
+      authentication: ENV.fetch("SMTP_AUTHENTICATION", "plain").to_sym,
+      enable_starttls_auto: ENV.fetch("SMTP_STARTTLS_AUTO", "true") == "true",
       openssl_verify_mode: OpenSSL::SSL::VERIFY_PEER
     }
   end

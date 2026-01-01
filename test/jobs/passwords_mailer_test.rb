@@ -166,7 +166,7 @@ class PasswordsMailerTest < ActionMailer::TestCase
 
     # Should not include sensitive data in headers (except Subject which legitimately mentions password)
     email.header.fields.each do |field|
-      next if field.name =~ /^subject$/i
+      next if /^subject$/i.match?(field.name)
       # Check for actual tokens (not just the word "token" which is common in emails)
       refute_includes field.value.to_s.downcase, "password"
     end

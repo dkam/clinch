@@ -25,9 +25,7 @@ module ClaimsHelper
     claims = deep_merge_claims(claims, user.parsed_custom_claims)
 
     # Merge app-specific claims (arrays are combined)
-    claims = deep_merge_claims(claims, application.custom_claims_for_user(user))
-
-    claims
+    deep_merge_claims(claims, application.custom_claims_for_user(user))
   end
 
   # Get claim sources breakdown for display
