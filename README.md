@@ -1,7 +1,9 @@
 # Clinch
-
+## Position and Control for your Authentication
 > [!NOTE]
-> This software is experimental. If you'd like to try it out, find bugs, security flaws and improvements, please do. 
+> This software is experimental. If you'd like to try it out, find bugs, security flaws and improvements, please do.  
+
+We do these things not because they're easy, but because we thought they'd be easy.
 
 **A lightweight, self-hosted identity & SSO / IpD portal**
 

@@ -91,8 +91,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     get "/oauth/authorize", params: auth_params
 
-    assert_response :bad_request
-    assert_match(/Invalid code_challenge_method/, @response.body)
+    # Should redirect back to client with error parameters (OAuth2 spec)
+    assert_response :redirect
+    assert_match(/error=invalid_request/, @response.location)
+    assert_match(/error_description=.*code_challenge_method/, @response.location)
   end
 
   test "authorization endpoint rejects invalid code_challenge format" do
@@ -108,8 +110,10 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     get "/oauth/authorize", params: auth_params
 
-    assert_response :bad_request
-    assert_match(/Invalid code_challenge format/, @response.body)
+    # Should redirect back to client with error parameters (OAuth2 spec)
+    assert_response :redirect
+    assert_match(/error=invalid_request/, @response.location)
+    assert_match(/error_description=.*code_challenge.*format/, @response.location)
   end
 
   test "token endpoint requires code_verifier when PKCE was used (S256)" do

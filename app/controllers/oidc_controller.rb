@@ -56,32 +56,14 @@ class OidcController < ApplicationController
     code_challenge = params[:code_challenge]
     code_challenge_method = params[:code_challenge_method] || "plain"
 
-    # Validate required parameters
-    unless client_id.present? && redirect_uri.present? && response_type == "code"
-      error_details = []
-      error_details << "client_id is required" unless client_id.present?
-      error_details << "redirect_uri is required" unless redirect_uri.present?
-      error_details << "response_type must be 'code'" unless response_type == "code"
-
-      render plain: "Invalid request: #{error_details.join(", ")}", status: :bad_request
+    # Validate client_id first (required before we can look up the application)
+    # OAuth2 RFC 6749 Section 4.1.2.1: If client_id is missing/invalid, show error page (don't redirect)
+    unless client_id.present?
+      render plain: "Invalid request: client_id is required", status: :bad_request
       return
     end
 
-    # Validate PKCE parameters if present
-    if code_challenge.present?
-      unless %w[plain S256].include?(code_challenge_method)
-        render plain: "Invalid code_challenge_method: must be 'plain' or 'S256'", status: :bad_request
-        return
-      end
-
-      # Validate code challenge format (base64url-encoded, 43-128 characters)
-      unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
-        render plain: "Invalid code_challenge format: must be 43-128 characters of base64url encoding", status: :bad_request
-        return
-      end
-    end
-
-    # Find the application
+    # Find the application by client_id
     @application = Application.find_by(client_id: client_id, app_type: "oidc")
     unless @application
       # Log all OIDC applications for debugging
@@ -99,7 +81,14 @@ class OidcController < ApplicationController
       return
     end
 
-    # Validate redirect URI first (required before we can safely redirect with errors)
+    # Validate redirect_uri presence and format
+    # OAuth2 RFC 6749 Section 4.1.2.1: If redirect_uri is missing/invalid, show error page (don't redirect)
+    unless redirect_uri.present?
+      render plain: "Invalid request: redirect_uri is required", status: :bad_request
+      return
+    end
+
+    # Validate redirect URI matches one of the registered URIs
     unless @application.parsed_redirect_uris.include?(redirect_uri)
       Rails.logger.error "OAuth: Invalid request - redirect URI mismatch. Expected: #{@application.parsed_redirect_uris}, Got: #{redirect_uri}"
 
@@ -112,6 +101,44 @@ class OidcController < ApplicationController
 
       render plain: error_msg, status: :bad_request
       return
+    end
+
+    # ============================================================================
+    # At this point we have a valid client_id and redirect_uri
+    # All subsequent errors should redirect back to the client with error parameters
+    # per OAuth2 RFC 6749 Section 4.1.2.1
+    # ============================================================================
+
+    # Validate response_type (now we can safely redirect with error)
+    unless response_type == "code"
+      Rails.logger.error "OAuth: Invalid response_type: #{response_type}"
+      error_uri = "#{redirect_uri}?error=unsupported_response_type"
+      error_uri += "&error_description=#{CGI.escape("Only 'code' response_type is supported")}"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
+
+    # Validate PKCE parameters if present (now we can safely redirect with error)
+    if code_challenge.present?
+      unless %w[plain S256].include?(code_challenge_method)
+        Rails.logger.error "OAuth: Invalid code_challenge_method: #{code_challenge_method}"
+        error_uri = "#{redirect_uri}?error=invalid_request"
+        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge_method: must be 'plain' or 'S256'")}"
+        error_uri += "&state=#{CGI.escape(state)}" if state.present?
+        redirect_to error_uri, allow_other_host: true
+        return
+      end
+
+      # Validate code challenge format (base64url-encoded, 43-128 characters)
+      unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
+        Rails.logger.error "OAuth: Invalid code_challenge format"
+        error_uri = "#{redirect_uri}?error=invalid_request"
+        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge format: must be 43-128 characters of base64url encoding")}"
+        error_uri += "&state=#{CGI.escape(state)}" if state.present?
+        redirect_to error_uri, allow_other_host: true
+        return
+      end
     end
 
     # Check if application is active (now we can safely redirect with error)
