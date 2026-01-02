@@ -8,7 +8,8 @@
 
 # Capybara test fixture - not a real private key
 # Ignore secrets in test fixtures
-*/capybara-*/spec/fixtures/key.pem
+# Format: secret:<rule-id>:<exact-file-path>
+secret:private-key:/usr/local/bundle/ruby/3.4.0/gems/capybara-3.40.0/spec/fixtures/key.pem
 
 # =============================================================================
 # Unfixable CVEs - No Patches Available (Status: affected/fix_deferred)
