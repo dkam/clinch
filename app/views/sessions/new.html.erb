@@ -12,7 +12,7 @@
           autofocus: true,
           autocomplete: "username",
           placeholder: "your@email.com",
-          value: params[:email_address],
+          value: @login_hint || params[:email_address],
           data: { action: "blur->webauthn#checkWebAuthnSupport change->webauthn#checkWebAuthnSupport" },
           class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
     </div>

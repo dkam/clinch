@@ -26,7 +26,7 @@ Rails.application.routes.draw do
   # OIDC (OpenID Connect) routes
   get "/.well-known/openid-configuration", to: "oidc#discovery"
   get "/.well-known/jwks.json", to: "oidc#jwks"
-  get "/oauth/authorize", to: "oidc#authorize"
+  match "/oauth/authorize", to: "oidc#authorize", via: [:get, :post]
   post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
   post "/oauth/token", to: "oidc#token"
   post "/oauth/revoke", to: "oidc#revoke"

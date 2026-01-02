@@ -1,7 +1,8 @@
 class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
-  allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout]
-  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout]
+  # authorize is also unauthenticated to handle prompt=none and prompt=login specially
+  allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout, :authorize]
+  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout, :authorize, :consent]
 
   # Rate limiting to prevent brute force and abuse
   rate_limit to: 60, within: 1.minute, only: [:token, :revoke], with: -> {
@@ -43,7 +44,8 @@ class OidcController < ApplicationController
       ],
       code_challenge_methods_supported: ["plain", "S256"],
       backchannel_logout_supported: true,
-      backchannel_logout_session_supported: true
+      backchannel_logout_session_supported: true,
+      request_parameter_supported: false
     }
 
     render json: config
@@ -119,6 +121,18 @@ class OidcController < ApplicationController
     # per OAuth2 RFC 6749 Section 4.1.2.1
     # ============================================================================
 
+    # Reject request objects (JWT-encoded authorization parameters)
+    # Per OIDC Core §3.1.2.6: If request parameter is present and not supported,
+    # return request_not_supported error
+    if params[:request].present? || params[:request_uri].present?
+      Rails.logger.error "OAuth: Request object not supported"
+      error_uri = "#{redirect_uri}?error=request_not_supported"
+      error_uri += "&error_description=#{CGI.escape("Request objects are not supported")}"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
+
     # Validate response_type (now we can safely redirect with error)
     unless response_type == "code"
       Rails.logger.error "OAuth: Invalid response_type: #{response_type}"
@@ -162,7 +176,17 @@ class OidcController < ApplicationController
 
     # Check if user is authenticated
     unless authenticated?
-      # Store OAuth parameters in session and redirect to sign in
+      # Handle prompt=none - no UI allowed, return error immediately
+      # Per OIDC Core spec §3.1.2.6: If prompt=none and user not authenticated,
+      # return login_required error without showing any UI
+      if params[:prompt] == "none"
+        error_uri = "#{redirect_uri}?error=login_required"
+        error_uri += "&state=#{CGI.escape(state)}" if state.present?
+        redirect_to error_uri, allow_other_host: true
+        return
+      end
+
+      # Normal flow: store OAuth parameters and redirect to sign in
       session[:oauth_params] = {
         client_id: client_id,
         redirect_uri: redirect_uri,
@@ -172,8 +196,52 @@ class OidcController < ApplicationController
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method
       }
+      # Store the current URL (with all OAuth params) for redirect after authentication
+      session[:return_to_after_authenticating] = request.url
       redirect_to signin_path, alert: "Please sign in to continue"
       return
+    end
+
+    # Handle prompt=login - force re-authentication
+    # Per OIDC Core spec §3.1.2.1: If prompt=login, the Authorization Server MUST prompt
+    # the End-User for reauthentication, even if the End-User is currently authenticated
+    if params[:prompt] == "login"
+      # Destroy current session to force re-authentication
+      # This creates a fresh authentication event with a new auth_time
+      Current.session&.destroy!
+
+      # Store the current URL (which contains all OAuth params) for redirect after login
+      # Remove prompt=login to prevent infinite re-auth loop
+      return_url = request.url.sub(/&prompt=login(?=&|$)|\?prompt=login&?/, '\1')
+      # Fix any resulting URL issues (like ?& or & at end)
+      return_url = return_url.gsub("?&", "?").gsub(/[?&]$/, "")
+      session[:return_to_after_authenticating] = return_url
+
+      redirect_to signin_path, alert: "Please sign in to continue"
+      return
+    end
+
+    # Handle max_age - require re-authentication if session is too old
+    # Per OIDC Core spec §3.1.2.1: If max_age is provided and the auth time is older,
+    # the Authorization Server MUST prompt for reauthentication
+    if params[:max_age].present?
+      max_age_seconds = params[:max_age].to_i
+      # Calculate session age
+      session_age_seconds = Time.current.to_i - Current.session.created_at.to_i
+
+      if session_age_seconds > max_age_seconds
+        # Session is too old - require re-authentication
+        # Store return URL in session (creates new session cookie)
+
+        # Destroy session and clear cookie to force fresh login
+        Current.session&.destroy!
+        cookies.delete(:session_id)
+
+        session[:return_to_after_authenticating] = request.url
+
+        redirect_to signin_path, alert: "Please sign in to continue"
+        return
+      end
     end
 
     # Get the authenticated user

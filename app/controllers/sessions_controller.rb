@@ -14,6 +14,20 @@ class SessionsController < ApplicationController
       return
     end
 
+    # Extract login_hint from the return URL for pre-filling the email field (OIDC spec)
+    @login_hint = nil
+    if session[:return_to_after_authenticating].present?
+      begin
+        uri = URI.parse(session[:return_to_after_authenticating])
+        if uri.query.present?
+          query_params = CGI.parse(uri.query)
+          @login_hint = query_params["login_hint"]&.first
+        end
+      rescue URI::InvalidURIError
+        # Ignore parsing errors
+      end
+    end
+
     respond_to do |format|
       format.html # render HTML login page
       format.json { render json: {error: "Authentication required"}, status: :unauthorized }
