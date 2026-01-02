@@ -724,10 +724,10 @@ brew install trivy  # macOS
 
 # Build and scan image (CRITICAL and HIGH severity only, like CI)
 docker build -t clinch:local .
-trivy image --severity CRITICAL,HIGH clinch:local
+trivy image --severity CRITICAL,HIGH --scanners vuln clinch:local
 
 # Scan only for fixable vulnerabilities
-trivy image --severity CRITICAL,HIGH --ignore-unfixed clinch:local
+trivy image --severity CRITICAL,HIGH --scanners vuln --ignore-unfixed clinch:local
 ```
 
 **CI/CD Integration:**
