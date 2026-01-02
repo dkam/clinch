@@ -603,14 +603,18 @@ class OidcController < ApplicationController
   # GET/POST /oauth/userinfo
   # OIDC Core spec: UserInfo endpoint MUST support GET, SHOULD support POST
   def userinfo
-    # Extract access token from Authorization header
-    auth_header = request.headers["Authorization"]
-    unless auth_header&.start_with?("Bearer ")
+    # Extract access token from Authorization header or POST body
+    # RFC 6750: Bearer token can be in Authorization header, request body, or query string
+    token = if request.headers["Authorization"]&.start_with?("Bearer ")
+              request.headers["Authorization"].sub("Bearer ", "")
+            elsif request.params["access_token"].present?
+              request.params["access_token"]
+            end
+
+    unless token
       head :unauthorized
       return
     end
-
-    token = auth_header.sub("Bearer ", "")
 
     # Find and validate access token (opaque token with BCrypt hashing)
     access_token = OidcAccessToken.find_by_token(token)
