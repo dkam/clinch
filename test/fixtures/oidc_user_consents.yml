@@ -5,9 +5,11 @@ alice_consent:
   application: kavita_app
   scopes_granted: openid profile email
   granted_at: 2025-10-24 16:57:39
+  sid: alice-kavita-sid-12345
 
 bob_consent:
   user: bob
   application: another_app
   scopes_granted: openid email groups
   granted_at: 2025-10-24 16:57:39
+  sid: bob-another-sid-67890

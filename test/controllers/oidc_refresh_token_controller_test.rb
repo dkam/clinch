@@ -228,7 +228,11 @@ class OidcRefreshTokenControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     json = JSON.parse(response.body)
-    assert_equal @user.id.to_s, json["sub"]
+
+    # Should return pairwise SID from consent (alice has consent for kavita_app in fixtures)
+    consent = OidcUserConsent.find_by(user: @user, application: @application)
+    expected_sub = consent&.sid || @user.id.to_s
+    assert_equal expected_sub, json["sub"]
     assert_equal @user.email_address, json["email"]
   end
 end

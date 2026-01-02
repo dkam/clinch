@@ -600,7 +600,8 @@ class OidcController < ApplicationController
     render json: {error: "invalid_grant"}, status: :bad_request
   end
 
-  # GET /oauth/userinfo
+  # GET/POST /oauth/userinfo
+  # OIDC Core spec: UserInfo endpoint MUST support GET, SHOULD support POST
   def userinfo
     # Extract access token from Authorization header
     auth_header = request.headers["Authorization"]
@@ -636,17 +637,29 @@ class OidcController < ApplicationController
     consent = OidcUserConsent.find_by(user: user, application: access_token.application)
     subject = consent&.sid || user.id.to_s
 
-    # Return user claims
+    # Parse scopes from access token (space-separated string)
+    requested_scopes = access_token.scope.to_s.split
+
+    # Return user claims (filter by scope per OIDC Core spec)
+    # Required claims (always included)
     claims = {
-      sub: subject,
-      email: user.email_address,
-      email_verified: true,
-      preferred_username: user.email_address,
-      name: user.name.presence || user.email_address
+      sub: subject
     }
 
-    # Add groups if user has any
-    if user.groups.any?
+    # Email claims (only if 'email' scope requested)
+    if requested_scopes.include?("email")
+      claims[:email] = user.email_address
+      claims[:email_verified] = true
+    end
+
+    # Profile claims (only if 'profile' scope requested)
+    if requested_scopes.include?("profile")
+      claims[:preferred_username] = user.email_address
+      claims[:name] = user.name.presence || user.email_address
+    end
+
+    # Groups claim (only if 'groups' scope requested)
+    if requested_scopes.include?("groups") && user.groups.any?
       claims[:groups] = user.groups.pluck(:name)
     end
 

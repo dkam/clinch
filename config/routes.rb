@@ -30,7 +30,7 @@ Rails.application.routes.draw do
   post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
   post "/oauth/token", to: "oidc#token"
   post "/oauth/revoke", to: "oidc#revoke"
-  get "/oauth/userinfo", to: "oidc#userinfo"
+  match "/oauth/userinfo", to: "oidc#userinfo", via: [:get, :post]
   get "/logout", to: "oidc#logout"
 
   # ForwardAuth / Trusted Header SSO
