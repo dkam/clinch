@@ -3,7 +3,7 @@ class OidcJwtService
 
   class << self
     # Generate an ID token (JWT) for the user
-    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil)
+    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil, scopes: "openid")
       now = Time.current.to_i
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
@@ -11,17 +11,29 @@ class OidcJwtService
       # Use pairwise SID from consent if available, fallback to user ID
       subject = consent&.sid || user.id.to_s
 
+      # Parse scopes (space-separated string)
+      requested_scopes = scopes.to_s.split
+
+      # Required claims (always included per OIDC Core spec)
       payload = {
         iss: issuer_url,
         sub: subject,
         aud: application.client_id,
         exp: now + ttl,
-        iat: now,
-        email: user.email_address,
-        email_verified: true,
-        preferred_username: user.username.presence || user.email_address,
-        name: user.name.presence || user.email_address
+        iat: now
       }
+
+      # Email claims (only if 'email' scope requested)
+      if requested_scopes.include?("email")
+        payload[:email] = user.email_address
+        payload[:email_verified] = true
+      end
+
+      # Profile claims (only if 'profile' scope requested)
+      if requested_scopes.include?("profile")
+        payload[:preferred_username] = user.username.presence || user.email_address
+        payload[:name] = user.name.presence || user.email_address
+      end
 
       # Add nonce if provided (OIDC requires this for implicit flow)
       payload[:nonce] = nonce if nonce.present?
@@ -44,12 +56,13 @@ class OidcJwtService
         payload[:at_hash] = at_hash
       end
 
-      # Add groups if user has any
-      if user.groups.any?
+      # Groups claims (only if 'groups' scope requested)
+      if requested_scopes.include?("groups") && user.groups.any?
         payload[:groups] = user.groups.pluck(:name)
       end
 
       # Merge custom claims from groups (arrays are combined, not overwritten)
+      # Note: Custom claims from groups are always merged (not scope-dependent)
       user.groups.each do |group|
         payload = deep_merge_claims(payload, group.parsed_custom_claims)
       end

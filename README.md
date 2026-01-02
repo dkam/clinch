@@ -347,27 +347,39 @@ services:
 
 Create a `.env` file in the same directory:
 
-```bash
-# Generate with: openssl rand -hex 64
-SECRET_KEY_BASE=your-secret-key-here
+**Generate required secrets first:**
 
-# Application URLs
+```bash
+# Generate SECRET_KEY_BASE (required)
+openssl rand -hex 64
+
+# Generate OIDC private key (optional - auto-generated if not provided)
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+cat private_key.pem  # Copy the output into OIDC_PRIVATE_KEY below
+```
+
+**Then create `.env`:**
+
+```bash
+# Rails Secret (REQUIRED)
+SECRET_KEY_BASE=paste-output-from-openssl-rand-hex-64-here
+
+# Application URLs (REQUIRED)
 CLINCH_HOST=https://auth.yourdomain.com
 CLINCH_FROM_EMAIL=noreply@yourdomain.com
 
-# SMTP Settings
+# SMTP Settings (REQUIRED for invitations and password resets)
 SMTP_ADDRESS=smtp.example.com
 SMTP_PORT=587
 SMTP_DOMAIN=yourdomain.com
 SMTP_USERNAME=your-smtp-username
 SMTP_PASSWORD=your-smtp-password
 
-# OIDC (optional - generates temporary key if not set)
-# Generate with: openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
-# Then: OIDC_PRIVATE_KEY=$(cat private_key.pem)
+# OIDC Private Key (OPTIONAL - generates temporary key if not provided)
+# For production, generate a persistent key and paste the ENTIRE contents here
 OIDC_PRIVATE_KEY=
 
-# Optional: Force SSL redirects (if not behind a reverse proxy handling SSL)
+# Optional: Force SSL redirects (only if NOT behind a reverse proxy handling SSL)
 FORCE_SSL=false
 ```
 

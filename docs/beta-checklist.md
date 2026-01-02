@@ -204,13 +204,13 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [ ] Document backup code security (single-use, store securely)
 - [ ] Document admin password security requirements
 
-### Future Security Enhancements
-- [ ] Rate limiting on authentication endpoints
-- [ ] Account lockout after N failed attempts
+### Future Security Enhancements (Post-Beta)
+- [x] Rate limiting on authentication endpoints (comprehensive coverage implemented)
+- [ ] Account lockout after N failed attempts (rate limiting provides similar protection)
 - [ ] Admin audit logging
-- [ ] Security event notifications
-- [ ] Brute force detection
-- [ ] Suspicious login detection
+- [ ] Security event notifications (email/webhook alerts for suspicious activity)
+- [ ] Advanced brute force detection (pattern analysis beyond rate limiting)
+- [ ] Suspicious login detection (geolocation, device fingerprinting)
 - [ ] IP allowlist/blocklist
 
 ## External Security Review
