@@ -57,7 +57,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "should generate id token with required claims" do
-    token = @service.generate_id_token(@user, @application)
+    token = @service.generate_id_token(@user, @application, scopes: "openid email profile")
 
     assert_not_nil token, "Should generate token"
     assert token.length > 100, "Token should be substantial"
@@ -88,7 +88,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     admin_group = groups(:admin_group)
     @user.groups << admin_group unless @user.groups.include?(admin_group)
 
-    token = @service.generate_id_token(@user, @application)
+    token = @service.generate_id_token(@user, @application, scopes: "openid groups")
 
     decoded = JWT.decode(token, nil, false).first
     assert_includes decoded["groups"], "Administrators", "Should include user's groups"
@@ -248,10 +248,10 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "should handle access token generation" do
-    token = @service.generate_id_token(@user, @application)
+    token = @service.generate_id_token(@user, @application, scopes: "openid email")
 
     decoded = JWT.decode(token, nil, false).first
-    # ID tokens always include email_verified
+    # ID tokens include email_verified when email scope is requested
     assert_includes decoded.keys, "email_verified"
     assert_equal @user.id.to_s, decoded["sub"], "Should decode subject correctly"
     assert_equal @application.client_id, decoded["aud"], "Should decode audience correctly"
@@ -278,7 +278,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       custom_claims: {app_groups: ["admin"], library_access: "all"}
     )
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     assert_equal ["admin"], decoded["app_groups"]
@@ -305,7 +305,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       custom_claims: {role: "admin", app_specific: true}
     )
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # App-specific claim should win
@@ -330,7 +330,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # User adds roles: ["admin"]
     user.update!(custom_claims: {"roles" => ["admin"], "permissions" => ["write"]})
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # Roles should be combined (not overwritten)
@@ -360,7 +360,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # User adds roles: ["admin"]
     user.update!(custom_claims: {"roles" => ["admin"]})
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # All roles should be combined
@@ -382,7 +382,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # User also has "user" role (duplicate)
     user.update!(custom_claims: {"roles" => ["user", "admin"]})
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # "user" should only appear once
@@ -404,7 +404,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # User overrides max_items and theme, adds to roles
     user.update!(custom_claims: {"roles" => ["admin"], "max_items" => 100, "theme" => "dark"})
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # Arrays should be combined
@@ -438,7 +438,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       }
     })
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # Nested hashes should be deep merged
@@ -467,7 +467,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
       custom_claims: {"roles" => ["app_admin"]}
     )
 
-    token = @service.generate_id_token(user, app)
+    token = @service.generate_id_token(user, app, scopes: "openid email profile groups")
     decoded = JWT.decode(token, nil, false).first
 
     # All three sources should be combined
@@ -561,5 +561,134 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     decoded = JWT.decode(token, nil, false).first
     assert_includes decoded.keys, "azp", "Should include azp claim"
     assert_equal @application.client_id, decoded["azp"], "azp should be the application's client_id"
+  end
+
+  # Scope-based claim filtering tests (OIDC Core compliance)
+
+  test "openid scope only should include minimal required claims" do
+    token = @service.generate_id_token(@user, @application, scopes: "openid")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Required claims should always be present
+    assert_includes decoded.keys, "iss", "Should include issuer"
+    assert_includes decoded.keys, "sub", "Should include subject"
+    assert_includes decoded.keys, "aud", "Should include audience"
+    assert_includes decoded.keys, "exp", "Should include expiration"
+    assert_includes decoded.keys, "iat", "Should include issued at"
+    assert_includes decoded.keys, "azp", "Should include authorized party"
+
+    # Scope-dependent claims should NOT be present
+    refute_includes decoded.keys, "email", "Should not include email without email scope"
+    refute_includes decoded.keys, "email_verified", "Should not include email_verified without email scope"
+    refute_includes decoded.keys, "name", "Should not include name without profile scope"
+    refute_includes decoded.keys, "preferred_username", "Should not include preferred_username without profile scope"
+    refute_includes decoded.keys, "groups", "Should not include groups without groups scope"
+  end
+
+  test "email scope should include email claims" do
+    token = @service.generate_id_token(@user, @application, scopes: "openid email")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Email claims should be present
+    assert_includes decoded.keys, "email", "Should include email with email scope"
+    assert_includes decoded.keys, "email_verified", "Should include email_verified with email scope"
+    assert_equal @user.email_address, decoded["email"]
+    assert_equal true, decoded["email_verified"]
+
+    # Profile claims should NOT be present
+    refute_includes decoded.keys, "name", "Should not include name without profile scope"
+    refute_includes decoded.keys, "preferred_username", "Should not include preferred_username without profile scope"
+  end
+
+  test "profile scope should include profile claims" do
+    token = @service.generate_id_token(@user, @application, scopes: "openid profile")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Profile claims should be present
+    assert_includes decoded.keys, "name", "Should include name with profile scope"
+    assert_includes decoded.keys, "preferred_username", "Should include preferred_username with profile scope"
+    assert_equal @user.email_address, decoded["name"]
+    assert_equal @user.email_address, decoded["preferred_username"]
+
+    # Email claims should NOT be present
+    refute_includes decoded.keys, "email", "Should not include email without email scope"
+    refute_includes decoded.keys, "email_verified", "Should not include email_verified without email scope"
+  end
+
+  test "groups scope should include groups claim" do
+    admin_group = groups(:admin_group)
+    @user.groups << admin_group unless @user.groups.include?(admin_group)
+
+    token = @service.generate_id_token(@user, @application, scopes: "openid groups")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Groups claim should be present
+    assert_includes decoded.keys, "groups", "Should include groups with groups scope"
+    assert_includes decoded["groups"], "Administrators"
+
+    # Email and profile claims should NOT be present
+    refute_includes decoded.keys, "email", "Should not include email without email scope"
+    refute_includes decoded.keys, "name", "Should not include name without profile scope"
+  end
+
+  test "groups scope should not include groups claim when user has no groups" do
+    # Ensure user has no groups
+    @user.groups.clear
+
+    token = @service.generate_id_token(@user, @application, scopes: "openid groups")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Groups claim should not be present when user has no groups
+    refute_includes decoded.keys, "groups", "Should not include empty groups claim"
+  end
+
+  test "multiple scopes should include all requested claims" do
+    admin_group = groups(:admin_group)
+    @user.groups << admin_group unless @user.groups.include?(admin_group)
+
+    token = @service.generate_id_token(@user, @application, scopes: "openid email profile groups")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # All scope-based claims should be present
+    assert_includes decoded.keys, "email", "Should include email"
+    assert_includes decoded.keys, "email_verified", "Should include email_verified"
+    assert_includes decoded.keys, "name", "Should include name"
+    assert_includes decoded.keys, "preferred_username", "Should include preferred_username"
+    assert_includes decoded.keys, "groups", "Should include groups"
+  end
+
+  test "scope parameter should handle space-separated string" do
+    token = @service.generate_id_token(@user, @application, scopes: "openid email profile")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    assert_includes decoded.keys, "email", "Should parse space-separated scopes"
+    assert_includes decoded.keys, "name", "Should parse space-separated scopes"
+  end
+
+  test "custom claims should always be merged regardless of scopes" do
+    user = users(:bob)
+    app = applications(:another_app)
+
+    # Add user custom claim
+    user.update!(custom_claims: {"custom_field" => "custom_value"})
+
+    # Request only openid scope (no email, profile, or groups)
+    token = @service.generate_id_token(user, app, scopes: "openid")
+
+    decoded = JWT.decode(token, nil, false).first
+
+    # Custom claims should be present even with minimal scopes
+    assert_equal "custom_value", decoded["custom_field"], "Custom claims should be included regardless of scopes"
+
+    # Standard claims should be filtered
+    refute_includes decoded.keys, "email", "Should not include email without email scope"
+    refute_includes decoded.keys, "name", "Should not include name without profile scope"
   end
 end

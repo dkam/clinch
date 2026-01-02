@@ -419,6 +419,7 @@ class OidcController < ApplicationController
 
         # Generate ID token (JWT) with pairwise SID, at_hash, auth_time, and acr
         # auth_time and acr come from the authorization code (captured at /authorize time)
+        # scopes determine which claims are included (per OIDC Core spec)
         id_token = OidcJwtService.generate_id_token(
           user,
           application,
@@ -426,7 +427,8 @@ class OidcController < ApplicationController
           nonce: auth_code.nonce,
           access_token: access_token_record.plaintext_token,
           auth_time: auth_code.auth_time,
-          acr: auth_code.acr
+          acr: auth_code.acr,
+          scopes: auth_code.scope
         )
 
         # Return tokens
@@ -547,13 +549,15 @@ class OidcController < ApplicationController
 
     # Generate new ID token (JWT with pairwise SID, at_hash, auth_time, acr; no nonce for refresh grants)
     # auth_time and acr come from the original refresh token (carried over from initial auth)
+    # scopes determine which claims are included (per OIDC Core spec)
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
       access_token: new_access_token.plaintext_token,
       auth_time: refresh_token_record.auth_time,
-      acr: refresh_token_record.acr
+      acr: refresh_token_record.acr,
+      scopes: refresh_token_record.scope
     )
 
     # Return new tokens
