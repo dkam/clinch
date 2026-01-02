@@ -1,7 +1,7 @@
 class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout]
-  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :logout]
+  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout]
 
   # Rate limiting to prevent brute force and abuse
   rate_limit to: 60, within: 1.minute, only: [:token, :revoke], with: -> {
