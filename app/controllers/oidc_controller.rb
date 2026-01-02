@@ -30,7 +30,17 @@ class OidcController < ApplicationController
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: ["openid", "profile", "email", "groups", "offline_access"],
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
-      claims_supported: ["sub", "email", "email_verified", "name", "preferred_username", "groups", "admin", "auth_time", "acr", "azp", "at_hash"],
+      claims_supported: [
+        "sub",              # Always included
+        "email",            # email scope
+        "email_verified",   # email scope
+        "name",             # profile scope
+        "preferred_username", # profile scope
+        "updated_at",       # profile scope
+        "groups"            # groups scope
+        # Note: Custom claims are also supported but not listed here
+        # ID-token-only claims (auth_time, acr, azp, at_hash, nonce) are not listed
+      ],
       code_challenge_methods_supported: ["plain", "S256"],
       backchannel_logout_supported: true,
       backchannel_logout_session_supported: true
@@ -657,26 +667,13 @@ class OidcController < ApplicationController
     end
 
     # Profile claims (only if 'profile' scope requested)
-    # Per OIDC Core spec section 5.4, all profile claims SHOULD be returned
+    # Per OIDC Core spec section 5.4, include available profile claims
+    # Only include claims we have data for - omit unknown claims rather than returning null
     if requested_scopes.include?("profile")
       # Use username if available, otherwise email as preferred_username
       claims[:preferred_username] = user.username.presence || user.email_address
       # Name: use stored name or fall back to email
       claims[:name] = user.name.presence || user.email_address
-
-      # Standard profile claims we don't store - set to nil (optional per spec)
-      claims[:given_name] = nil
-      claims[:family_name] = nil
-      claims[:middle_name] = nil
-      claims[:nickname] = nil
-      claims[:profile] = nil
-      claims[:picture] = nil
-      claims[:website] = nil
-      claims[:gender] = nil
-      claims[:birthdate] = nil
-      claims[:zoneinfo] = nil
-      claims[:locale] = nil
-
       # Time the user's information was last updated
       claims[:updated_at] = user.updated_at.to_i
     end

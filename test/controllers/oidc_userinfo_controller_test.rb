@@ -115,25 +115,10 @@ class OidcUserinfoControllerTest < ActionDispatch::IntegrationTest
     # Required claims
     assert json["sub"].present?
 
-    # All standard profile claims should be present (per OIDC Core spec section 5.4)
-    # Some may be null if we don't have the data, but the keys should exist
-    assert json.key?("name"), "Should include name claim"
-    assert json.key?("given_name"), "Should include given_name claim (may be null)"
-    assert json.key?("family_name"), "Should include family_name claim (may be null)"
-    assert json.key?("middle_name"), "Should include middle_name claim (may be null)"
-    assert json.key?("nickname"), "Should include nickname claim (may be null)"
-    assert json.key?("preferred_username"), "Should include preferred_username claim"
-    assert json.key?("profile"), "Should include profile claim (may be null)"
-    assert json.key?("picture"), "Should include picture claim (may be null)"
-    assert json.key?("website"), "Should include website claim (may be null)"
-    assert json.key?("gender"), "Should include gender claim (may be null)"
-    assert json.key?("birthdate"), "Should include birthdate claim (may be null)"
-    assert json.key?("zoneinfo"), "Should include zoneinfo claim (may be null)"
-    assert json.key?("locale"), "Should include locale claim (may be null)"
-    assert json.key?("updated_at"), "Should include updated_at claim"
-
-    # Verify preferred_username is using username or email
-    assert json["preferred_username"].present?, "preferred_username should have a value"
+    # Profile claims we support should be present
+    assert json["name"].present?, "Should include name with profile scope"
+    assert json["preferred_username"].present?, "Should include preferred_username with profile scope"
+    assert json["updated_at"].present?, "Should include updated_at with profile scope"
 
     # Email claims should NOT be present
     assert_nil json["email"], "Should not include email without email scope"

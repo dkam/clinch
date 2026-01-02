@@ -23,17 +23,10 @@ class OidcJwtService
         iat: now
       }
 
-      # Email claims (only if 'email' scope requested)
-      if requested_scopes.include?("email")
-        payload[:email] = user.email_address
-        payload[:email_verified] = true
-      end
-
-      # Profile claims (only if 'profile' scope requested)
-      if requested_scopes.include?("profile")
-        payload[:preferred_username] = user.username.presence || user.email_address
-        payload[:name] = user.name.presence || user.email_address
-      end
+      # NOTE: Email and profile claims are NOT included in the ID token for authorization code flow
+      # Per OIDC Core spec §5.4, these claims should only be returned via the UserInfo endpoint
+      # For implicit flow (response_type=id_token), claims would be included here, but we only
+      # support authorization code flow, so these claims are omitted from the ID token.
 
       # Add nonce if provided (OIDC requires this for implicit flow)
       payload[:nonce] = nonce if nonce.present?
