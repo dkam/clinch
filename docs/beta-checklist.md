@@ -24,6 +24,18 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [x] **importmap audit** - JavaScript dependency scanning
   - CI: Runs on every PR and push to main
 
+- [x] **Trivy** - Container image vulnerability scanning
+  - Scans Docker images for OS and system package vulnerabilities
+  - CI: Builds and scans image on every PR and push to main
+  - Results uploaded to GitHub Security tab
+
+- [x] **Dependabot** - Automated dependency updates
+  - Creates PRs for outdated dependencies
+  - Enabled for Ruby gems and GitHub Actions
+
+- [x] **GitHub Secret Scanning** - Detects leaked credentials
+  - Push protection enabled to block commits with secrets
+
 - [x] **Test Coverage** - SimpleCov integration
   - Command: `COVERAGE=1 bin/rails test`
   - Coverage report: `coverage/index.html`
@@ -238,7 +250,11 @@ To move from "experimental" to "Beta", the following must be completed:
 **Nice to have (Can defer to post-Beta):**
 - [ ] Bug bounty program
 - [ ] Advanced monitoring/alerting
-- [ ] Automated security testing in CI beyond brakeman/bundler-audit
+- [x] Automated security testing in CI beyond brakeman/bundler-audit
+  - [x] Dependabot (automated dependency updates)
+  - [x] GitHub Secret Scanning (automatic with push protection enabled)
+  - [x] Container image scanning (Trivy scans Docker images for OS/system vulnerabilities)
+  - [ ] DAST/Dynamic testing (OWASP ZAP) - optional for post-Beta
 
 ## Status Summary
 

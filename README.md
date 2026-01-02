@@ -715,12 +715,30 @@ bin/bundler-audit check --update     # Dependency vulnerability scan
 bin/importmap audit                  # JavaScript dependency scan
 ```
 
+**Container Image Scanning:**
+
+```bash
+# Install Trivy
+brew install trivy  # macOS
+# or use Docker: alias trivy='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy'
+
+# Build and scan image (CRITICAL and HIGH severity only, like CI)
+docker build -t clinch:local .
+trivy image --severity CRITICAL,HIGH clinch:local
+
+# Scan only for fixable vulnerabilities
+trivy image --severity CRITICAL,HIGH --ignore-unfixed clinch:local
+```
+
 **CI/CD Integration:**
 All security scans run automatically on every pull request and push to main via GitHub Actions.
 
 **Security Tools:**
 - **Brakeman** - Static analysis for Rails security vulnerabilities
 - **bundler-audit** - Checks gems for known CVEs
+- **Trivy** - Container image vulnerability scanning (OS/system packages)
+- **Dependabot** - Automated dependency updates
+- **GitHub Secret Scanning** - Detects leaked credentials with push protection
 - **SimpleCov** - Code coverage tracking
 - **RuboCop** - Code style and quality enforcement
 

@@ -90,4 +90,7 @@ group :test do
 
   # Code coverage analysis
   gem "simplecov", require: false
+
+  # Pin minitest to < 6.0 until Rails 8.1 supports the new API
+  gem "minitest", "< 6.0"
 end

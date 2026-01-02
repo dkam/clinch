@@ -1,0 +1,47 @@
+# Trivy ignore file
+# This file tells Trivy to skip specific vulnerabilities or files
+# See: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+
+# =============================================================================
+# False Positives - Test Fixtures
+# =============================================================================
+
+# Capybara test fixture - not a real private key
+# Ignore secrets in test fixtures
+*/capybara-*/spec/fixtures/key.pem
+
+# =============================================================================
+# Unfixable CVEs - No Patches Available (Status: affected/fix_deferred)
+# =============================================================================
+
+# GnuPG vulnerabilities - not used by Clinch at runtime
+# Low risk: dirmngr/gpg tools not invoked during normal operation
+CVE-2025-68973
+
+# Image processing library vulnerabilities
+# Low risk for Clinch: Only admins upload images (app icons), not untrusted users
+# Waiting on Debian security team to release patches
+
+# ImageMagick - Integer overflow (32-bit only)
+CVE-2025-66628
+
+# glib - Integer overflow in URI escaping
+CVE-2025-13601
+
+# HDF5 - Critical vulnerabilities in scientific data format library
+CVE-2025-2153
+CVE-2025-2308
+CVE-2025-2309
+CVE-2025-2310
+
+# libmatio - MATLAB file format library
+CVE-2025-2338
+
+# OpenEXR - Image format vulnerabilities
+CVE-2025-12495
+CVE-2025-12839
+CVE-2025-12840
+CVE-2025-64181
+
+# libvips - Image processing library
+CVE-2025-59933
