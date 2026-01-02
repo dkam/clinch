@@ -657,9 +657,28 @@ class OidcController < ApplicationController
     end
 
     # Profile claims (only if 'profile' scope requested)
+    # Per OIDC Core spec section 5.4, all profile claims SHOULD be returned
     if requested_scopes.include?("profile")
-      claims[:preferred_username] = user.email_address
+      # Use username if available, otherwise email as preferred_username
+      claims[:preferred_username] = user.username.presence || user.email_address
+      # Name: use stored name or fall back to email
       claims[:name] = user.name.presence || user.email_address
+
+      # Standard profile claims we don't store - set to nil (optional per spec)
+      claims[:given_name] = nil
+      claims[:family_name] = nil
+      claims[:middle_name] = nil
+      claims[:nickname] = nil
+      claims[:profile] = nil
+      claims[:picture] = nil
+      claims[:website] = nil
+      claims[:gender] = nil
+      claims[:birthdate] = nil
+      claims[:zoneinfo] = nil
+      claims[:locale] = nil
+
+      # Time the user's information was last updated
+      claims[:updated_at] = user.updated_at.to_i
     end
 
     # Groups claim (only if 'groups' scope requested)
