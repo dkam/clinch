@@ -3,6 +3,7 @@ class InvitationsController < ApplicationController
 
   allow_unauthenticated_access
   before_action :set_user_by_invitation_token, only: %i[show update]
+  rate_limit to: 10, within: 10.minutes, only: :update, with: -> { redirect_to signin_path, alert: "Too many attempts. Try again later." }
 
   def show
     # Show the password setup form

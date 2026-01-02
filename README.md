@@ -306,21 +306,100 @@ bin/dev
 
 ## Production Deployment
 
-### Docker
+### Docker Compose (Recommended)
+
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  clinch:
+    image: ghcr.io/dkam/clinch:latest
+    ports:
+      - "127.0.0.1:3000:3000"  # Bind to localhost only (reverse proxy on same host)
+      # Use "3000:3000" if reverse proxy is in Docker network or different host
+    environment:
+      # Rails Configuration
+      RAILS_ENV: production
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+
+      # Application Configuration
+      CLINCH_HOST: ${CLINCH_HOST}
+      CLINCH_FROM_EMAIL: ${CLINCH_FROM_EMAIL:-noreply@example.com}
+
+      # SMTP Configuration
+      SMTP_ADDRESS: ${SMTP_ADDRESS}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_DOMAIN: ${SMTP_DOMAIN}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
+      SMTP_ENABLE_STARTTLS: ${SMTP_ENABLE_STARTTLS:-true}
+
+      # OIDC Configuration (optional - generates temporary key if not provided)
+      OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY}
+
+      # Optional Configuration
+      FORCE_SSL: ${FORCE_SSL:-false}
+    volumes:
+      - ./storage:/rails/storage
+    restart: unless-stopped
+```
+
+Create a `.env` file in the same directory:
 
 ```bash
-# Build image
-docker build -t clinch .
+# Generate with: openssl rand -hex 64
+SECRET_KEY_BASE=your-secret-key-here
 
-# Run container
-docker run -p 3000:3000 \
-  -v clinch-storage:/rails/storage \
-  -e SECRET_KEY_BASE=your-secret-key \
-  -e SMTP_ADDRESS=smtp.example.com \
-  -e SMTP_PORT=587 \
-  -e SMTP_USERNAME=your-username \
-  -e SMTP_PASSWORD=your-password \
-  clinch
+# Application URLs
+CLINCH_HOST=https://auth.yourdomain.com
+CLINCH_FROM_EMAIL=noreply@yourdomain.com
+
+# SMTP Settings
+SMTP_ADDRESS=smtp.example.com
+SMTP_PORT=587
+SMTP_DOMAIN=yourdomain.com
+SMTP_USERNAME=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+
+# OIDC (optional - generates temporary key if not set)
+# Generate with: openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+# Then: OIDC_PRIVATE_KEY=$(cat private_key.pem)
+OIDC_PRIVATE_KEY=
+
+# Optional: Force SSL redirects (if not behind a reverse proxy handling SSL)
+FORCE_SSL=false
+```
+
+Start Clinch:
+
+```bash
+docker compose up -d
+```
+
+**First Run:**
+1. Visit `http://localhost:3000` (or your configured domain)
+2. Complete the first-run wizard to create your admin account
+3. Configure applications and invite users
+
+**Upgrading:**
+
+```bash
+# Pull latest image
+docker compose pull
+
+# Restart with new image (migrations run automatically)
+docker compose up -d
+```
+
+**Logs:**
+
+```bash
+# View logs
+docker compose logs -f clinch
+
+# View last 100 lines
+docker compose logs --tail=100 clinch
 ```
 
 ### Backup & Restore
@@ -351,9 +430,9 @@ sqlite3 storage/production.sqlite3 "VACUUM INTO 'backup-$(date +%Y%m%d).sqlite3'
 # 2. Backup uploaded files (ActiveStorage files are immutable)
 tar -czf uploads-backup-$(date +%Y%m%d).tar.gz storage/uploads/
 
-# Docker equivalent
-docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup-$(date +%Y%m%d).sqlite3';"
-docker exec clinch tar -czf /rails/storage/uploads-backup-$(date +%Y%m%d).tar.gz /rails/storage/uploads/
+# Docker Compose equivalent
+docker compose exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup-$(date +%Y%m%d).sqlite3';"
+docker compose exec clinch tar -czf /rails/storage/uploads-backup-$(date +%Y%m%d).tar.gz /rails/storage/uploads/
 ```
 
 **Restore:**
@@ -380,13 +459,13 @@ sqlite3 /host/path/production.sqlite3 "VACUUM INTO '/host/path/backup-$(date +%Y
 rsync -av /host/path/backup-*.sqlite3 /host/path/uploads/ remote:/backups/clinch/
 ```
 
-b) **Docker volumes** (e.g., `-v clinch_storage:/rails/storage`):
+b) **Docker volumes** (e.g., using named volumes in compose):
 ```bash
 # Database backup (safe while running)
-docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup.sqlite3';"
+docker compose exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup.sqlite3';"
 
 # Copy out of container
-docker cp clinch:/rails/storage/backup.sqlite3 ./backup-$(date +%Y%m%d).sqlite3
+docker compose cp clinch:/rails/storage/backup.sqlite3 ./backup-$(date +%Y%m%d).sqlite3
 ```
 
 **Option 2: While Stopped (Offline Backup)**
@@ -411,35 +490,7 @@ docker compose up -d
 
 ## Configuration
 
-### Environment Variables
-
-Create a `.env` file (see `.env.example`):
-
-```bash
-# Rails
-SECRET_KEY_BASE=generate-with-bin-rails-secret
-RAILS_ENV=production
-
-# Database
-# SQLite database stored in storage/ directory (Docker volume mount point)
-
-# SMTP (for sending emails)
-SMTP_ADDRESS=smtp.example.com
-SMTP_PORT=587
-SMTP_DOMAIN=example.com
-SMTP_USERNAME=your-username
-SMTP_PASSWORD=your-password
-SMTP_AUTHENTICATION=plain
-SMTP_ENABLE_STARTTLS=true
-
-# Application
-CLINCH_HOST=https://auth.example.com
-CLINCH_FROM_EMAIL=noreply@example.com
-
-# OIDC (optional - generates temporary key in development)
-# Generate with: openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
-OIDC_PRIVATE_KEY=<contents-of-private-key.pem>
-```
+All configuration is handled via environment variables (see the `.env` file in the Docker Compose section above).
 
 ### First Run
 1. Visit Clinch at `http://localhost:3000` (or your configured domain)

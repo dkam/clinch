@@ -153,7 +153,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 ### Deployment
 - [x] Docker support
 - [x] Docker Compose example
-- [ ] Production deployment guide
+- [x] Production deployment guide (Docker Compose with .env configuration, upgrading, logs)
 - [x] Backup and restore documentation
 
 ## Security Hardening
@@ -165,10 +165,13 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [x] Referrer-Policy (strict-origin-when-cross-origin in production config)
 
 ### Rate Limiting
-- [ ] Login attempt rate limiting
-- [ ] API endpoint rate limiting
-- [ ] Token endpoint rate limiting
-- [ ] Password reset rate limiting
+- [x] Login attempt rate limiting (20/3min on sessions#create)
+- [x] TOTP verification rate limiting (10/3min on sessions#verify_totp)
+- [x] WebAuthn rate limiting (10/1min on webauthn endpoints, 10/3min on session endpoints)
+- [x] Password reset rate limiting (10/3min on request, 10/10min on completion)
+- [x] Invitation acceptance rate limiting (10/10min)
+- [x] OAuth token endpoint rate limiting (60/1min on token, 30/1min on authorize)
+- [x] Backup code rate limiting (5 failed attempts per hour, model-level)
 
 ### Secrets Management
 - [x] No secrets in code
@@ -222,15 +225,15 @@ To move from "experimental" to "Beta", the following must be completed:
 - [x] All tests passing
 - [x] Core features implemented and tested
 - [x] Basic documentation complete
+- [x] Backup/restore documentation
+- [x] Production deployment guide
 - [ ] At least one external security review or penetration test
-- [ ] Production deployment guide
-- [ ] Backup/restore documentation
 
 **Important (Should have for Beta):**
-- [ ] Rate limiting on auth endpoints
-- [ ] Security headers configuration documented
+- [x] Rate limiting on auth endpoints
+- [x] Security headers configuration documented (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
+- [x] Known limitations documented (ForwardAuth same-domain requirement in README)
 - [ ] Admin audit logging
-- [ ] Known limitations documented
 
 **Nice to have (Can defer to post-Beta):**
 - [ ] Bug bounty program
@@ -250,16 +253,12 @@ To move from "experimental" to "Beta", the following must be completed:
 
 **Before Beta Release:**
 - 🔶 External security review recommended
-- 🔶 Rate limiting implementation needed
-- 🔶 Production deployment documentation
-- 🔶 Security hardening checklist completion
+- 🔶 Admin audit logging (optional)
 
 **Recommendation:** Consider Beta status after:
 1. External security review or penetration testing
-2. Rate limiting implementation
-3. Production hardening documentation
-4. 1-2 months of real-world testing
+2. Real-world testing period
 
 ---
 
-Last updated: 2026-01-01
+Last updated: 2026-01-02
