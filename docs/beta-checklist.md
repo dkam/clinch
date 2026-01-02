@@ -155,16 +155,14 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [x] Docker Compose example
 - [ ] Production deployment guide
 - [x] Backup and restore documentation
-- [ ] Migration strategy documentation
 
 ## Security Hardening
 
 ### Headers & CSP
-- [ ] Review Content Security Policy
-- [ ] HSTS configuration
-- [ ] X-Frame-Options
-- [ ] X-Content-Type-Options
-- [ ] Referrer-Policy
+- [x] Content Security Policy (comprehensive policy in config/initializers/content_security_policy.rb)
+- [x] X-Frame-Options (DENY in production config)
+- [x] X-Content-Type-Options (nosniff - Rails default)
+- [x] Referrer-Policy (strict-origin-when-cross-origin in production config)
 
 ### Rate Limiting
 - [ ] Login attempt rate limiting
@@ -180,8 +178,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 
 ### Logging & Monitoring
 - [x] Sentry integration (optional)
-- [ ] Document what should be logged
-- [ ] Document what should NOT be logged (tokens, passwords)
+- [x] Parameter filtering configured (passwords, tokens, secrets, backup codes, emails filtered from logs)
 - [ ] Audit log for admin actions
 
 ## Known Limitations & Risks

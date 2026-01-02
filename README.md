@@ -336,9 +336,6 @@ Use SQLite's `VACUUM INTO` command for safe, atomic backups of a running databas
 ```bash
 # Local development
 sqlite3 storage/production.sqlite3 "VACUUM INTO 'backup.sqlite3';"
-
-# Docker
-docker exec clinch sqlite3 /rails/storage/production.sqlite3 "VACUUM INTO '/rails/storage/backup.sqlite3';"
 ```
 
 This creates an optimized copy of the database that's safe to make even while Clinch is running.
