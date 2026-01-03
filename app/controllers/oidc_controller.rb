@@ -927,7 +927,7 @@ class OidcController < ApplicationController
       return {
         valid: false,
         error: "invalid_request",
-        error_description: "Invalid code_verifier format. Must be 43-128 characters of base64url encoding",
+        error_description: "Invalid code_verifier format. Must be 43-128 characters [A-Z/a-z/0-9/-/./_/~]",
         status: :bad_request
       }
     end
