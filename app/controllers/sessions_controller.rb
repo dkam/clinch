@@ -87,7 +87,10 @@ class SessionsController < ApplicationController
 
     # Sign in successful (password only)
     start_new_session_for user, acr: "1"
-    redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
+
+    # Use status: :see_other to ensure browser makes a GET request
+    # This prevents Turbo from converting it to a TURBO_STREAM request
+    redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true, status: :see_other
   end
 
   def verify_totp

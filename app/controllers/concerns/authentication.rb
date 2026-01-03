@@ -52,12 +52,24 @@ module Authentication
       # Extract root domain for cross-subdomain cookies (required for forward auth)
       domain = extract_root_domain(request.host)
 
-      cookie_options = {
-        value: session.id,
-        httponly: true,
-        same_site: :lax,
-        secure: Rails.env.production?
-      }
+      # Set cookie options based on environment
+      # Production: Use SameSite=None to allow cross-site cookies (needed for OIDC conformance testing)
+      # Development: Use SameSite=Lax since HTTPS might not be available
+      cookie_options = if Rails.env.production?
+        {
+          value: session.id,
+          httponly: true,
+          same_site: :none,  # Allow cross-site cookies for OIDC testing
+          secure: true        # Required for SameSite=None
+        }
+      else
+        {
+          value: session.id,
+          httponly: true,
+          same_site: :lax,
+          secure: false
+        }
+      end
 
       # Set domain for cross-subdomain authentication if we can extract it
       cookie_options[:domain] = domain if domain.present?

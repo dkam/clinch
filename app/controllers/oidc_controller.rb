@@ -210,6 +210,9 @@ class OidcController < ApplicationController
       # This creates a fresh authentication event with a new auth_time
       Current.session&.destroy!
 
+      # Clear the session cookie so the user is truly logged out
+      cookies.delete(:session_id)
+
       # Store the current URL (which contains all OAuth params) for redirect after login
       # Remove prompt=login to prevent infinite re-auth loop
       return_url = request.url.sub(/&prompt=login(?=&|$)|\?prompt=login&?/, '\1')
@@ -536,6 +539,10 @@ class OidcController < ApplicationController
           scopes: auth_code.scope
         )
 
+        # RFC6749-5.1: Token endpoint MUST return Cache-Control: no-store
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+
         # Return tokens
         render json: {
           access_token: access_token_record.plaintext_token,  # Opaque token
@@ -665,6 +672,10 @@ class OidcController < ApplicationController
       scopes: refresh_token_record.scope
     )
 
+    # RFC6749-5.1: Token endpoint MUST return Cache-Control: no-store
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+
     # Return new tokens
     render json: {
       access_token: new_access_token.plaintext_token,  # Opaque token
@@ -762,6 +773,10 @@ class OidcController < ApplicationController
     # Merge app-specific custom claims (highest priority)
     application = access_token.application
     claims.merge!(application.custom_claims_for_user(user))
+
+    # Security: Don't cache user data responses
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
 
     render json: claims
   end
@@ -907,8 +922,8 @@ class OidcController < ApplicationController
       }
     end
 
-    # Validate code verifier format (base64url-encoded, 43-128 characters)
-    unless code_verifier.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
+    # Validate code verifier format (per RFC 7636: [A-Za-z0-9\-._~], 43-128 characters)
+    unless code_verifier.match?(/\A[A-Za-z0-9\.\-_~]{43,128}\z/)
       return {
         valid: false,
         error: "invalid_request",
