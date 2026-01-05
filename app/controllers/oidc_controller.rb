@@ -422,7 +422,11 @@ class OidcController < ApplicationController
 
     # Record user consent
     requested_scopes = oauth_params["scope"].split(" ")
-    parsed_claims = JSON.parse(oauth_params["claims_requests"]) rescue {}
+    parsed_claims = begin
+      JSON.parse(oauth_params["claims_requests"])
+    rescue
+      {}
+    end
 
     consent = OidcUserConsent.find_or_initialize_by(user: user, application: application)
     consent.scopes_granted = requested_scopes.join(" ")
@@ -780,10 +784,10 @@ class OidcController < ApplicationController
     # Extract access token from Authorization header or POST body
     # RFC 6750: Bearer token can be in Authorization header, request body, or query string
     token = if request.headers["Authorization"]&.start_with?("Bearer ")
-              request.headers["Authorization"].sub("Bearer ", "")
-            elsif request.params["access_token"].present?
-              request.params["access_token"]
-            end
+      request.headers["Authorization"].sub("Bearer ", "")
+    elsif request.params["access_token"].present?
+      request.params["access_token"]
+    end
 
     unless token
       head :unauthorized
@@ -1026,7 +1030,7 @@ class OidcController < ApplicationController
     end
 
     # Validate code verifier format (per RFC 7636: [A-Za-z0-9\-._~], 43-128 characters)
-    unless code_verifier.match?(/\A[A-Za-z0-9\.\-_~]{43,128}\z/)
+    unless code_verifier.match?(/\A[A-Za-z0-9.\-_~]{43,128}\z/)
       return {
         valid: false,
         error: "invalid_request",

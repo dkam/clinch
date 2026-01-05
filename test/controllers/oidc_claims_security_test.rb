@@ -271,7 +271,7 @@ class OidcClaimsSecurityTest < ActionDispatch::IntegrationTest
       '{"id_token":{"email":{"essential":true}}}',
       '{"userinfo":{"groups":{"values":["admin"]}}}',
       '{"id_token":{"custom_claim":"custom_value"}}',
-      'invalid-json'
+      "invalid-json"
     ]
 
     malicious_claims.each do |claims_value|

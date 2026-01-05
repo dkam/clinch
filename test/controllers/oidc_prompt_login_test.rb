@@ -76,7 +76,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
 
     # Should redirect to sign in because session is too old
     assert_response :redirect
-    assert_redirected_to /signin/
+    assert_redirected_to(/signin/)
 
     # Sign in again
     post "/signin", params: {
@@ -194,7 +194,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
 
     # Should redirect to sign in
     assert_response :redirect
-    assert_redirected_to /signin/
+    assert_redirected_to(/signin/)
 
     # Sign in again (simulating user re-authentication)
     post "/signin", params: {
