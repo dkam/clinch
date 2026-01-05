@@ -31,7 +31,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
     # Step 3: Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
 
-    assert_response 302
+    assert_response 303
     redirect_uri = URI.parse(response.location)
     assert_equal "https", redirect_uri.scheme
     assert_equal "app.example.com", redirect_uri.host
@@ -101,7 +101,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
     # Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
-    assert_response 302
+    assert_response 303
 
     # Should have access (in allowed group)
     get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
@@ -139,7 +139,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
     # Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
-    assert_response 302
+    assert_response 303
 
     # Should have access (bypass mode)
     get "/api/verify", headers: {"X-Forwarded-Host" => "public.example.com"}
@@ -255,7 +255,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
     # Sign in once
     post "/signin", params: {email_address: @user.email_address, password: "password"}
-    assert_response 302
+    assert_response 303
 
     # Test access to each application
     apps.each do |app|

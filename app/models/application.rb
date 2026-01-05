@@ -5,6 +5,23 @@ class Application < ApplicationRecord
   # When true, no client_secret will be generated (public client)
   attr_accessor :is_public_client
 
+  # Virtual setters for TTL fields - accept human-friendly durations
+  # e.g., "1h", "30m", "1d", or plain numbers "3600"
+  def access_token_ttl=(value)
+    parsed = DurationParser.parse(value)
+    super(parsed)
+  end
+
+  def refresh_token_ttl=(value)
+    parsed = DurationParser.parse(value)
+    super(parsed)
+  end
+
+  def id_token_ttl=(value)
+    parsed = DurationParser.parse(value)
+    super(parsed)
+  end
+
   has_one_attached :icon
 
   # Fix SVG content type after attachment
@@ -39,7 +56,7 @@ class Application < ApplicationRecord
 
   # Token TTL validations (for OIDC apps)
   validates :access_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 86400}, if: :oidc?  # 5 min - 24 hours
-  validates :refresh_token_ttl, numericality: {greater_than_or_equal_to: 86400, less_than_or_equal_to: 7776000}, if: :oidc?  # 1 day - 90 days
+  validates :refresh_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 7776000}, if: :oidc?  # 5 min - 90 days
   validates :id_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 86400}, if: :oidc?  # 5 min - 24 hours
 
   normalizes :slug, with: ->(slug) { slug.strip.downcase }

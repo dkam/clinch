@@ -279,7 +279,7 @@ module Api
         rd: evil_url  # Ensure the rd parameter is preserved in login
       }
 
-      assert_response 302
+      assert_response 303
       # Should NOT redirect to evil URL after successful authentication
       refute_match evil_url, response.location, "Should not redirect to evil URL after authentication"
       # Should redirect to the legitimate URL (not the evil one)

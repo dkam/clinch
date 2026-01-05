@@ -27,7 +27,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
 
     # Step 2: Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
-    assert_response 302
+    assert_response 303
     # Signin now redirects back with fa_token parameter
     assert_match(/\?fa_token=/, response.location)
     assert cookies[:session_id]
