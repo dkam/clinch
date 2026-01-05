@@ -158,7 +158,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 
 ### Performance
 - [ ] Review N+1 queries
-- [ ] Add database indexes where needed
+- [x] Add database indexes where needed
 - [ ] Test with realistic data volumes
 - [ ] Review token cleanup job performance
 

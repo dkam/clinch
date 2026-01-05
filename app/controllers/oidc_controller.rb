@@ -457,6 +457,16 @@ class OidcController < ApplicationController
 
   # POST /oauth/token
   def token
+    # Reject claims parameter - per OIDC security, claims parameter is only valid
+    # in authorization requests, not at the token endpoint
+    if params[:claims].present?
+      render json: {
+        error: "invalid_request",
+        error_description: "claims parameter is not allowed at the token endpoint"
+      }, status: :bad_request
+      return
+    end
+
     grant_type = params[:grant_type]
 
     case grant_type
