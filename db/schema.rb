@@ -78,6 +78,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_05_000809) do
     t.text "redirect_uris"
     t.integer "refresh_token_ttl", default: 2592000
     t.boolean "require_pkce", default: true, null: false
+    t.boolean "skip_consent", default: false, null: false
     t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_applications_on_active"

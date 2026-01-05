@@ -289,6 +289,38 @@ class OidcController < ApplicationController
 
     requested_scopes = scope.split(" ")
 
+    # Check if application is configured to skip consent
+    # If so, automatically create consent and proceed without showing consent screen
+    if @application.skip_consent?
+      # Create or update consent record automatically for trusted applications
+      consent = OidcUserConsent.find_or_initialize_by(user: user, application: @application)
+      consent.scopes_granted = requested_scopes.join(" ")
+      consent.claims_requests = parsed_claims || {}
+      consent.granted_at = Time.current
+      consent.save!
+
+      # Generate authorization code directly
+      auth_code = OidcAuthorizationCode.create!(
+        application: @application,
+        user: user,
+        redirect_uri: redirect_uri,
+        scope: scope,
+        nonce: nonce,
+        code_challenge: code_challenge,
+        code_challenge_method: code_challenge_method,
+        claims_requests: parsed_claims || {},
+        auth_time: Current.session.created_at.to_i,
+        acr: Current.session.acr,
+        expires_at: 10.minutes.from_now
+      )
+
+      # Redirect back to client with authorization code (plaintext)
+      redirect_uri = "#{redirect_uri}?code=#{auth_code.plaintext_code}"
+      redirect_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to redirect_uri, allow_other_host: true
+      return
+    end
+
     # Check if user has already granted consent for these scopes
     existing_consent = user.has_oidc_consent?(@application, requested_scopes)
     if existing_consent && claims_match_consent?(parsed_claims, existing_consent)
