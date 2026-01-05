@@ -40,7 +40,6 @@ module Authentication
   end
 
   def after_authentication_url
-    session[:return_to_after_authenticating]
     session.delete(:return_to_after_authenticating) || root_url
   end
 

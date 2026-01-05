@@ -246,9 +246,7 @@ class OidcController < ApplicationController
 
       # Store the current URL (which contains all OAuth params) for redirect after login
       # Remove prompt=login to prevent infinite re-auth loop
-      return_url = request.url.sub(/&prompt=login(?=&|$)|\?prompt=login&?/, '\1')
-      # Fix any resulting URL issues (like ?& or & at end)
-      return_url = return_url.gsub("?&", "?").gsub(/[?&]$/, "")
+      return_url = remove_query_param(request.url, "prompt")
       session[:return_to_after_authenticating] = return_url
 
       redirect_to signin_path, alert: "Please sign in to continue"
@@ -263,15 +261,19 @@ class OidcController < ApplicationController
       # Calculate session age
       session_age_seconds = Time.current.to_i - Current.session.created_at.to_i
 
-      if session_age_seconds > max_age_seconds
+      if session_age_seconds >= max_age_seconds
         # Session is too old - require re-authentication
-        # Store return URL in session (creates new session cookie)
+        # Store the return URL in Rails session, then destroy the Session record
 
-        # Destroy session and clear cookie to force fresh login
+        # Store return URL before destroying anything
+        # Remove max_age from return URL to prevent infinite re-auth loop
+        return_url = remove_query_param(request.url, "max_age")
+        session[:return_to_after_authenticating] = return_url
+
+        # Destroy the Session record and clear its cookie
         Current.session&.destroy!
         cookies.delete(:session_id)
-
-        session[:return_to_after_authenticating] = request.url
+        Current.session = nil
 
         redirect_to signin_path, alert: "Please sign in to continue"
         return
@@ -1111,6 +1113,23 @@ class OidcController < ApplicationController
     rescue URI::InvalidURIError
       false
     end
+  end
+
+  # Remove a query parameter from a URL using proper URI parsing
+  # More robust than regex - handles URL encoding, edge cases, etc.
+  def remove_query_param(url, param_name)
+    uri = URI.parse(url)
+    return url unless uri.query
+
+    # Parse query string into hash
+    params = CGI.parse(uri.query)
+    params.delete(param_name)
+
+    # Rebuild query string (empty string if no params left)
+    uri.query = params.any? ? URI.encode_www_form(params) : nil
+    uri.to_s
+  rescue URI::InvalidURIError
+    url
   end
 
   def send_backchannel_logout_notifications(user)
