@@ -71,7 +71,7 @@ class ActiveSessionsController < ApplicationController
     Rails.logger.info "ActiveSessionsController: Logged out from #{application.name} - revoked #{revoked_access_tokens} access tokens and #{revoked_refresh_tokens} refresh tokens"
 
     # Keep the consent intact - this is the key difference from revoke_consent
-    redirect_to root_path, notice: "Successfully logged out of #{application.name}."
+    redirect_to root_path, notice: "Revoked access tokens for #{application.name}. Re-authentication will be required on next use."
   end
 
   def revoke_all_consents

@@ -153,6 +153,26 @@
     </div>
     <% end %>
 
+    <!-- OAuth2/OIDC Flow Information -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+      <div>
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">OAuth2 Flow</h4>
+        <p class="text-sm text-gray-700">
+          Clinch uses the <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">authorization_code</code> flow with <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">response_type=code</code> (the modern, secure standard).
+        </p>
+        <p class="text-sm text-gray-600 mt-1">
+          Deprecated flows like Implicit (<code class="bg-white px-1 rounded text-xs font-mono">id_token</code>, <code class="bg-white px-1 rounded text-xs font-mono">token</code>) are not supported for security reasons.
+        </p>
+      </div>
+
+      <div class="border-t border-blue-200 pt-3">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">Client Authentication</h4>
+        <p class="text-sm text-gray-700">
+          Clinch supports both <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">client_secret_basic</code> (HTTP Basic Auth) and <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">client_secret_post</code> (POST parameters) authentication methods.
+        </p>
+      </div>
+    </div>
+
     <!-- PKCE Requirement (only for confidential clients) -->
     <div id="pkce-options" data-application-form-target="pkceOptions" class="<%= 'hidden' if application.persisted? && application.public_client? %>">
       <div class="flex items-center">
@@ -164,6 +184,16 @@
         <br><span class="text-xs text-gray-400">Note: Public clients always require PKCE regardless of this setting.</span>
       </p>
     </div>
+
+    <!-- Skip Consent -->
+    <div class="flex items-center">
+      <%= form.check_box :skip_consent, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :skip_consent, "Skip Consent Screen", class: "ml-2 block text-sm font-medium text-gray-900" %>
+    </div>
+    <p class="ml-6 text-sm text-gray-500">
+      Automatically grant consent for all users. Useful for first-party or trusted applications.
+      <br><span class="text-xs text-amber-600">Only enable for applications you fully trust. Consent is still recorded in the database.</span>
+    </p>
 
     <div>
       <%= form.label :redirect_uris, "Redirect URIs", class: "block text-sm font-medium text-gray-700" %>
@@ -187,43 +217,90 @@
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <%= form.label :access_token_ttl, "Access Token TTL (seconds)", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.number_field :access_token_ttl, value: application.access_token_ttl || 3600, min: 300, max: 86400, step: 60, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+          <%= form.label :access_token_ttl, "Access Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.text_field :access_token_ttl,
+              value: application.access_token_ttl || "1h",
+              placeholder: "e.g., 1h, 30m, 3600",
+              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
           <p class="mt-1 text-xs text-gray-500">
-            Range: 5 min - 24 hours
-            <br>Default: 1 hour (3600s)
-            <br>Current: <span class="font-medium"><%= application.access_token_ttl_human || "1 hour" %></span>
+            Range: 5m - 24h
+            <br>Default: 1h
+            <% if application.access_token_ttl.present? %>
+              <br>Current: <span class="font-medium"><%= application.access_token_ttl_human %> (<%= application.access_token_ttl %>s)</span>
+            <% end %>
           </p>
         </div>
 
         <div>
-          <%= form.label :refresh_token_ttl, "Refresh Token TTL (seconds)", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.number_field :refresh_token_ttl, value: application.refresh_token_ttl || 2592000, min: 86400, max: 7776000, step: 86400, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+          <%= form.label :refresh_token_ttl, "Refresh Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.text_field :refresh_token_ttl,
+              value: application.refresh_token_ttl || "30d",
+              placeholder: "e.g., 30d, 1M, 2592000",
+              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
           <p class="mt-1 text-xs text-gray-500">
-            Range: 1 day - 90 days
-            <br>Default: 30 days (2592000s)
-            <br>Current: <span class="font-medium"><%= application.refresh_token_ttl_human || "30 days" %></span>
+            Range: 5m - 90d
+            <br>Default: 30d
+            <% if application.refresh_token_ttl.present? %>
+              <br>Current: <span class="font-medium"><%= application.refresh_token_ttl_human %> (<%= application.refresh_token_ttl %>s)</span>
+            <% end %>
           </p>
         </div>
 
         <div>
-          <%= form.label :id_token_ttl, "ID Token TTL (seconds)", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.number_field :id_token_ttl, value: application.id_token_ttl || 3600, min: 300, max: 86400, step: 60, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+          <%= form.label :id_token_ttl, "ID Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.text_field :id_token_ttl,
+              value: application.id_token_ttl || "1h",
+              placeholder: "e.g., 1h, 30m, 3600",
+              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
           <p class="mt-1 text-xs text-gray-500">
-            Range: 5 min - 24 hours
-            <br>Default: 1 hour (3600s)
-            <br>Current: <span class="font-medium"><%= application.id_token_ttl_human || "1 hour" %></span>
+            Range: 5m - 24h
+            <br>Default: 1h
+            <% if application.id_token_ttl.present? %>
+              <br>Current: <span class="font-medium"><%= application.id_token_ttl_human %> (<%= application.id_token_ttl %>s)</span>
+            <% end %>
           </p>
         </div>
       </div>
 
       <details class="mt-3">
-        <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">Understanding Token Types</summary>
-        <div class="mt-2 ml-4 space-y-2 text-sm text-gray-600">
-          <p><strong>Access Token:</strong> Used to access protected resources (APIs). Shorter lifetime = more secure. Users won't notice automatic refreshes.</p>
-          <p><strong>Refresh Token:</strong> Used to get new access tokens without re-authentication. Longer lifetime = better UX (less re-logins).</p>
-          <p><strong>ID Token:</strong> Contains user identity information (JWT). Should match access token lifetime in most cases.</p>
-          <p class="text-xs italic mt-2">💡 Tip: Banking apps use 5-15 min access tokens. Internal tools use 1-4 hours.</p>
+        <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">Understanding Token Types & Session Length</summary>
+        <div class="mt-2 ml-4 space-y-3 text-sm text-gray-600">
+          <div>
+            <p class="font-medium text-gray-900 mb-1">Token Types:</p>
+            <p><strong>Access Token:</strong> Used to access protected resources (APIs). Shorter lifetime = more secure. Users won't notice automatic refreshes.</p>
+            <p><strong>Refresh Token:</strong> Used to get new access tokens without re-authentication. Each refresh issues a new refresh token (token rotation).</p>
+            <p><strong>ID Token:</strong> Contains user identity information (JWT). Should match access token lifetime in most cases.</p>
+          </div>
+
+          <div class="border-t border-gray-200 pt-2">
+            <p class="font-medium text-gray-900 mb-1">How Session Length Works:</p>
+            <p><strong>Refresh Token TTL = Maximum Inactivity Period</strong></p>
+            <p class="ml-3">Because refresh tokens are automatically rotated (new token = new expiry), active users can stay logged in indefinitely. The TTL controls how long they can be <em>inactive</em> before requiring re-authentication.</p>
+
+            <p class="mt-2"><strong>Example:</strong> Refresh TTL = 30 days</p>
+            <ul class="ml-6 list-disc space-y-1 text-xs">
+              <li>User logs in on Day 0, uses app daily → stays logged in forever (tokens keep rotating)</li>
+              <li>User logs in on Day 0, stops using app → must re-login after 30 days of inactivity</li>
+            </ul>
+          </div>
+
+          <div class="border-t border-gray-200 pt-2">
+            <p class="font-medium text-gray-900 mb-1">Forcing Re-Authentication:</p>
+            <p class="ml-3 text-xs">Because of token rotation, there's no way to force periodic re-authentication using TTL settings alone. Active users can stay logged in indefinitely by refreshing tokens before they expire.</p>
+
+            <p class="mt-2 ml-3 text-xs"><strong>To enforce absolute session limits:</strong> Clients can include the <code class="bg-gray-100 px-1 rounded">max_age</code> parameter in their authorization requests to require re-authentication after a specific time, regardless of token rotation.</p>
+
+            <p class="mt-2 ml-3 text-xs"><strong>Example:</strong> A banking app might set <code class="bg-gray-100 px-1 rounded">max_age=900</code> (15 minutes) in the authorization request to force re-authentication every 15 minutes, even if refresh tokens are still valid.</p>
+          </div>
+
+          <div class="border-t border-gray-200 pt-2">
+            <p class="font-medium text-gray-900 mb-1">Common Configurations:</p>
+            <ul class="ml-3 space-y-1 text-xs">
+              <li><strong>Banking/High Security:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">5m</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">5m</code> → Re-auth every 5 minutes</li>
+              <li><strong>Corporate Tools:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">8h</code> → Re-auth after 8 hours inactive</li>
+              <li><strong>Personal Apps:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">30d</code> → Re-auth after 30 days inactive</li>
+            </ul>
+          </div>
         </div>
       </details>
     </div>
