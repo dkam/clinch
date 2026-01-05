@@ -3,7 +3,7 @@ class OidcJwtService
 
   class << self
     # Generate an ID token (JWT) for the user
-    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil, scopes: "openid")
+    def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil, scopes: "openid", claims_requests: {})
       now = Time.current.to_i
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
@@ -14,6 +14,9 @@ class OidcJwtService
       # Parse scopes (space-separated string)
       requested_scopes = scopes.to_s.split
 
+      # Parse claims_requests parameter for id_token context
+      id_token_claims = claims_requests["id_token"] || {}
+
       # Required claims (always included per OIDC Core spec)
       payload = {
         iss: issuer_url,
@@ -23,10 +26,28 @@ class OidcJwtService
         iat: now
       }
 
-      # NOTE: Email and profile claims are NOT included in the ID token for authorization code flow
-      # Per OIDC Core spec §5.4, these claims should only be returned via the UserInfo endpoint
-      # For implicit flow (response_type=id_token), claims would be included here, but we only
-      # support authorization code flow, so these claims are omitted from the ID token.
+      # Email claims (only if 'email' scope requested AND either no claims filter OR email requested)
+      if requested_scopes.include?("email")
+        if should_include_claim?("email", id_token_claims)
+          payload[:email] = user.email_address
+        end
+        if should_include_claim?("email_verified", id_token_claims)
+          payload[:email_verified] = true
+        end
+      end
+
+      # Profile claims (only if 'profile' scope requested)
+      if requested_scopes.include?("profile")
+        if should_include_claim?("preferred_username", id_token_claims)
+          payload[:preferred_username] = user.username.presence || user.email_address
+        end
+        if should_include_claim?("name", id_token_claims)
+          payload[:name] = user.name.presence || user.email_address
+        end
+        if should_include_claim?("updated_at", id_token_claims)
+          payload[:updated_at] = user.updated_at.to_i
+        end
+      end
 
       # Add nonce if provided (OIDC requires this for implicit flow)
       payload[:nonce] = nonce if nonce.present?
@@ -49,9 +70,11 @@ class OidcJwtService
         payload[:at_hash] = at_hash
       end
 
-      # Groups claims (only if 'groups' scope requested)
+      # Groups claims (only if 'groups' scope requested AND requested in claims parameter)
       if requested_scopes.include?("groups") && user.groups.any?
-        payload[:groups] = user.groups.pluck(:name)
+        if should_include_claim?("groups", id_token_claims)
+          payload[:groups] = user.groups.pluck(:name)
+        end
       end
 
       # Merge custom claims from groups (arrays are combined, not overwritten)
@@ -65,6 +88,12 @@ class OidcJwtService
 
       # Merge app-specific custom claims (highest priority, arrays are combined)
       payload = deep_merge_claims(payload, application.custom_claims_for_user(user))
+
+      # Filter custom claims based on claims parameter
+      # If claims parameter is present, only include requested custom claims
+      if id_token_claims.any?
+        payload = filter_custom_claims(payload, id_token_claims)
+      end
 
       JWT.encode(payload, private_key, "RS256", {kid: key_id, typ: "JWT"})
     end
@@ -177,6 +206,70 @@ class OidcJwtService
     # Key identifier (fingerprint of the public key)
     def key_id
       @key_id ||= Digest::SHA256.hexdigest(public_key.to_pem)[0..15]
+    end
+
+    # Check if a claim should be included based on claims parameter
+    # Returns true if:
+    # - No claims parameter specified (include all scope-based claims)
+    # - Claim is explicitly requested (even with null spec or essential: true)
+    def should_include_claim?(claim_name, id_token_claims)
+      # No claims parameter = include all scope-based claims
+      return true if id_token_claims.empty?
+
+      # Check if claim is requested
+      return false unless id_token_claims.key?(claim_name)
+
+      # Claim specification can be:
+      # - null (requested)
+      # - true (essential, requested)
+      # - false (not requested)
+      # - Hash with essential/value/values
+
+      claim_spec = id_token_claims[claim_name]
+      return true if claim_spec.nil? || claim_spec == true
+      return false if claim_spec == false
+
+      # If it's a hash, the claim is requested (filtering happens later)
+      true if claim_spec.is_a?(Hash)
+    end
+
+    # Filter custom claims based on claims parameter
+    # Removes claims not explicitly requested
+    # Applies value/values filtering if specified
+    def filter_custom_claims(payload, id_token_claims)
+      # Get all claim names that are NOT standard OIDC claims
+      standard_claims = %w[iss sub aud exp iat nbf jti nonce azp at_hash auth_time acr email email_verified name preferred_username updated_at groups]
+      custom_claim_names = payload.keys.map(&:to_s) - standard_claims
+
+      filtered = payload.dup
+
+      custom_claim_names.each do |claim_name|
+        claim_sym = claim_name.to_sym
+
+        # If claim is not requested, remove it
+        unless id_token_claims.key?(claim_name) || id_token_claims.key?(claim_sym)
+          filtered.delete(claim_sym)
+          next
+        end
+
+        # Apply value/values filtering if specified
+        claim_spec = id_token_claims[claim_name] || id_token_claims[claim_sym]
+        next unless claim_spec.is_a?(Hash)
+
+        current_value = filtered[claim_sym]
+
+        # Check value constraint
+        if claim_spec["value"].present?
+          filtered.delete(claim_sym) unless current_value == claim_spec["value"]
+        end
+
+        # Check values constraint (array of allowed values)
+        if claim_spec["values"].is_a?(Array)
+          filtered.delete(claim_sym) unless claim_spec["values"].include?(current_value)
+        end
+      end
+
+      filtered
     end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_31_060112) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_05_000809) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -116,6 +116,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_060112) do
     t.string "acr"
     t.integer "application_id", null: false
     t.integer "auth_time"
+    t.json "claims_requests", default: {}, null: false
     t.string "code_challenge"
     t.string "code_challenge_method"
     t.string "code_hmac", null: false
@@ -160,6 +161,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_060112) do
 
   create_table "oidc_user_consents", force: :cascade do |t|
     t.integer "application_id", null: false
+    t.json "claims_requests", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "granted_at", null: false
     t.text "scopes_granted", null: false

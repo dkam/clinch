@@ -45,7 +45,8 @@ class OidcController < ApplicationController
       code_challenge_methods_supported: ["plain", "S256"],
       backchannel_logout_supported: true,
       backchannel_logout_session_supported: true,
-      request_parameter_supported: false
+      request_parameter_supported: false,
+      claims_parameter_supported: true
     }
 
     render json: config
@@ -165,6 +166,35 @@ class OidcController < ApplicationController
       end
     end
 
+    # Parse claims parameter (JSON string) for OIDC claims request
+    # Per OIDC Core §5.5: The claims parameter is a JSON object that requests
+    # specific claims to be returned in the id_token and/or userinfo
+    claims_parameter = params[:claims]
+    parsed_claims = parse_claims_parameter(claims_parameter) if claims_parameter.present?
+
+    # Validate claims parameter format if present
+    if claims_parameter.present? && parsed_claims.nil?
+      Rails.logger.error "OAuth: Invalid claims parameter format"
+      error_uri = "#{redirect_uri}?error=invalid_request"
+      error_uri += "&error_description=#{CGI.escape("Invalid claims parameter: must be valid JSON")}"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
+
+    # Validate that requested claims are covered by granted scopes
+    if parsed_claims.present?
+      validation_result = validate_claims_against_scopes(parsed_claims, requested_scopes)
+      unless validation_result[:valid]
+        Rails.logger.error "OAuth: Claims parameter requests claims not covered by scopes: #{validation_result[:errors]}"
+        error_uri = "#{redirect_uri}?error=invalid_scope"
+        error_uri += "&error_description=#{CGI.escape("Claims parameter requests claims not covered by granted scopes")}"
+        error_uri += "&state=#{CGI.escape(state)}" if state.present?
+        redirect_to error_uri, allow_other_host: true
+        return
+      end
+    end
+
     # Check if application is active (now we can safely redirect with error)
     unless @application.active?
       Rails.logger.error "OAuth: Application is not active: #{@application.name}"
@@ -194,7 +224,8 @@ class OidcController < ApplicationController
         nonce: nonce,
         scope: scope,
         code_challenge: code_challenge,
-        code_challenge_method: code_challenge_method
+        code_challenge_method: code_challenge_method,
+        claims_requests: parsed_claims&.to_json
       }
       # Store the current URL (with all OAuth params) for redirect after authentication
       session[:return_to_after_authenticating] = request.url
@@ -260,7 +291,7 @@ class OidcController < ApplicationController
 
     # Check if user has already granted consent for these scopes
     existing_consent = user.has_oidc_consent?(@application, requested_scopes)
-    if existing_consent
+    if existing_consent && claims_match_consent?(parsed_claims, existing_consent)
       # User has already consented, generate authorization code directly
       auth_code = OidcAuthorizationCode.create!(
         application: @application,
@@ -270,6 +301,7 @@ class OidcController < ApplicationController
         nonce: nonce,
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method,
+        claims_requests: parsed_claims || {},
         auth_time: Current.session.created_at.to_i,
         acr: Current.session.acr,
         expires_at: 10.minutes.from_now
@@ -290,7 +322,8 @@ class OidcController < ApplicationController
       nonce: nonce,
       scope: scope,
       code_challenge: code_challenge,
-      code_challenge_method: code_challenge_method
+      code_challenge_method: code_challenge_method,
+      claims_requests: parsed_claims&.to_json
     }
 
     # Render consent page with dynamic CSP for OAuth redirect
@@ -355,8 +388,11 @@ class OidcController < ApplicationController
 
     # Record user consent
     requested_scopes = oauth_params["scope"].split(" ")
+    parsed_claims = JSON.parse(oauth_params["claims_requests"]) rescue {}
+
     consent = OidcUserConsent.find_or_initialize_by(user: user, application: application)
     consent.scopes_granted = requested_scopes.join(" ")
+    consent.claims_requests = parsed_claims
     consent.granted_at = Time.current
     consent.save!
 
@@ -369,6 +405,7 @@ class OidcController < ApplicationController
       nonce: oauth_params["nonce"],
       code_challenge: oauth_params["code_challenge"],
       code_challenge_method: oauth_params["code_challenge_method"],
+      claims_requests: parsed_claims,
       auth_time: Current.session.created_at.to_i,
       acr: Current.session.acr,
       expires_at: 10.minutes.from_now
@@ -528,6 +565,7 @@ class OidcController < ApplicationController
         # Generate ID token (JWT) with pairwise SID, at_hash, auth_time, and acr
         # auth_time and acr come from the authorization code (captured at /authorize time)
         # scopes determine which claims are included (per OIDC Core spec)
+        # claims_requests parameter filters which claims are included
         id_token = OidcJwtService.generate_id_token(
           user,
           application,
@@ -536,7 +574,8 @@ class OidcController < ApplicationController
           access_token: access_token_record.plaintext_token,
           auth_time: auth_code.auth_time,
           acr: auth_code.acr,
-          scopes: auth_code.scope
+          scopes: auth_code.scope,
+          claims_requests: auth_code.parsed_claims_requests
         )
 
         # RFC6749-5.1: Token endpoint MUST return Cache-Control: no-store
@@ -662,6 +701,7 @@ class OidcController < ApplicationController
     # Generate new ID token (JWT with pairwise SID, at_hash, auth_time, acr; no nonce for refresh grants)
     # auth_time and acr come from the original refresh token (carried over from initial auth)
     # scopes determine which claims are included (per OIDC Core spec)
+    # claims_requests parameter filters which claims are included (from original consent)
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
@@ -669,7 +709,8 @@ class OidcController < ApplicationController
       access_token: new_access_token.plaintext_token,
       auth_time: refresh_token_record.auth_time,
       acr: refresh_token_record.acr,
-      scopes: refresh_token_record.scope
+      scopes: refresh_token_record.scope,
+      claims_requests: consent.parsed_claims_requests
     )
 
     # RFC6749-5.1: Token endpoint MUST return Cache-Control: no-store
@@ -733,33 +774,45 @@ class OidcController < ApplicationController
     # Parse scopes from access token (space-separated string)
     requested_scopes = access_token.scope.to_s.split
 
+    # Get claims_requests from consent (if available) for UserInfo context
+    userinfo_claims = consent&.parsed_claims_requests&.dig("userinfo") || {}
+
     # Return user claims (filter by scope per OIDC Core spec)
-    # Required claims (always included)
+    # Required claims (always included - cannot be filtered by claims parameter)
     claims = {
       sub: subject
     }
 
-    # Email claims (only if 'email' scope requested)
+    # Email claims (only if 'email' scope requested AND requested in claims parameter)
     if requested_scopes.include?("email")
-      claims[:email] = user.email_address
-      claims[:email_verified] = true
+      if should_include_claim_for_userinfo?("email", userinfo_claims)
+        claims[:email] = user.email_address
+      end
+      if should_include_claim_for_userinfo?("email_verified", userinfo_claims)
+        claims[:email_verified] = true
+      end
     end
 
     # Profile claims (only if 'profile' scope requested)
     # Per OIDC Core spec section 5.4, include available profile claims
     # Only include claims we have data for - omit unknown claims rather than returning null
     if requested_scopes.include?("profile")
-      # Use username if available, otherwise email as preferred_username
-      claims[:preferred_username] = user.username.presence || user.email_address
-      # Name: use stored name or fall back to email
-      claims[:name] = user.name.presence || user.email_address
-      # Time the user's information was last updated
-      claims[:updated_at] = user.updated_at.to_i
+      if should_include_claim_for_userinfo?("preferred_username", userinfo_claims)
+        claims[:preferred_username] = user.username.presence || user.email_address
+      end
+      if should_include_claim_for_userinfo?("name", userinfo_claims)
+        claims[:name] = user.name.presence || user.email_address
+      end
+      if should_include_claim_for_userinfo?("updated_at", userinfo_claims)
+        claims[:updated_at] = user.updated_at.to_i
+      end
     end
 
-    # Groups claim (only if 'groups' scope requested)
+    # Groups claim (only if 'groups' scope requested AND requested in claims parameter)
     if requested_scopes.include?("groups") && user.groups.any?
-      claims[:groups] = user.groups.pluck(:name)
+      if should_include_claim_for_userinfo?("groups", userinfo_claims)
+        claims[:groups] = user.groups.pluck(:name)
+      end
     end
 
     # Merge custom claims from groups
@@ -773,6 +826,12 @@ class OidcController < ApplicationController
     # Merge app-specific custom claims (highest priority)
     application = access_token.application
     claims.merge!(application.custom_claims_for_user(user))
+
+    # Filter custom claims based on claims parameter
+    # If claims parameter is present, only include requested custom claims
+    if userinfo_claims.any?
+      claims = filter_custom_claims_for_userinfo(claims, userinfo_claims)
+    end
 
     # Security: Don't cache user data responses
     response.headers["Cache-Control"] = "no-store"
@@ -1042,5 +1101,134 @@ class OidcController < ApplicationController
   rescue => e
     # Log error but don't block logout
     Rails.logger.error "OidcController: Failed to enqueue backchannel logout: #{e.class} - #{e.message}"
+  end
+
+  # Parse claims parameter JSON string
+  # Per OIDC Core §5.5: The claims parameter is a JSON object containing
+  # id_token and/or userinfo keys, each mapping to claim requests
+  def parse_claims_parameter(claims_string)
+    return {} if claims_string.blank?
+
+    parsed = JSON.parse(claims_string)
+    return nil unless parsed.is_a?(Hash)
+
+    # Validate structure: can have id_token, userinfo, or both
+    valid_keys = parsed.keys & ["id_token", "userinfo"]
+    return nil if valid_keys.empty?
+
+    # Validate each claim request has proper structure
+    valid_keys.each do |key|
+      next unless parsed[key].is_a?(Hash)
+
+      parsed[key].each do |_claim_name, claim_spec|
+        # Claim spec can be null (requested), true (essential), or a hash with specific keys
+        next if claim_spec.nil? || claim_spec == true || claim_spec == false
+        next if claim_spec.is_a?(Hash) && claim_spec.keys.all? { |k| ["essential", "value", "values"].include?(k) }
+
+        # Invalid claim specification
+        return nil
+      end
+    end
+
+    parsed
+  rescue JSON::ParserError
+    nil
+  end
+
+  # Validate that requested claims are covered by granted scopes
+  # Per OIDC Core §5.5: Claims can only be requested if the corresponding scope is granted
+  def validate_claims_against_scopes(parsed_claims, granted_scopes)
+    granted = Array(granted_scopes).map(&:to_s)
+    errors = []
+
+    # Standard claim-to-scope mapping
+    claim_scope_mapping = {
+      "email" => "email",
+      "email_verified" => "email",
+      "preferred_username" => "profile",
+      "name" => "profile",
+      "updated_at" => "profile",
+      "groups" => "groups"
+    }
+
+    # Check both id_token and userinfo claims
+    ["id_token", "userinfo"].each do |context|
+      next unless parsed_claims[context]&.is_a?(Hash)
+
+      parsed_claims[context].each do |claim_name, _claim_spec|
+        # Skip custom claims (not in standard mapping)
+        # Custom claims are allowed since they're configured in the IdP
+        next unless claim_scope_mapping.key?(claim_name)
+
+        required_scope = claim_scope_mapping[claim_name]
+        unless granted.include?(required_scope)
+          errors << "#{claim_name} requires #{required_scope} scope"
+        end
+      end
+    end
+
+    if errors.any?
+      {valid: false, errors: errors}
+    else
+      {valid: true}
+    end
+  end
+
+  # Check if claims match existing consent
+  # For MVP: treat any claims request as requiring new consent if consent has no claims stored
+  def claims_match_consent?(parsed_claims, consent)
+    return true if parsed_claims.nil? || parsed_claims.empty?
+
+    # If consent has no claims stored, this is a new claims request
+    # Require fresh consent
+    return false if consent.parsed_claims_requests.empty?
+
+    # If both have claims, they must match exactly
+    consent.parsed_claims_requests == parsed_claims
+  end
+
+  # Check if a claim should be included in UserInfo response
+  # Returns true if no claims filtering or claim is explicitly requested
+  def should_include_claim_for_userinfo?(claim_name, userinfo_claims)
+    return true if userinfo_claims.empty?
+    userinfo_claims.key?(claim_name)
+  end
+
+  # Filter custom claims for UserInfo endpoint
+  # Removes claims not explicitly requested
+  # Applies value/values filtering if specified
+  def filter_custom_claims_for_userinfo(claims, userinfo_claims)
+    # Get all claim names that are NOT standard OIDC claims
+    standard_claims = %w[sub email email_verified name preferred_username updated_at groups]
+    custom_claim_names = claims.keys.map(&:to_s) - standard_claims
+
+    filtered = claims.dup
+
+    custom_claim_names.each do |claim_name|
+      claim_sym = claim_name.to_sym
+
+      unless userinfo_claims.key?(claim_name) || userinfo_claims.key?(claim_sym)
+        filtered.delete(claim_sym)
+        next
+      end
+
+      # Apply value/values filtering if specified
+      claim_spec = userinfo_claims[claim_name] || userinfo_claims[claim_sym]
+      next unless claim_spec.is_a?(Hash)
+
+      current_value = filtered[claim_sym]
+
+      # Check value constraint
+      if claim_spec["value"].present?
+        filtered.delete(claim_sym) unless current_value == claim_spec["value"]
+      end
+
+      # Check values constraint (array of allowed values)
+      if claim_spec["values"].is_a?(Array)
+        filtered.delete(claim_sym) unless claim_spec["values"].include?(current_value)
+      end
+    end
+
+    filtered
   end
 end

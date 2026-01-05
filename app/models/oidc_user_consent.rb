@@ -50,6 +50,12 @@ class OidcUserConsent < ApplicationRecord
     find_by(sid: sid)
   end
 
+  # Parse claims_requests JSON field
+  def parsed_claims_requests
+    return {} if claims_requests.blank?
+    claims_requests.is_a?(Hash) ? claims_requests : {}
+  end
+
   private
 
   def set_granted_at
