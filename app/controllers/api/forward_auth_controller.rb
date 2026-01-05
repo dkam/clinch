@@ -88,6 +88,8 @@ module Api
           case key
           when :user, :email, :name
             [header_name, user.email_address]
+          when :username
+            [header_name, user.username] if user.username.present?
           when :groups
             user.groups.any? ? [header_name, user.groups.pluck(:name).join(",")] : nil
           when :admin

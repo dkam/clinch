@@ -76,6 +76,7 @@ class Application < ApplicationRecord
     user: "X-Remote-User",
     email: "X-Remote-Email",
     name: "X-Remote-Name",
+    username: "X-Remote-Username",
     groups: "X-Remote-Groups",
     admin: "X-Remote-Admin"
   }.freeze
@@ -195,6 +196,8 @@ class Application < ApplicationRecord
         headers[header_name] = user.email_address
       when :name
         headers[header_name] = user.name.presence || user.email_address
+      when :username
+        headers[header_name] = user.username if user.username.present?
       when :groups
         headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
       when :admin

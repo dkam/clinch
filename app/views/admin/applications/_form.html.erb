@@ -330,10 +330,10 @@
           <p class="font-medium">Optional: Customize header names sent to your application.</p>
           <div class="flex items-center gap-2">
             <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Format JSON</button>
-            <button type="button" data-action="json-validator#insertSample" data-json-sample='{"user": "Remote-User", "groups": "Remote-Groups", "email": "Remote-Email", "name": "Remote-Name", "admin": "Remote-Admin"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
+            <button type="button" data-action="json-validator#insertSample" data-json-sample='{"user": "Remote-User", "groups": "Remote-Groups", "email": "Remote-Email", "name": "Remote-Name", "username": "Remote-Username", "admin": "Remote-Admin"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
           </div>
         </div>
-        <p><strong>Default headers:</strong> X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Groups, X-Remote-Admin</p>
+        <p><strong>Default headers:</strong> X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Username, X-Remote-Groups, X-Remote-Admin</p>
         <div data-json-validator-target="status" class="text-xs font-medium"></div>
         <details class="mt-2">
           <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Show available header keys and what data they send</summary>
@@ -341,9 +341,10 @@
             <p><code class="bg-gray-100 px-1 rounded">user</code> - User's email address</p>
             <p><code class="bg-gray-100 px-1 rounded">email</code> - User's email address</p>
             <p><code class="bg-gray-100 px-1 rounded">name</code> - User's display name (falls back to email if not set)</p>
+            <p><code class="bg-gray-100 px-1 rounded">username</code> - User's login username (only sent if set)</p>
             <p><code class="bg-gray-100 px-1 rounded">groups</code> - Comma-separated list of group names (e.g., "admin,developers")</p>
             <p><code class="bg-gray-100 px-1 rounded">admin</code> - "true" or "false" indicating admin status</p>
-            <p class="mt-2 italic">Example: <code class="bg-gray-100 px-1 rounded">{"user": "Remote-User", "groups": "Remote-Groups"}</code></p>
+            <p class="mt-2 italic">Example: <code class="bg-gray-100 px-1 rounded">{"user": "Remote-User", "groups": "Remote-Groups", "username": "Remote-Username"}</code></p>
             <p class="italic">Need custom user fields? Add them to user's custom_claims for OIDC tokens</p>
           </div>
         </details>
