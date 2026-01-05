@@ -76,7 +76,7 @@ Apps that only need "who is it?", or you want available from the internet behind
 
 #### OpenID Connect (OIDC)
 
-**[OpenID Certified](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** - Clinch passes the official OpenID Connect conformance tests (valid as of [v0.8.6](https://github.com/dkam/clinch/releases/tag/0.8.6)).
+**[OpenID Connect Conformance](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** - Clinch passes the official OpenID Connect conformance tests (valid as of [v0.8.6](https://github.com/dkam/clinch/releases/tag/0.8.6)).
 
 Standard OAuth2/OIDC provider with endpoints:
 - `/.well-known/openid-configuration` - Discovery endpoint
