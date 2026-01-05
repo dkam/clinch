@@ -56,7 +56,8 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 - [x] Authorization code flow with PKCE support
 - [x] Refresh token rotation
 - [x] Token family tracking (detects replay attacks)
-- [x] All tokens HMAC-SHA256 hashed in database
+- [x] All tokens and authorization codes HMAC-SHA256 hashed in database
+- [x] TOTP secrets AES-256-GCM encrypted at rest (Rails credentials)
 - [x] Configurable token expiry (access, refresh, ID)
 - [x] One-time use authorization codes
 - [x] Pairwise subject identifiers (privacy)
@@ -130,8 +131,7 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 
 ## Code Quality
 
-- [x] **RuboCop** - Code style and linting
-  - Configuration: Rails Omakase
+- [x] **StandardRB** - Code style and linting
   - CI: Runs on every PR and push to main
 
 - [x] **Documentation** - Comprehensive README
