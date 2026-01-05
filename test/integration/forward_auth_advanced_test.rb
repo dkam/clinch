@@ -64,7 +64,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
     # Sign in once
     post "/signin", params: {email_address: @user.email_address, password: "password"}
-    assert_response 302
+    assert_response 303
     assert_redirected_to "/"
 
     # Test access to different applications
