@@ -106,7 +106,12 @@ class TotpController < ApplicationController
       session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
     end
 
+    # Preserve return URL across session boundary for max_age flow
+    preserved_return_url = session[:return_to_after_authenticating]
     start_new_session_for @user
+    if preserved_return_url.present? && session[:return_to_after_authenticating].blank?
+      session[:return_to_after_authenticating] = preserved_return_url
+    end
     redirect_to after_authentication_url, notice: "Two-factor authentication enabled. Signed in successfully.", allow_other_host: true
   end
 

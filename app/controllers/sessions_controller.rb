@@ -86,7 +86,16 @@ class SessionsController < ApplicationController
     end
 
     # Sign in successful (password only)
+    # Preserve the return_to_after_authenticating value across session boundary
+    # (e.g., when max_age flow destroys the session and creates a temporary one)
+    preserved_return_url = session[:return_to_after_authenticating]
+
     start_new_session_for user, acr: "1"
+
+    # Restore the return URL if it was lost during session recreation
+    if preserved_return_url.present? && session[:return_to_after_authenticating].blank?
+      session[:return_to_after_authenticating] = preserved_return_url
+    end
 
     # Use status: :see_other to ensure browser makes a GET request
     # This prevents Turbo from converting it to a TURBO_STREAM request
@@ -125,7 +134,12 @@ class SessionsController < ApplicationController
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
+        # Preserve return URL across session boundary for max_age flow
+        preserved_return_url = session[:return_to_after_authenticating]
         start_new_session_for user, acr: "2"
+        if preserved_return_url.present? && session[:return_to_after_authenticating].blank?
+          session[:return_to_after_authenticating] = preserved_return_url
+        end
         redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
         return
       end
@@ -137,7 +151,12 @@ class SessionsController < ApplicationController
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
+        # Preserve return URL across session boundary for max_age flow
+        preserved_return_url = session[:return_to_after_authenticating]
         start_new_session_for user, acr: "2"
+        if preserved_return_url.present? && session[:return_to_after_authenticating].blank?
+          session[:return_to_after_authenticating] = preserved_return_url
+        end
         redirect_to after_authentication_url, notice: "Signed in successfully using backup code.", allow_other_host: true
         return
       end
