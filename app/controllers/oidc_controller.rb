@@ -1115,23 +1115,6 @@ class OidcController < ApplicationController
     end
   end
 
-  # Remove a query parameter from a URL using proper URI parsing
-  # More robust than regex - handles URL encoding, edge cases, etc.
-  def remove_query_param(url, param_name)
-    uri = URI.parse(url)
-    return url unless uri.query
-
-    # Parse query string into hash
-    params = CGI.parse(uri.query)
-    params.delete(param_name)
-
-    # Rebuild query string (empty string if no params left)
-    uri.query = params.any? ? URI.encode_www_form(params) : nil
-    uri.to_s
-  rescue URI::InvalidURIError
-    url
-  end
-
   def send_backchannel_logout_notifications(user)
     # Find all active OIDC consents for this user
     consents = OidcUserConsent.where(user: user).includes(:application)
