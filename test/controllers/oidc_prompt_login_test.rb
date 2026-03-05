@@ -46,7 +46,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     first_redirect_url = response.location
-    first_code = CGI.parse(URI(first_redirect_url).query)["code"].first
+    first_code = Rack::Utils.parse_query(URI(first_redirect_url).query)["code"]
 
     # Exchange for tokens and extract auth_time
     post "/oauth/token", params: {
@@ -90,7 +90,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
     # Should receive authorization code
     assert_response :redirect
     second_redirect_url = response.location
-    second_code = CGI.parse(URI(second_redirect_url).query)["code"].first
+    second_code = Rack::Utils.parse_query(URI(second_redirect_url).query)["code"]
 
     assert second_code.present?, "Should receive authorization code after re-authentication"
 
@@ -134,11 +134,11 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
 
     # Parse the redirect URL
     uri = URI.parse(redirect_url)
-    query_params = uri.query ? CGI.parse(uri.query) : {}
+    query_params = uri.query ? Rack::Utils.parse_query(uri.query) : {}
 
-    assert_equal "login_required", query_params["error"]&.first,
+    assert_equal "login_required", query_params["error"],
       "Should return login_required error for prompt=none when not authenticated"
-    assert_equal "test-state", query_params["state"]&.first,
+    assert_equal "test-state", query_params["state"],
       "Should return state parameter"
   end
 
@@ -165,7 +165,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     first_redirect_url = response.location
-    first_code = CGI.parse(URI(first_redirect_url).query)["code"].first
+    first_code = Rack::Utils.parse_query(URI(first_redirect_url).query)["code"]
 
     # Exchange for tokens and extract auth_time from ID token
     post "/oauth/token", params: {
@@ -209,7 +209,7 @@ class OidcPromptLoginTest < ActionDispatch::IntegrationTest
     # Should receive authorization code redirect
     assert_response :redirect
     second_redirect_url = response.location
-    second_code = CGI.parse(URI(second_redirect_url).query)["code"].first
+    second_code = Rack::Utils.parse_query(URI(second_redirect_url).query)["code"]
 
     assert second_code.present?, "Should receive authorization code after re-authentication"
 

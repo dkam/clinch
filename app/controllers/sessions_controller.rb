@@ -20,8 +20,8 @@ class SessionsController < ApplicationController
       begin
         uri = URI.parse(session[:return_to_after_authenticating])
         if uri.query.present?
-          query_params = CGI.parse(uri.query)
-          @login_hint = query_params["login_hint"]&.first
+          query_params = Rack::Utils.parse_query(uri.query)
+          @login_hint = query_params["login_hint"]
         end
       rescue URI::InvalidURIError
         # Ignore parsing errors

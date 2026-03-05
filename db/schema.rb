@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_05_000809) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -37,6 +37,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_05_000809) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "api_keys", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.datetime "revoked_at"
+    t.string "token_hmac", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["application_id"], name: "index_api_keys_on_application_id"
+    t.index ["expires_at"], name: "index_api_keys_on_expires_at"
+    t.index ["revoked_at"], name: "index_api_keys_on_revoked_at"
+    t.index ["token_hmac"], name: "index_api_keys_on_token_hmac", unique: true
+    t.index ["user_id", "application_id"], name: "index_api_keys_on_user_id_and_application_id"
+    t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
 
   create_table "application_groups", force: :cascade do |t|
@@ -249,6 +267,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_05_000809) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "api_keys", "applications"
+  add_foreign_key "api_keys", "users"
   add_foreign_key "application_groups", "applications"
   add_foreign_key "application_groups", "groups"
   add_foreign_key "application_user_claims", "applications", on_delete: :cascade

@@ -28,12 +28,10 @@ class ApplicationController < ActionController::Base
     uri = URI.parse(url)
     return url unless uri.query
 
-    # Parse query string into hash
-    params = CGI.parse(uri.query)
+    params = Rack::Utils.parse_query(uri.query)
     params.delete(param_name)
 
-    # Rebuild query string (empty string if no params left)
-    uri.query = params.any? ? URI.encode_www_form(params) : nil
+    uri.query = params.any? ? Rack::Utils.build_query(params) : nil
     uri.to_s
   rescue URI::InvalidURIError
     url
