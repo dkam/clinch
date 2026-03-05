@@ -316,7 +316,7 @@ export default class extends Controller {
       return "This authenticator has already been registered.";
     }
 
-    // Fallback to error message
-    return error.message || "An unexpected error occurred";
+    // Fallback to a user-friendly message
+    return "Passkey authentication failed. A browser extension may be interfering — try using your password instead.";
   }
 }
