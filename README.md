@@ -15,9 +15,11 @@ Do you host your own web apps? MeTube, Kavita, Audiobookshelf, Gitea, Grafana, P
 
 Clinch runs as a single Docker container, using SQLite as the database, the job queue (Solid Queue) and the shared cache (Solid Cache). The webserver, Puma, runs the job queue in-process, avoiding the need for another container.
 
-Clinch sits in a sweet spot between two excellent open-source identity solutions:
+Clinch sits in a sweet spot among several excellent open-source identity solutions:
 
 **[Authelia](https://www.authelia.com)** is a fantastic choice for those who prefer external user management through LDAP and enjoy comprehensive YAML-based configuration. It's lightweight, secure, and works beautifully with reverse proxies.
+
+**[VoidAuth](https://voidauth.app/)** is an open-source SSO provider with a similar feature set to Clinch — OIDC, ForwardAuth, passkeys, user management, and easy Docker deployment. If you're evaluating self-hosted auth solutions, it's well worth a look.
 
 **[Authentik](https://goauthentik.io)** is an enterprise-grade powerhouse offering extensive protocol support (OAuth2, SAML, LDAP, RADIUS), advanced policy engines, and distributed "outpost" architecture for complex deployments.
 
