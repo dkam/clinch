@@ -49,8 +49,9 @@ export default class extends Controller {
           }
         });
 
-        // Auto-trigger passkey authentication if required
-        if (data.requires_webauthn) {
+        // Auto-trigger passkey authentication if required, or if user has both
+        // webauthn and TOTP (to save them from the password→TOTP flow)
+        if (data.requires_webauthn || (data.has_webauthn && data.has_totp)) {
           setTimeout(() => this.authenticate(), 100);
         }
       } else {
@@ -288,6 +289,10 @@ export default class extends Controller {
     }
     if (!emailInput) {
       emailInput = document.querySelector('input[name="user[email_address]"]');
+    }
+    // Fallback to hidden webauthn_email field (e.g., on TOTP verification page)
+    if (!emailInput) {
+      emailInput = document.querySelector('input[name="webauthn_email"]');
     }
     return emailInput ? emailInput.value.trim() : "";
   }

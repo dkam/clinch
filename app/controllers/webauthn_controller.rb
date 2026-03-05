@@ -148,7 +148,8 @@ class WebauthnController < ApplicationController
     # Only return minimal necessary info - no user_id or preferred_method
     render json: {
       has_webauthn: user.can_authenticate_with_webauthn?,
-      requires_webauthn: user.require_webauthn?
+      requires_webauthn: user.require_webauthn?,
+      has_totp: user.totp_enabled?
     }
   end
 

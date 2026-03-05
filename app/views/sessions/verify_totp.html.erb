@@ -34,6 +34,31 @@
       </div>
     <% end %>
 
+    <% if @user_has_webauthn %>
+      <div data-controller="webauthn" data-webauthn-check-url-value="/webauthn/check">
+        <input type="hidden" name="webauthn_email" value="<%= @pending_email %>">
+        <div class="mt-4">
+          <div class="relative my-4">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-300"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white text-gray-500">Or</span>
+            </div>
+          </div>
+          <button type="button"
+                  data-action="click->webauthn#authenticate"
+                  class="w-full rounded-md px-3.5 py-2.5 bg-green-600 hover:bg-green-500 text-white font-medium cursor-pointer flex items-center justify-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            Use Passkey Instead
+          </button>
+          <div data-webauthn-target="error" class="mt-2 text-sm text-red-600" style="display: none;"></div>
+        </div>
+      </div>
+    <% end %>
+
     <div class="mt-6">
       <div class="relative">
         <div class="absolute inset-0 flex items-center">

@@ -147,6 +147,10 @@ class SessionsController < ApplicationController
       nil
     end
 
+    # Pass data to the view for passkey option
+    @user_has_webauthn = user&.can_authenticate_with_webauthn?
+    @pending_email = user&.email_address
+
     # Just render the form
   end
 
