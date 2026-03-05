@@ -131,6 +131,32 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
 
 **Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
 
+#### API Keys (Bearer Tokens)
+
+For server-to-server access to ForwardAuth-protected services (e.g., a video player accessing WebDAV, rclone syncing files), Clinch supports API keys that work as bearer tokens — no browser or cookies needed.
+
+- **Token format:** `clk_<base64>` prefix for easy identification
+- **Storage:** HMAC-SHA256 hashed (plaintext shown once at creation, never stored)
+- **Scope:** Each key is tied to one ForwardAuth application and one user
+- **Expiration:** Optional — set a date or leave blank for no expiry
+- **Auth flow:** `Authorization: Bearer clk_...` header checked before cookie auth
+- **Failure response:** 401 JSON `{"error": "..."}` (no redirect)
+
+**Creating an API key:**
+1. Go to **Dashboard → Manage API Keys** (or `/api_keys`)
+2. Click **New API Key**, select a ForwardAuth application, and give it a name
+3. Copy the `clk_...` token — it's shown only once
+
+**Usage:**
+```bash
+curl -H "Authorization: Bearer clk_..." \
+     -H "X-Forwarded-Host: webdav.example.com" \
+     https://auth.example.com/api/verify
+# Returns 200 with X-Remote-User headers on success
+```
+
+API keys respect the same access controls as browser sessions — the user must have access to the application, the application must be active, and the user's account must be active.
+
 ### SMTP Integration
 Send emails for:
 - Invitation links (one-time token, 7-day expiry)
@@ -287,7 +313,7 @@ This is transparent to end users and requires no configuration.
 ## Setup & Installation
 
 ### Requirements
-- Ruby 3.3+
+- Ruby 4.0+
 - SQLite 3.8+
 - SMTP server (for sending emails)
 
@@ -701,7 +727,7 @@ user.revoke_all_consents!
 
 ### Running Tests
 
-Clinch has comprehensive test coverage with 341 tests covering integration, models, controllers, services, and system tests.
+Clinch has comprehensive test coverage with 450 tests covering integration, models, controllers, services, and system tests.
 
 ```bash
 # Run all tests
@@ -761,7 +787,7 @@ All security scans run automatically on every pull request and push to main via 
 
 **Current Status:**
 - ✅ All security scans passing
-- ✅ 341 tests, 1349 assertions, 0 failures
+- ✅ 450 tests, 1818 assertions, 0 failures
 - ✅ No known dependency vulnerabilities
 - ✅ Phases 1-4 security hardening complete (18+ vulnerabilities fixed)
 - 🟡 3 outstanding security issues (all MEDIUM/LOW priority)
