@@ -25,6 +25,10 @@ Clinch sits in a sweet spot among several excellent open-source identity solutio
 
 **Clinch** offers a middle ground with built-in user management, a modern web interface, and focused SSO capabilities (OIDC + ForwardAuth). It's perfect for users who want self-hosted simplicity without external dependencies or enterprise complexity.
 
+- **[OpenID Connect Conformance Certified](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** — passes the official OIDC conformance test suite
+- **450+ tests, 1800+ assertions** — comprehensive test coverage across integration, model, controller, and security tests
+- **Single Docker container** — SQLite, job queue, and cache all in one process
+
 ---
 
 ## Screenshots
@@ -77,8 +81,6 @@ Apps that speak OIDC use the OIDC flow.
 Apps that only need "who is it?", or you want available from the internet behind authentication (MeTube, Jellyfin) use ForwardAuth.
 
 #### OpenID Connect (OIDC)
-
-**[OpenID Connect Conformance](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** - Clinch passes the official OpenID Connect conformance tests (valid as of [v0.8.6](https://github.com/dkam/clinch/releases/tag/0.8.6)).
 
 Standard OAuth2/OIDC provider with endpoints:
 - `/.well-known/openid-configuration` - Discovery endpoint
