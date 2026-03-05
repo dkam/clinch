@@ -11,6 +11,10 @@ module Api
     def verify
       # Note: app_slug parameter is no longer used - we match domains directly with Application (forward_auth type)
 
+      # Check for bearer token first (API keys for server-to-server auth)
+      bearer_result = authenticate_bearer_token
+      return bearer_result if bearer_result
+
       # Check for one-time forward auth token first (to handle race condition)
       session_id = check_forward_auth_token
 
@@ -112,6 +116,43 @@ module Api
     end
 
     private
+
+    def authenticate_bearer_token
+      auth_header = request.headers["Authorization"]
+      return nil unless auth_header&.start_with?("Bearer ")
+
+      token = auth_header.delete_prefix("Bearer ").strip
+      return render_bearer_error("Missing token") if token.blank?
+
+      api_key = ApiKey.find_by_token(token)
+      return render_bearer_error("Invalid or expired API key") unless api_key&.active?
+
+      user = api_key.user
+      return render_bearer_error("User account is not active") unless user.active?
+
+      forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
+      app = api_key.application
+
+      if forwarded_host.present? && !app.matches_domain?(forwarded_host)
+        return render_bearer_error("API key not valid for this domain")
+      end
+
+      unless app.active?
+        return render_bearer_error("Application is inactive")
+      end
+
+      api_key.touch_last_used!
+
+      headers = app.headers_for_user(user)
+      headers.each { |key, value| response.headers[key] = value }
+
+      Rails.logger.info "ForwardAuth: API key '#{api_key.name}' authenticated user #{user.email_address} for #{forwarded_host}"
+      head :ok
+    end
+
+    def render_bearer_error(message)
+      render json: { error: message }, status: :unauthorized
+    end
 
     def check_forward_auth_token
       # Check for one-time token in query parameters (for race condition handling)

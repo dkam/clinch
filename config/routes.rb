@@ -40,6 +40,8 @@ Rails.application.routes.draw do
   end
 
   # Authenticated routes
+  resources :api_keys, only: [:index, :new, :create, :show, :destroy]
+
   root "dashboard#index"
   resource :profile, only: [:show, :update] do
     member do

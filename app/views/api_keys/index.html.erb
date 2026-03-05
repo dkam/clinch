@@ -1,0 +1,71 @@
+<div class="max-w-4xl mx-auto">
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">API Keys</h1>
+      <p class="mt-2 text-sm text-gray-600">
+        Bearer tokens for server-to-server access to forward auth applications.
+      </p>
+    </div>
+    <%= link_to "New API Key", new_api_key_path,
+        class: "inline-flex items-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+  </div>
+
+  <% if @api_keys.any? %>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Used</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <% @api_keys.each do |key| %>
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><%= key.name %></td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= key.application.name %></td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= key.created_at.strftime("%b %d, %Y") %></td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= key.last_used_at ? time_ago_in_words(key.last_used_at) + " ago" : "Never" %></td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= key.expires_at ? key.expires_at.strftime("%b %d, %Y") : "Never" %></td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% if key.revoked? %>
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Revoked</span>
+                <% elsif key.expired? %>
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Expired</span>
+                <% else %>
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <% if key.active? %>
+                  <%= button_to "Revoke", api_key_path(key), method: :delete,
+                      class: "text-red-600 hover:text-red-900",
+                      form: { data: { turbo_confirm: "Revoke this API key? This cannot be undone." } } %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+      </svg>
+      <h3 class="mt-4 text-lg font-medium text-gray-900">No API keys</h3>
+      <p class="mt-2 text-sm text-gray-500">
+        Create an API key to authenticate server-to-server requests.
+      </p>
+      <div class="mt-6">
+        <%= link_to "Create API Key", new_api_key_path,
+            class: "inline-flex items-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700" %>
+      </div>
+    </div>
+  <% end %>
+</div>

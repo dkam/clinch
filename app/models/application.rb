@@ -34,6 +34,7 @@ class Application < ApplicationRecord
   has_many :oidc_access_tokens, dependent: :destroy
   has_many :oidc_refresh_tokens, dependent: :destroy
   has_many :oidc_user_consents, dependent: :destroy
+  has_many :api_keys, dependent: :destroy
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: {case_sensitive: false},
