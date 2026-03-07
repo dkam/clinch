@@ -32,5 +32,10 @@ module ActiveSupport
     fixtures :all
 
     # Add more helper methods to be used by all tests here...
+
+    # Clear in-memory forward auth cache before each test to prevent cross-test pollution
+    setup do
+      Rails.application.config.forward_auth_cache&.clear
+    end
   end
 end

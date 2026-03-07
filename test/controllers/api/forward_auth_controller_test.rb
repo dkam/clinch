@@ -9,7 +9,7 @@ module Api
       @group = groups(:admin_group)
       @rule = Application.create!(name: "Test App", slug: "test-app", app_type: "forward_auth", domain_pattern: "test.example.com", active: true)
       @inactive_rule = Application.create!(name: "Inactive App", slug: "inactive-app", app_type: "forward_auth", domain_pattern: "inactive.example.com", active: false)
-    end
+end
 
     # Authentication Tests
     test "should redirect to login when no session cookie" do
@@ -514,6 +514,81 @@ module Api
       # Should handle null bytes safely - domain doesn't match any rule
       assert_response 403
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
+    end
+
+    # Rate Limiting Tests
+    test "should return 429 when rate limit exceeded" do
+      cache = Rails.application.config.forward_auth_cache
+      cache.write("fa_fail:127.0.0.1", 50, expires_in: 1.minute)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+
+      assert_response 429
+      assert_equal "60", response.headers["Retry-After"]
+    end
+
+    test "should allow requests below rate limit" do
+      cache = Rails.application.config.forward_auth_cache
+      cache.write("fa_fail:127.0.0.1", 49, expires_in: 1.minute)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+
+      assert_response 302 # unauthorized redirect, but not rate limited
+    end
+
+    test "should track failed attempts and eventually rate limit" do
+      cache = Rails.application.config.forward_auth_cache
+
+      # Make 50 failed requests (no session = unauthorized)
+      50.times do
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      end
+
+      # The 51st should be rate limited
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 429
+    end
+
+    test "should not track successful requests as failures" do
+      cache = Rails.application.config.forward_auth_cache
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+
+      count = cache.read("fa_fail:127.0.0.1")
+      assert_nil count, "Successful requests should not increment failure counter"
+    end
+
+    # Caching Tests
+    test "should debounce last_activity_at updates" do
+      sign_in_as(@user)
+      session = Session.last
+
+      # First request should update last_activity_at
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+      first_activity = session.reload.last_activity_at
+
+      # Second request within 1 minute should NOT update
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+      assert_equal first_activity, session.reload.last_activity_at
+    end
+
+    test "should bust app cache when forward auth application is saved" do
+      cache = Rails.application.config.forward_auth_cache
+      sign_in_as(@user)
+
+      # Prime the cache
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+      assert cache.read("fa_apps"), "Cache should be populated after request"
+
+      # Update the application
+      @rule.update!(name: "Updated App")
+
+      assert_nil cache.read("fa_apps"), "Cache should be busted after application update"
     end
 
     # Performance and Load Tests

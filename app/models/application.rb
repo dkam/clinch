@@ -22,6 +22,8 @@ class Application < ApplicationRecord
     super(parsed)
   end
 
+  after_commit :bust_forward_auth_cache, if: :forward_auth?
+
   has_one_attached :icon
 
   # Fix SVG content type after attachment
@@ -267,6 +269,10 @@ class Application < ApplicationRecord
   end
 
   private
+
+  def bust_forward_auth_cache
+    Rails.application.config.forward_auth_cache&.delete("fa_apps")
+  end
 
   def fix_icon_content_type
     return unless icon.attached?

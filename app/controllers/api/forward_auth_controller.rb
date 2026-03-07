@@ -3,7 +3,9 @@ module Api
     # ForwardAuth endpoints need session storage for return URL
     allow_unauthenticated_access
     skip_before_action :verify_authenticity_token
-    # No rate limiting on forward_auth endpoint - proxy middleware hits this frequently
+
+    before_action :check_forward_auth_rate_limit
+    after_action :track_failed_forward_auth_attempt
 
     # GET /api/verify
     # This endpoint is called by reverse proxies (Traefik, Caddy, nginx)
@@ -39,8 +41,10 @@ module Api
         return render_unauthorized("Session expired")
       end
 
-      # Update last activity (skip validations for performance)
-      session.update_column(:last_activity_at, Time.current)
+      # Debounce last_activity_at updates (at most once per minute)
+      if session.last_activity_at.nil? || session.last_activity_at < 1.minute.ago
+        session.update_column(:last_activity_at, Time.current)
+      end
 
       # Get the user (already loaded via includes(:user))
       user = session.user
@@ -53,9 +57,10 @@ module Api
       forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
 
       if forwarded_host.present?
-        # Load all forward auth applications (including inactive ones) for security checks
-        # Preload groups to avoid N+1 queries in user_allowed? checks
-        apps = Application.forward_auth.includes(:allowed_groups)
+        # Load all forward auth applications with cached lookup
+        apps = fa_cache.fetch("fa_apps", expires_in: 5.minutes) do
+          Application.forward_auth.includes(:allowed_groups).to_a
+        end
 
         # Find matching forward auth application for this domain
         app = apps.find { |a| a.matches_domain?(forwarded_host) }
@@ -67,8 +72,8 @@ module Api
             return render_forbidden("No authentication rule configured for this domain")
           end
 
-          # Check if user is allowed by this application
-          unless app.user_allowed?(user)
+          # Check if user is allowed by this application (with cached groups)
+          unless app_allows_user_cached?(app, user)
             Rails.logger.info "ForwardAuth: User #{user.email_address} denied access to #{forwarded_host} by app #{app.domain_pattern}"
             return render_forbidden("You do not have permission to access this domain")
           end
@@ -86,7 +91,7 @@ module Api
       # User is authenticated and authorized
       # Return 200 with user information headers using app-specific configuration
       headers = if app
-        app.headers_for_user(user)
+        headers_for_user_cached(app, user)
       else
         Application::DEFAULT_HEADERS.map { |key, header_name|
           case key
@@ -116,6 +121,65 @@ module Api
     end
 
     private
+
+    def fa_cache
+      Rails.application.config.forward_auth_cache
+    end
+
+    # Rate limiting: 50 failed attempts per minute per IP
+    RATE_LIMIT_MAX_FAILURES = 50
+    RATE_LIMIT_WINDOW = 1.minute
+
+    def check_forward_auth_rate_limit
+      count = fa_cache.read("fa_fail:#{request.remote_ip}")
+      return unless count && count >= RATE_LIMIT_MAX_FAILURES
+
+      response.headers["Retry-After"] = "60"
+      head :too_many_requests
+    end
+
+    def track_failed_forward_auth_attempt
+      return unless response.status.in?([401, 403, 302])
+      # 302 in this controller means unauthorized redirect to login
+      # Don't track 200 (success) or 429 (already rate limited)
+      return if response.status == 302 && !response.headers["X-Auth-Reason"]
+
+      cache_key = "fa_fail:#{request.remote_ip}"
+      count = fa_cache.read(cache_key) || 0
+      fa_cache.write(cache_key, count + 1, expires_in: RATE_LIMIT_WINDOW)
+    end
+
+    def app_allows_user_cached?(app, user)
+      return false unless app.active?
+      return false unless user.active?
+      return true if app.allowed_groups.empty?
+
+      (user.groups & app.allowed_groups).any?
+    end
+
+    def headers_for_user_cached(app, user)
+      headers = {}
+      effective = app.effective_headers
+
+      effective.each do |key, header_name|
+        next unless header_name.present?
+
+        case key
+        when :user, :email
+          headers[header_name] = user.email_address
+        when :name
+          headers[header_name] = user.name.presence || user.email_address
+        when :username
+          headers[header_name] = user.username if user.username.present?
+        when :groups
+          headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
+        when :admin
+          headers[header_name] = user.admin? ? "true" : "false"
+        end
+      end
+
+      headers
+    end
 
     def authenticate_bearer_token
       auth_header = request.headers["Authorization"]
