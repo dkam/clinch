@@ -49,11 +49,9 @@ export default class extends Controller {
           }
         });
 
-        // Auto-trigger passkey authentication if required, or if user has both
-        // webauthn and TOTP (to save them from the password→TOTP flow)
-        if (data.requires_webauthn || (data.has_webauthn && data.has_totp)) {
-          setTimeout(() => this.authenticate(), 100);
-        }
+        // Don't auto-trigger navigator.credentials.get() — Safari's WebAuthn
+        // dialog can become undismissable when invoked without a user gesture.
+        // Always let the user click "Continue with Passkey" instead.
       } else {
         console.debug("No WebAuthn credentials found for this email");
       }
