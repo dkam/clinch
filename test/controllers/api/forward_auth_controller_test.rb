@@ -591,6 +591,113 @@ module Api
       assert_nil cache.read("fa_apps"), "Cache should be busted after application update"
     end
 
+    test "should bust app cache when application group membership changes" do
+      cache = Rails.application.config.forward_auth_cache
+      sign_in_as(@user)
+
+      # Prime the cache
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+      assert cache.read("fa_apps"), "Cache should be populated after request"
+
+      # Add a group to the application
+      @rule.allowed_groups << @group
+
+      assert_nil cache.read("fa_apps"), "Cache should be busted after adding group to application"
+
+      # Prime cache again
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+
+      # Remove the group
+      @rule.application_groups.destroy_all
+
+      assert_nil cache.read("fa_apps"), "Cache should be busted after removing group from application"
+    end
+
+    test "should persist first failure in rate limit cache" do
+      cache = Rails.application.config.forward_auth_cache
+
+      assert_nil cache.read("fa_fail:127.0.0.1"), "Counter should not exist before any failures"
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 302
+
+      count = cache.read("fa_fail:127.0.0.1")
+      assert_equal 1, count, "First failure should write counter with value 1"
+    end
+
+    test "should count bearer token failures toward rate limit" do
+      cache = Rails.application.config.forward_auth_cache
+
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "Authorization" => "Bearer invalid_token"
+      }
+      assert_response 401
+
+      count = cache.read("fa_fail:127.0.0.1")
+      assert_equal 1, count, "Bearer token failure should increment rate limit counter"
+    end
+
+    test "should rate limit bearer token requests after too many failures" do
+      cache = Rails.application.config.forward_auth_cache
+      cache.write("fa_fail:127.0.0.1", 50, expires_in: 1.minute)
+
+      get "/api/verify", headers: {
+        "X-Forwarded-Host" => "test.example.com",
+        "Authorization" => "Bearer invalid_token"
+      }
+
+      assert_response 429
+    end
+
+    test "should reject rd parameter for deactivated application" do
+      # Prime cache by triggering a lookup
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 302
+
+      # Deactivate the app (this busts the cache via after_commit)
+      @rule.update!(active: false)
+
+      # Unauthenticated request with rd pointing to the now-inactive domain
+      get "/api/verify", headers: {"X-Forwarded-Host" => "other.example.com"},
+        params: {rd: "https://test.example.com/dashboard"}
+
+      assert_response 302
+      # The rd URL should be rejected since the app is inactive
+      refute_match "test.example.com/dashboard", response.location
+    end
+
+    test "should update last_activity_at after debounce window expires" do
+      sign_in_as(@user)
+      session = Session.last
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+      first_activity = session.reload.last_activity_at
+
+      # Travel past the 1-minute debounce window
+      travel 61.seconds do
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+        assert_response 200
+        assert_not_equal first_activity, session.reload.last_activity_at,
+          "last_activity_at should update after debounce window expires"
+      end
+    end
+
+    test "should not reset failure counter on successful request" do
+      cache = Rails.application.config.forward_auth_cache
+      # Simulate 30 prior failures
+      cache.write("fa_fail:127.0.0.1", 30, expires_in: 1.minute)
+
+      sign_in_as(@user)
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 200
+
+      count = cache.read("fa_fail:127.0.0.1")
+      assert_equal 30, count, "Successful request should not reset or decrement failure counter"
+    end
+
     # Performance and Load Tests
     test "should handle requests efficiently under load" do
       sign_in_as(@user)
