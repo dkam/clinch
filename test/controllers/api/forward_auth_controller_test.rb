@@ -9,7 +9,7 @@ module Api
       @group = groups(:admin_group)
       @rule = Application.create!(name: "Test App", slug: "test-app", app_type: "forward_auth", domain_pattern: "test.example.com", active: true)
       @inactive_rule = Application.create!(name: "Inactive App", slug: "inactive-app", app_type: "forward_auth", domain_pattern: "inactive.example.com", active: false)
-end
+    end
 
     # Authentication Tests
     test "should redirect to login when no session cookie" do

@@ -202,7 +202,7 @@ class Application < ApplicationRecord
       when :username
         headers[header_name] = user.username if user.username.present?
       when :groups
-        headers[header_name] = user.groups.pluck(:name).join(",") if user.groups.any?
+        headers[header_name] = user.groups.map(&:name).join(",") if user.groups.any?
       when :admin
         headers[header_name] = user.admin? ? "true" : "false"
       end

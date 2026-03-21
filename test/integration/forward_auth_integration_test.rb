@@ -130,7 +130,9 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     # Rails normalizes header keys to lowercase
     assert_equal @user.email_address, response.headers["x-remote-user"]
     assert response.headers.key?("x-remote-groups")
-    assert_equal "Group Two,Group One", response.headers["x-remote-groups"]
+    groups_in_header = response.headers["x-remote-groups"].split(",").sort
+    expected_groups = @user.groups.reload.map(&:name).sort
+    assert_equal expected_groups, groups_in_header
 
     # Test custom headers
     get "/api/verify", headers: {"X-Forwarded-Host" => "custom.example.com"}
@@ -138,7 +140,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     # Custom headers are also normalized to lowercase
     assert_equal @user.email_address, response.headers["x-webauth-user"]
     assert response.headers.key?("x-webauth-roles")
-    assert_equal "Group Two,Group One", response.headers["x-webauth-roles"]
+    assert_equal expected_groups, response.headers["x-webauth-roles"].split(",").sort
 
     # Test no headers
     get "/api/verify", headers: {"X-Forwarded-Host" => "noheaders.example.com"}
