@@ -1,0 +1,25 @@
+{
+  "name": "clinch",
+  "version": "1.0.0",
+  "description": "> [!NOTE] > This software is experimental. If you'd like to try it out, find bugs, security flaws and improvements, please do.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@git.booko.info:2222/dkam/clinch.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.11"
+  }
+}

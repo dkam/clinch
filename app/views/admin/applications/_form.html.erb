@@ -2,24 +2,43 @@
   <%= render "shared/form_errors", form: form %>
 
   <div>
-    <%= form.label :name, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_field :name, required: true, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "My Application" %>
+    <%= form.label :name, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_field :name, required: true, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "My Application" %>
   </div>
 
   <div>
-    <%= form.label :slug, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_field :slug, required: true, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "my-app" %>
-    <p class="mt-1 text-sm text-gray-500">Lowercase letters, numbers, and hyphens only. Used in URLs and API calls.</p>
+    <%= form.label :slug, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_field :slug, required: true, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "my-app" %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Lowercase letters, numbers, and hyphens only. Used in URLs and API calls.</p>
   </div>
 
   <div>
-    <%= form.label :description, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_area :description, rows: 3, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "Optional description of this application" %>
+    <% if application.persisted? %>
+      <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">Application Type</span>
+      <div class="mt-1 flex items-center gap-2">
+        <span class="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/30 px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-600/20">
+          <%= application.oidc? ? "OpenID Connect (OIDC)" : "Forward Auth (Reverse Proxy)" %>
+        </span>
+      </div>
+      <%= form.hidden_field :app_type %>
+      <select class="hidden" data-application-form-target="appTypeSelect"><option value="<%= application.app_type %>" selected></option></select>
+    <% else %>
+      <%= form.label :app_type, "Application Type", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["Forward Auth (Reverse Proxy)", "forward_auth"]], {}, {
+        class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
+        data: { action: "change->application-form#updateFieldVisibility", application_form_target: "appTypeSelect" }
+      } %>
+    <% end %>
+  </div>
+
+  <div>
+    <%= form.label :description, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_area :description, rows: 3, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "Optional description of this application" %>
   </div>
 
   <div>
     <div class="flex items-center justify-between">
-      <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.label :icon, "Application Icon", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
       <a href="https://dashboardicons.com" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -32,8 +51,8 @@
         <%# Only show icon if we can successfully get its URL (blob is persisted) %>
         <% if application.icon.blob&.persisted? && application.icon.blob.key.present? %>
           <div class="mt-2 mb-3 flex items-center gap-4">
-            <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200", alt: "Current icon" %>
-            <div class="text-sm text-gray-600">
+            <%= image_tag application.icon, class: "h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-700", alt: "Current icon" %>
+            <div class="text-sm text-gray-600 dark:text-gray-400">
               <p class="font-medium">Current icon</p>
               <p class="text-xs"><%= number_to_human_size(application.icon.blob.byte_size) %></p>
             </div>
@@ -42,7 +61,7 @@
       <% rescue ArgumentError => e %>
         <%# Handle case where icon attachment exists but can't generate signed_id %>
         <% if e.message.include?("Cannot get a signed_id for a new record") %>
-          <div class="mt-2 mb-3 text-sm text-gray-600">
+          <div class="mt-2 mb-3 text-sm text-gray-600 dark:text-gray-400">
             <p class="font-medium">Icon uploaded</p>
             <p class="text-xs">File will be processed shortly</p>
           </div>
@@ -54,17 +73,17 @@
     <% end %>
 
     <div class="mt-2" data-controller="file-drop image-paste">
-      <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors"
+      <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md hover:border-blue-400 transition-colors"
            data-file-drop-target="dropzone"
            data-image-paste-target="dropzone"
            data-action="dragover->file-drop#dragover dragleave->file-drop#dragleave drop->file-drop#drop paste->image-paste#handlePaste"
            tabindex="0">
         <div class="space-y-1 text-center">
-          <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+          <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48">
             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <div class="flex text-sm text-gray-600">
-            <label for="<%= form.field_id(:icon) %>" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+          <div class="flex text-sm text-gray-600 dark:text-gray-400">
+            <label for="<%= form.field_id(:icon) %>" class="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-900 focus-within:ring-blue-500">
               <span>Upload a file</span>
               <%= form.file_field :icon,
                   accept: "image/png,image/jpg,image/jpeg,image/gif,image/svg+xml",
@@ -77,18 +96,18 @@
             </label>
             <p class="pl-1">or drag and drop</p>
           </div>
-          <p class="text-xs text-gray-500">PNG, JPG, GIF, or SVG up to 2MB</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF, or SVG up to 2MB</p>
           <p class="text-xs text-blue-600 font-medium mt-2">💡 Tip: Click here and press Ctrl+V (or Cmd+V) to paste an image from your clipboard</p>
         </div>
       </div>
       <div data-file-drop-target="preview" class="mt-3 hidden">
-        <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-200 dark:border-blue-700">
           <img data-file-drop-target="previewImage" class="h-12 w-12 rounded object-cover" alt="Preview">
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900" data-file-drop-target="filename"></p>
-            <p class="text-xs text-gray-500" data-file-drop-target="filesize"></p>
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100" data-file-drop-target="filename"></p>
+            <p class="text-xs text-gray-500 dark:text-gray-400" data-file-drop-target="filesize"></p>
           </div>
-          <button type="button" data-action="click->file-drop#clear" class="text-gray-400 hover:text-gray-600">
+          <button type="button" data-action="click->file-drop#clear" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
             </svg>
@@ -99,44 +118,32 @@
   </div>
 
   <div>
-    <%= form.label :landing_url, "Landing URL", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.url_field :landing_url, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "https://app.example.com" %>
-    <p class="mt-1 text-sm text-gray-500">The main URL users will visit to access this application. This will be shown as a link on their dashboard.</p>
-  </div>
-
-  <div>
-    <%= form.label :app_type, "Application Type", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.select :app_type, [["OpenID Connect (OIDC)", "oidc"], ["Forward Auth (Reverse Proxy)", "forward_auth"]], {}, {
-    class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
-    disabled: application.persisted?,
-    data: { action: "change->application-form#updateFieldVisibility", application_form_target: "appTypeSelect" }
-  } %>
-    <% if application.persisted? %>
-      <p class="mt-1 text-sm text-gray-500">Application type cannot be changed after creation.</p>
-    <% end %>
+    <%= form.label :landing_url, "Landing URL", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.url_field :landing_url, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "https://app.example.com" %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">The main URL users will visit to access this application. This will be shown as a link on their dashboard.</p>
   </div>
 
   <!-- OIDC-specific fields -->
-  <div id="oidc-fields" class="space-y-6 border-t border-gray-200 pt-6 <%= 'hidden' unless application.oidc? || !application.persisted? %>" data-application-form-target="oidcFields">
-    <h3 class="text-base font-semibold text-gray-900">OIDC Configuration</h3>
+  <div id="oidc-fields" class="space-y-6 border-t border-gray-200 dark:border-gray-700 pt-6 <%= 'hidden' unless application.oidc? || !application.persisted? %>" data-application-form-target="oidcFields">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">OIDC Configuration</h3>
 
     <!-- Client Type Selection (only for new applications) -->
     <% unless application.persisted? %>
-    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-      <h4 class="text-sm font-semibold text-gray-900 mb-3">Client Type</h4>
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+      <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Client Type</h4>
       <div class="space-y-3">
         <div class="flex items-start">
-          <%= form.radio_button :is_public_client, "false", checked: !application.is_public_client, class: "mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500", data: { action: "change->application-form#updatePkceVisibility" } %>
+          <%= form.radio_button :is_public_client, "false", checked: !application.is_public_client, class: "mt-1 h-4 w-4 border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500", data: { action: "change->application-form#updatePkceVisibility" } %>
           <div class="ml-3">
-            <label for="application_is_public_client_false" class="block text-sm font-medium text-gray-900">Confidential Client (Recommended)</label>
-            <p class="text-sm text-gray-500">Backend server app that can securely store a client secret. Examples: traditional web apps, server-to-server APIs.</p>
+            <label for="application_is_public_client_false" class="block text-sm font-medium text-gray-900 dark:text-gray-100">Confidential Client (Recommended)</label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Backend server app that can securely store a client secret. Examples: traditional web apps, server-to-server APIs.</p>
           </div>
         </div>
         <div class="flex items-start">
-          <%= form.radio_button :is_public_client, "true", checked: application.is_public_client, class: "mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500", data: { action: "change->application-form#updatePkceVisibility" } %>
+          <%= form.radio_button :is_public_client, "true", checked: application.is_public_client, class: "mt-1 h-4 w-4 border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500", data: { action: "change->application-form#updatePkceVisibility" } %>
           <div class="ml-3">
-            <label for="application_is_public_client_true" class="block text-sm font-medium text-gray-900">Public Client</label>
-            <p class="text-sm text-gray-500">Frontend-only app that cannot store secrets securely. Examples: SPAs (React/Vue), mobile apps, CLI tools. <strong class="text-amber-600">PKCE is required.</strong></p>
+            <label for="application_is_public_client_true" class="block text-sm font-medium text-gray-900 dark:text-gray-100">Public Client</label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Frontend-only app that cannot store secrets securely. Examples: SPAs (React/Vue), mobile apps, CLI tools. <strong class="text-amber-600">PKCE is required.</strong></p>
           </div>
         </div>
       </div>
@@ -144,31 +151,31 @@
     <% else %>
     <!-- Show client type for existing applications (read-only) -->
     <div class="flex items-center gap-2 text-sm">
-      <span class="font-medium text-gray-700">Client Type:</span>
+      <span class="font-medium text-gray-700 dark:text-gray-300">Client Type:</span>
       <% if application.public_client? %>
-        <span class="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Public Client (PKCE Required)</span>
+        <span class="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-900/30 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-600/20">Public Client (PKCE Required)</span>
       <% else %>
-        <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Confidential Client</span>
+        <span class="inline-flex items-center rounded-md bg-green-50 dark:bg-green-900/30 px-2 py-1 text-xs font-medium text-green-700 dark:text-green-300 ring-1 ring-inset ring-green-600/20">Confidential Client</span>
       <% end %>
     </div>
     <% end %>
 
     <!-- OAuth2/OIDC Flow Information -->
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 space-y-3">
       <div>
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">OAuth2 Flow</h4>
-        <p class="text-sm text-gray-700">
-          Clinch uses the <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">authorization_code</code> flow with <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">response_type=code</code> (the modern, secure standard).
+        <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">OAuth2 Flow</h4>
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          Clinch uses the <code class="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">authorization_code</code> flow with <code class="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">response_type=code</code> (the modern, secure standard).
         </p>
-        <p class="text-sm text-gray-600 mt-1">
-          Deprecated flows like Implicit (<code class="bg-white px-1 rounded text-xs font-mono">id_token</code>, <code class="bg-white px-1 rounded text-xs font-mono">token</code>) are not supported for security reasons.
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Deprecated flows like Implicit (<code class="bg-white dark:bg-gray-800 px-1 rounded text-xs font-mono">id_token</code>, <code class="bg-white dark:bg-gray-800 px-1 rounded text-xs font-mono">token</code>) are not supported for security reasons.
         </p>
       </div>
 
-      <div class="border-t border-blue-200 pt-3">
-        <h4 class="text-sm font-semibold text-gray-900 mb-2">Client Authentication</h4>
-        <p class="text-sm text-gray-700">
-          Clinch supports both <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">client_secret_basic</code> (HTTP Basic Auth) and <code class="bg-white px-1.5 py-0.5 rounded text-xs font-mono">client_secret_post</code> (POST parameters) authentication methods.
+      <div class="border-t border-blue-200 dark:border-blue-700 pt-3">
+        <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Client Authentication</h4>
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          Clinch supports both <code class="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">client_secret_basic</code> (HTTP Basic Auth) and <code class="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">client_secret_post</code> (POST parameters) authentication methods.
         </p>
       </div>
     </div>
@@ -176,53 +183,53 @@
     <!-- PKCE Requirement (only for confidential clients) -->
     <div id="pkce-options" data-application-form-target="pkceOptions" class="<%= 'hidden' if application.persisted? && application.public_client? %>">
       <div class="flex items-center">
-        <%= form.check_box :require_pkce, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-        <%= form.label :require_pkce, "Require PKCE (Proof Key for Code Exchange)", class: "ml-2 block text-sm font-medium text-gray-900" %>
+        <%= form.check_box :require_pkce, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+        <%= form.label :require_pkce, "Require PKCE (Proof Key for Code Exchange)", class: "ml-2 block text-sm font-medium text-gray-900 dark:text-gray-100" %>
       </div>
-      <p class="ml-6 text-sm text-gray-500">
+      <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">
         Recommended for enhanced security (OAuth 2.1 best practice).
-        <br><span class="text-xs text-gray-400">Note: Public clients always require PKCE regardless of this setting.</span>
+        <br><span class="text-xs text-gray-400 dark:text-gray-500">Note: Public clients always require PKCE regardless of this setting.</span>
       </p>
     </div>
 
     <!-- Skip Consent -->
     <div class="flex items-center">
-      <%= form.check_box :skip_consent, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-      <%= form.label :skip_consent, "Skip Consent Screen", class: "ml-2 block text-sm font-medium text-gray-900" %>
+      <%= form.check_box :skip_consent, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :skip_consent, "Skip Consent Screen", class: "ml-2 block text-sm font-medium text-gray-900 dark:text-gray-100" %>
     </div>
-    <p class="ml-6 text-sm text-gray-500">
+    <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">
       Automatically grant consent for all users. Useful for first-party or trusted applications.
       <br><span class="text-xs text-amber-600">Only enable for applications you fully trust. Consent is still recorded in the database.</span>
     </p>
 
     <div>
-      <%= form.label :redirect_uris, "Redirect URIs", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_area :redirect_uris, rows: 4, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://example.com/callback\nhttps://app.example.com/auth/callback" %>
-      <p class="mt-1 text-sm text-gray-500">One URI per line. These are the allowed callback URLs for your application.</p>
+      <%= form.label :redirect_uris, "Redirect URIs", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= form.text_area :redirect_uris, rows: 4, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://example.com/callback\nhttps://app.example.com/auth/callback" %>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">One URI per line. These are the allowed callback URLs for your application.</p>
     </div>
 
     <div>
-      <%= form.label :backchannel_logout_uri, "Backchannel Logout URI (Optional)", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.url_field :backchannel_logout_uri, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://app.example.com/oidc/backchannel-logout" %>
-      <p class="mt-1 text-sm text-gray-500">
+      <%= form.label :backchannel_logout_uri, "Backchannel Logout URI (Optional)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= form.url_field :backchannel_logout_uri, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "https://app.example.com/oidc/backchannel-logout" %>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         If the application supports OpenID Connect Backchannel Logout, enter the logout endpoint URL.
         When users log out, Clinch will send logout notifications to this endpoint for immediate session termination.
         Leave blank if the application doesn't support backchannel logout.
       </p>
     </div>
 
-    <div class="border-t border-gray-200 pt-4 mt-4">
-      <h4 class="text-sm font-semibold text-gray-900 mb-3">Token Expiration Settings</h4>
-      <p class="text-sm text-gray-500 mb-4">Configure how long tokens remain valid. Shorter times are more secure but require more frequent refreshes.</p>
+    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+      <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Token Expiration Settings</h4>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure how long tokens remain valid. Shorter times are more secure but require more frequent refreshes.</p>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <%= form.label :access_token_ttl, "Access Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.label :access_token_ttl, "Access Token TTL", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
           <%= form.text_field :access_token_ttl,
               value: application.access_token_ttl || "1h",
               placeholder: "e.g., 1h, 30m, 3600",
-              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
-          <p class="mt-1 text-xs text-gray-500">
+              class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Range: 5m - 24h
             <br>Default: 1h
             <% if application.access_token_ttl.present? %>
@@ -232,12 +239,12 @@
         </div>
 
         <div>
-          <%= form.label :refresh_token_ttl, "Refresh Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.label :refresh_token_ttl, "Refresh Token TTL", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
           <%= form.text_field :refresh_token_ttl,
               value: application.refresh_token_ttl || "30d",
               placeholder: "e.g., 30d, 1M, 2592000",
-              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
-          <p class="mt-1 text-xs text-gray-500">
+              class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Range: 5m - 90d
             <br>Default: 30d
             <% if application.refresh_token_ttl.present? %>
@@ -247,12 +254,12 @@
         </div>
 
         <div>
-          <%= form.label :id_token_ttl, "ID Token TTL", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.label :id_token_ttl, "ID Token TTL", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
           <%= form.text_field :id_token_ttl,
               value: application.id_token_ttl || "1h",
               placeholder: "e.g., 1h, 30m, 3600",
-              class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
-          <p class="mt-1 text-xs text-gray-500">
+              class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono" %>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Range: 5m - 24h
             <br>Default: 1h
             <% if application.id_token_ttl.present? %>
@@ -264,16 +271,16 @@
 
       <details class="mt-3">
         <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">Understanding Token Types & Session Length</summary>
-        <div class="mt-2 ml-4 space-y-3 text-sm text-gray-600">
+        <div class="mt-2 ml-4 space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <div>
-            <p class="font-medium text-gray-900 mb-1">Token Types:</p>
+            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1">Token Types:</p>
             <p><strong>Access Token:</strong> Used to access protected resources (APIs). Shorter lifetime = more secure. Users won't notice automatic refreshes.</p>
             <p><strong>Refresh Token:</strong> Used to get new access tokens without re-authentication. Each refresh issues a new refresh token (token rotation).</p>
             <p><strong>ID Token:</strong> Contains user identity information (JWT). Should match access token lifetime in most cases.</p>
           </div>
 
-          <div class="border-t border-gray-200 pt-2">
-            <p class="font-medium text-gray-900 mb-1">How Session Length Works:</p>
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
+            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1">How Session Length Works:</p>
             <p><strong>Refresh Token TTL = Maximum Inactivity Period</strong></p>
             <p class="ml-3">Because refresh tokens are automatically rotated (new token = new expiry), active users can stay logged in indefinitely. The TTL controls how long they can be <em>inactive</em> before requiring re-authentication.</p>
 
@@ -284,21 +291,21 @@
             </ul>
           </div>
 
-          <div class="border-t border-gray-200 pt-2">
-            <p class="font-medium text-gray-900 mb-1">Forcing Re-Authentication:</p>
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
+            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1">Forcing Re-Authentication:</p>
             <p class="ml-3 text-xs">Because of token rotation, there's no way to force periodic re-authentication using TTL settings alone. Active users can stay logged in indefinitely by refreshing tokens before they expire.</p>
 
-            <p class="mt-2 ml-3 text-xs"><strong>To enforce absolute session limits:</strong> Clients can include the <code class="bg-gray-100 px-1 rounded">max_age</code> parameter in their authorization requests to require re-authentication after a specific time, regardless of token rotation.</p>
+            <p class="mt-2 ml-3 text-xs"><strong>To enforce absolute session limits:</strong> Clients can include the <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">max_age</code> parameter in their authorization requests to require re-authentication after a specific time, regardless of token rotation.</p>
 
-            <p class="mt-2 ml-3 text-xs"><strong>Example:</strong> A banking app might set <code class="bg-gray-100 px-1 rounded">max_age=900</code> (15 minutes) in the authorization request to force re-authentication every 15 minutes, even if refresh tokens are still valid.</p>
+            <p class="mt-2 ml-3 text-xs"><strong>Example:</strong> A banking app might set <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">max_age=900</code> (15 minutes) in the authorization request to force re-authentication every 15 minutes, even if refresh tokens are still valid.</p>
           </div>
 
-          <div class="border-t border-gray-200 pt-2">
-            <p class="font-medium text-gray-900 mb-1">Common Configurations:</p>
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
+            <p class="font-medium text-gray-900 dark:text-gray-100 mb-1">Common Configurations:</p>
             <ul class="ml-3 space-y-1 text-xs">
-              <li><strong>Banking/High Security:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">5m</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">5m</code> → Re-auth every 5 minutes</li>
-              <li><strong>Corporate Tools:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">8h</code> → Re-auth after 8 hours inactive</li>
-              <li><strong>Personal Apps:</strong> Access TTL = <code class="bg-gray-100 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 px-1 rounded">30d</code> → Re-auth after 30 days inactive</li>
+              <li><strong>Banking/High Security:</strong> Access TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">5m</code>, Refresh TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">5m</code> → Re-auth every 5 minutes</li>
+              <li><strong>Corporate Tools:</strong> Access TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">8h</code> → Re-auth after 8 hours inactive</li>
+              <li><strong>Personal Apps:</strong> Access TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">1h</code>, Refresh TTL = <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">30d</code> → Re-auth after 30 days inactive</li>
             </ul>
           </div>
         </div>
@@ -307,30 +314,30 @@
   </div>
 
   <!-- Forward Auth-specific fields -->
-  <div id="forward-auth-fields" class="space-y-6 border-t border-gray-200 pt-6 <%= 'hidden' unless application.forward_auth? %>" data-application-form-target="forwardAuthFields">
-    <h3 class="text-base font-semibold text-gray-900">Forward Auth Configuration</h3>
+  <div id="forward-auth-fields" class="space-y-6 border-t border-gray-200 dark:border-gray-700 pt-6 <%= 'hidden' unless application.forward_auth? %>" data-application-form-target="forwardAuthFields">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Forward Auth Configuration</h3>
 
     <div>
-      <%= form.label :domain_pattern, "Domain Pattern", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :domain_pattern, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "*.example.com or app.example.com" %>
-      <p class="mt-1 text-sm text-gray-500">Domain pattern to match. Use * for wildcard subdomains (e.g., *.example.com matches app.example.com, api.example.com, etc.)</p>
+      <%= form.label :domain_pattern, "Domain Pattern", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= form.text_field :domain_pattern, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono", placeholder: "*.example.com or app.example.com" %>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Domain pattern to match. Use * for wildcard subdomains (e.g., *.example.com matches app.example.com, api.example.com, etc.)</p>
     </div>
 
     <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
-      <%= form.label :headers_config, "Custom Headers Configuration (JSON)", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.label :headers_config, "Custom Headers Configuration (JSON)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
       <%= form.text_area :headers_config, value: (application.headers_config.present? && application.headers_config.any? ? JSON.pretty_generate(application.headers_config) : ""), rows: 10,
-          class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
+          class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
           placeholder: '{"user": "Remote-User", "groups": "Remote-Groups"}',
           data: {
             action: "input->json-validator#validate blur->json-validator#format",
             json_validator_target: "textarea"
           } %>
-      <div class="mt-2 text-sm text-gray-600 space-y-1">
+      <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
         <div class="flex items-center justify-between">
           <p class="font-medium">Optional: Customize header names sent to your application.</p>
           <div class="flex items-center gap-2">
-            <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Format JSON</button>
-            <button type="button" data-action="json-validator#insertSample" data-json-sample='{"user": "Remote-User", "groups": "Remote-Groups", "email": "Remote-Email", "name": "Remote-Name", "username": "Remote-Username", "admin": "Remote-Admin"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
+            <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 px-2 py-1 rounded">Format JSON</button>
+            <button type="button" data-action="json-validator#insertSample" data-json-sample='{"user": "Remote-User", "groups": "Remote-Groups", "email": "Remote-Email", "name": "Remote-Name", "username": "Remote-Username", "admin": "Remote-Admin"}' class="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">Insert Example</button>
           </div>
         </div>
         <p><strong>Default headers:</strong> X-Remote-User, X-Remote-Email, X-Remote-Name, X-Remote-Username, X-Remote-Groups, X-Remote-Admin</p>
@@ -338,13 +345,13 @@
         <details class="mt-2">
           <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Show available header keys and what data they send</summary>
           <div class="mt-2 ml-4 space-y-1 text-xs">
-            <p><code class="bg-gray-100 px-1 rounded">user</code> - User's email address</p>
-            <p><code class="bg-gray-100 px-1 rounded">email</code> - User's email address</p>
-            <p><code class="bg-gray-100 px-1 rounded">name</code> - User's display name (falls back to email if not set)</p>
-            <p><code class="bg-gray-100 px-1 rounded">username</code> - User's login username (only sent if set)</p>
-            <p><code class="bg-gray-100 px-1 rounded">groups</code> - Comma-separated list of group names (e.g., "admin,developers")</p>
-            <p><code class="bg-gray-100 px-1 rounded">admin</code> - "true" or "false" indicating admin status</p>
-            <p class="mt-2 italic">Example: <code class="bg-gray-100 px-1 rounded">{"user": "Remote-User", "groups": "Remote-Groups", "username": "Remote-Username"}</code></p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">user</code> - User's email address</p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">email</code> - User's email address</p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">name</code> - User's display name (falls back to email if not set)</p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">username</code> - User's login username (only sent if set)</p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">groups</code> - Comma-separated list of group names (e.g., "admin,developers")</p>
+            <p><code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">admin</code> - "true" or "false" indicating admin status</p>
+            <p class="mt-2 italic">Example: <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-1 rounded">{"user": "Remote-User", "groups": "Remote-Groups", "username": "Remote-Username"}</code></p>
             <p class="italic">Need custom user fields? Add them to user's custom_claims for OIDC tokens</p>
           </div>
         </details>
@@ -353,31 +360,30 @@
   </div>
 
   <div>
-    <%= form.label :group_ids, "Allowed Groups (Optional)", class: "block text-sm font-medium text-gray-700" %>
-    <div class="mt-2 space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+    <%= form.label :group_ids, "Allowed Groups (Optional)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <div class="mt-2 space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-3">
       <% if @available_groups.any? %>
         <% @available_groups.each do |group| %>
           <div class="flex items-center">
-            <%= check_box_tag "application[group_ids][]", group.id, application.allowed_groups.include?(group), class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-            <%= label_tag "application_group_ids_#{group.id}", group.name, class: "ml-2 text-sm text-gray-900" %>
-            <span class="ml-2 text-xs text-gray-500">(<%= pluralize(group.users.count, "member") %>)</span>
+            <%= check_box_tag "application[group_ids][]", group.id, application.allowed_groups.include?(group), class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+            <%= label_tag "application_group_ids_#{group.id}", group.name, class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">(<%= pluralize(group.users.count, "member") %>)</span>
           </div>
         <% end %>
       <% else %>
-        <p class="text-sm text-gray-500">No groups available. Create groups first to restrict access.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No groups available. Create groups first to restrict access.</p>
       <% end %>
     </div>
-    <p class="mt-1 text-sm text-gray-500">If no groups are selected, all active users can access this application.</p>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If no groups are selected, all active users can access this application.</p>
   </div>
 
   <div class="flex items-center">
-    <%= form.check_box :active, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-    <%= form.label :active, "Active", class: "ml-2 block text-sm text-gray-900" %>
+    <%= form.check_box :active, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+    <%= form.label :active, "Active", class: "ml-2 block text-sm text-gray-900 dark:text-gray-100" %>
   </div>
 
   <div class="flex gap-3">
     <%= form.submit application.persisted? ? "Update Application" : "Create Application", class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
-    <%= link_to "Cancel", admin_applications_path, class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+    <%= link_to "Cancel", admin_applications_path, class: "rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600" %>
   </div>
 <% end %>
-
