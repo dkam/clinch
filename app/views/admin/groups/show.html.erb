@@ -1,13 +1,13 @@
 <div class="mb-6">
   <div class="sm:flex sm:items-center sm:justify-between">
     <div>
-      <h1 class="text-2xl font-semibold text-gray-900"><%= @group.name %></h1>
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100"><%= @group.name %></h1>
       <% if @group.description.present? %>
-        <p class="mt-1 text-sm text-gray-500"><%= @group.description %></p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= @group.description %></p>
       <% end %>
     </div>
     <div class="mt-4 sm:mt-0 flex gap-3">
-      <%= link_to "Edit", edit_admin_group_path(@group), class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+      <%= link_to "Edit", edit_admin_group_path(@group), class: "rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600" %>
       <%= button_to "Delete", admin_group_path(@group), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500" %>
     </div>
   </div>
@@ -15,25 +15,25 @@
 
 <div class="space-y-6">
   <!-- Members -->
-  <div class="bg-white shadow sm:rounded-lg">
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
     <div class="px-4 py-5 sm:p-6">
-      <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4">
         Members (<%= @members.count %>)
       </h3>
       <% if @members.any? %>
-        <ul class="divide-y divide-gray-200 border border-gray-200 rounded-md">
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
           <% @members.each do |user| %>
             <li class="px-4 py-3 flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-900"><%= user.email_address %></p>
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= user.email_address %></p>
                 <div class="flex gap-2 mt-1">
                   <% if user.admin? %>
-                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Admin</span>
+                    <span class="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Admin</span>
                   <% end %>
                   <% if user.totp_enabled? %>
-                    <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">2FA</span>
+                    <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">2FA</span>
                   <% end %>
-                  <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"><%= user.status.titleize %></span>
+                  <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300"><%= user.status.titleize %></span>
                 </div>
               </div>
               <%= link_to "View", admin_user_path(user), class: "text-blue-600 hover:text-blue-900 text-sm" %>
@@ -41,36 +41,36 @@
           <% end %>
         </ul>
       <% else %>
-        <div class="rounded-md bg-gray-50 p-4">
-          <p class="text-sm text-gray-500">No members in this group yet.</p>
+        <div class="rounded-md bg-gray-50 dark:bg-gray-700 p-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">No members in this group yet.</p>
         </div>
       <% end %>
     </div>
   </div>
 
   <!-- Applications -->
-  <div class="bg-white shadow sm:rounded-lg">
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
     <div class="px-4 py-5 sm:p-6">
-      <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4">
         Assigned Applications (<%= @applications.count %>)
       </h3>
       <% if @applications.any? %>
-        <ul class="divide-y divide-gray-200 border border-gray-200 rounded-md">
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
           <% @applications.each do |app| %>
             <li class="px-4 py-3 flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-900"><%= app.name %></p>
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= app.name %></p>
                 <div class="flex gap-2 mt-1">
                   <% case app.app_type %>
                   <% when "oidc" %>
-                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">OIDC</span>
+                    <span class="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300">OIDC</span>
                   <% when "trusted_header" %>
-                    <span class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">ForwardAuth</span>
+                    <span class="inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">ForwardAuth</span>
                   <% end %>
                   <% if app.active? %>
-                    <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Active</span>
+                    <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">Active</span>
                   <% else %>
-                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Inactive</span>
+                    <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">Inactive</span>
                   <% end %>
                 </div>
               </div>
@@ -79,8 +79,8 @@
           <% end %>
         </ul>
       <% else %>
-        <div class="rounded-md bg-gray-50 p-4">
-          <p class="text-sm text-gray-500">This group is not assigned to any applications.</p>
+        <div class="rounded-md bg-gray-50 dark:bg-gray-700 p-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">This group is not assigned to any applications.</p>
         </div>
       <% end %>
     </div>

@@ -2,49 +2,49 @@
   <%= render "shared/form_errors", form: form %>
 
   <div>
-    <%= form.label :email_address, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.email_field :email_address, required: true, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "user@example.com" %>
+    <%= form.label :email_address, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.email_field :email_address, required: true, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "user@example.com" %>
   </div>
 
   <div>
-    <%= form.label :username, "Username (Optional)", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_field :username, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "jsmith" %>
-    <p class="mt-1 text-sm text-gray-500">Optional: Short username/handle for login. Can only contain letters, numbers, underscores, and hyphens.</p>
+    <%= form.label :username, "Username (Optional)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_field :username, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "jsmith" %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Optional: Short username/handle for login. Can only contain letters, numbers, underscores, and hyphens.</p>
   </div>
 
   <div>
-    <%= form.label :name, "Display Name (Optional)", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_field :name, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "John Smith" %>
-    <p class="mt-1 text-sm text-gray-500">Optional: Full name shown in applications. Defaults to email address if not set.</p>
+    <%= form.label :name, "Display Name (Optional)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_field :name, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "John Smith" %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Optional: Full name shown in applications. Defaults to email address if not set.</p>
   </div>
 
   <div>
-    <%= form.label :password, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.password_field :password, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: user.persisted? ? "Leave blank to keep current password" : "Enter password" %>
+    <%= form.label :password, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.password_field :password, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: user.persisted? ? "Leave blank to keep current password" : "Enter password" %>
     <% if user.persisted? %>
-      <p class="mt-1 text-sm text-gray-500">Leave blank to keep the current password</p>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Leave blank to keep the current password</p>
     <% else %>
-      <p class="mt-1 text-sm text-gray-500">Leave blank to generate a random password</p>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Leave blank to generate a random password</p>
     <% end %>
   </div>
 
   <div>
-    <%= form.label :status, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.select :status, User.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+    <%= form.label :status, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.select :status, User.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
   </div>
 
   <div class="flex items-center">
-    <%= form.check_box :admin, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500", disabled: (user == Current.session.user) %>
-    <%= form.label :admin, "Administrator", class: "ml-2 block text-sm text-gray-900" %>
+    <%= form.check_box :admin, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500", disabled: (user == Current.session.user) %>
+    <%= form.label :admin, "Administrator", class: "ml-2 block text-sm text-gray-900 dark:text-gray-100" %>
     <% if user == Current.session.user %>
-      <span class="ml-2 text-xs text-gray-500">(Cannot change your own admin status)</span>
+      <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">(Cannot change your own admin status)</span>
     <% end %>
   </div>
 
   <div>
     <div class="flex items-center">
-      <%= form.check_box :totp_required, class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-      <%= form.label :totp_required, "Require Two-Factor Authentication", class: "ml-2 block text-sm text-gray-900" %>
+      <%= form.check_box :totp_required, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :totp_required, "Require Two-Factor Authentication", class: "ml-2 block text-sm text-gray-900 dark:text-gray-100" %>
       <% if user.totp_required? && !user.totp_enabled? %>
         <span class="ml-2 text-xs text-amber-600">(User has not set up 2FA yet)</span>
       <% end %>
@@ -57,24 +57,24 @@
         Warning: This user will be prompted to set up 2FA on their next login.
       </p>
     <% end %>
-    <p class="mt-1 text-sm text-gray-500">When enabled, this user must use two-factor authentication to sign in.</p>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">When enabled, this user must use two-factor authentication to sign in.</p>
   </div>
 
   <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
-    <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700" %>
+    <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
     <%= form.text_area :custom_claims, value: (user.custom_claims.present? ? JSON.pretty_generate(user.custom_claims) : ""), rows: 8,
-        class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
+        class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
         placeholder: '{"department": "engineering", "level": "senior"}',
         data: {
           action: "input->json-validator#validate blur->json-validator#format",
           json_validator_target: "textarea"
         } %>
-    <div class="mt-2 text-sm text-gray-600 space-y-1">
+    <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
       <div class="flex items-center justify-between">
         <p>Optional: User-specific custom claims to add to OIDC tokens. These override group-level claims.</p>
         <div class="flex items-center gap-2">
-          <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Format JSON</button>
-          <button type="button" data-action="json-validator#insertSample" data-json-sample='{"department": "engineering", "level": "senior", "location": "remote"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
+          <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 px-2 py-1 rounded">Format JSON</button>
+          <button type="button" data-action="json-validator#insertSample" data-json-sample='{"department": "engineering", "level": "senior", "location": "remote"}' class="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">Insert Example</button>
         </div>
       </div>
       <div data-json-validator-target="status" class="text-xs font-medium"></div>
@@ -83,6 +83,6 @@
 
   <div class="flex gap-3">
     <%= form.submit user.persisted? ? "Update User" : "Create User", class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
-    <%= link_to "Cancel", admin_users_path, class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+    <%= link_to "Cancel", admin_users_path, class: "rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600" %>
   </div>
 <% end %>

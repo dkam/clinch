@@ -2,51 +2,51 @@
   <%= render "shared/form_errors", form: form %>
 
   <div>
-    <%= form.label :name, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_field :name, required: true, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "developers" %>
-    <p class="mt-1 text-sm text-gray-500">Group names are automatically normalized to lowercase.</p>
+    <%= form.label :name, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_field :name, required: true, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "developers" %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Group names are automatically normalized to lowercase.</p>
   </div>
 
   <div>
-    <%= form.label :description, class: "block text-sm font-medium text-gray-700" %>
-    <%= form.text_area :description, rows: 3, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "Optional description of this group" %>
+    <%= form.label :description, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <%= form.text_area :description, rows: 3, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm", placeholder: "Optional description of this group" %>
   </div>
 
   <div>
-    <%= form.label :user_ids, "Group Members", class: "block text-sm font-medium text-gray-700" %>
-    <div class="mt-2 space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-md p-3">
+    <%= form.label :user_ids, "Group Members", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <div class="mt-2 space-y-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-3">
       <% if @available_users.any? %>
         <% @available_users.each do |user| %>
           <div class="flex items-center">
-            <%= check_box_tag "group[user_ids][]", user.id, group.users.include?(user), class: "h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" %>
-            <%= label_tag "group_user_ids_#{user.id}", user.email_address, class: "ml-2 text-sm text-gray-900" %>
+            <%= check_box_tag "group[user_ids][]", user.id, group.users.include?(user), class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+            <%= label_tag "group_user_ids_#{user.id}", user.email_address, class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
             <% if user.admin? %>
-              <span class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Admin</span>
+              <span class="ml-2 inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Admin</span>
             <% end %>
           </div>
         <% end %>
       <% else %>
-        <p class="text-sm text-gray-500">No users available.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No users available.</p>
       <% end %>
     </div>
-    <p class="mt-1 text-sm text-gray-500">Select which users should be members of this group.</p>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Select which users should be members of this group.</p>
   </div>
 
   <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
-    <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700" %>
+    <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
     <%= form.text_area :custom_claims, value: (group.custom_claims.present? ? JSON.pretty_generate(group.custom_claims) : ""), rows: 8,
-        class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
+        class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm font-mono",
         placeholder: '{"roles": ["admin", "editor"]}',
         data: {
           action: "input->json-validator#validate blur->json-validator#format",
           json_validator_target: "textarea"
         } %>
-    <div class="mt-2 text-sm text-gray-600 space-y-1">
+    <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
       <div class="flex items-center justify-between">
         <p>Optional: Custom claims to add to OIDC tokens for all members. These will be merged with user-level claims.</p>
         <div class="flex items-center gap-2">
-          <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Format JSON</button>
-          <button type="button" data-action="json-validator#insertSample" data-json-sample='{"roles": ["admin", "editor"], "permissions": ["read", "write"], "team": "backend"}' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Insert Example</button>
+          <button type="button" data-action="json-validator#format" class="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 px-2 py-1 rounded">Format JSON</button>
+          <button type="button" data-action="json-validator#insertSample" data-json-sample='{"roles": ["admin", "editor"], "permissions": ["read", "write"], "team": "backend"}' class="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">Insert Example</button>
         </div>
       </div>
       <div data-json-validator-target="status" class="text-xs font-medium"></div>
@@ -55,6 +55,6 @@
 
   <div class="flex gap-3">
     <%= form.submit group.persisted? ? "Update Group" : "Create Group", class: "rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
-    <%= link_to "Cancel", admin_groups_path, class: "rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50" %>
+    <%= link_to "Cancel", admin_groups_path, class: "rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600" %>
   </div>
 <% end %>

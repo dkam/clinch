@@ -1,3 +1,23 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 @custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  .dark input:where([type="text"], [type="email"], [type="password"], [type="number"], [type="url"], [type="tel"], [type="search"]),
+  .dark textarea,
+  .dark select {
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+    color: var(--color-gray-100);
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  .dark input:where([type="checkbox"], [type="radio"]) {
+    background-color: var(--color-gray-700);
+    border-color: var(--color-gray-500);
+  }
+}

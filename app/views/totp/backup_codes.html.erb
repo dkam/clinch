@@ -1,42 +1,42 @@
 <div class="max-w-2xl mx-auto" data-controller="backup-codes" data-backup-codes-codes-value="<%= @backup_codes.to_json %>">
   <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900">Backup Codes</h1>
-    <p class="mt-2 text-sm text-gray-600">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Backup Codes</h1>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
       Save these backup codes in a safe place. Each code can only be used once.
     </p>
   </div>
 
-  <div class="bg-white shadow sm:rounded-lg">
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
     <div class="px-4 py-5 sm:p-6">
-      <div class="rounded-md bg-yellow-50 p-4 mb-6">
+      <div class="rounded-md bg-yellow-50 dark:bg-yellow-900/30 p-4 mb-6">
         <div class="flex">
           <svg class="h-5 w-5 text-yellow-400 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
           </svg>
-          <div class="text-sm text-yellow-800">
+          <div class="text-sm text-yellow-800 dark:text-yellow-200">
             <p class="font-medium">Save these codes now!</p>
             <p class="mt-1">Store them somewhere safe. You won't be able to see them again without re-entering your password.</p>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-4 p-6 bg-gray-50 rounded-lg font-mono">
+      <div class="grid grid-cols-2 gap-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg font-mono">
         <% @backup_codes.each do |code| %>
-          <div class="text-center text-lg tracking-wider py-2 px-4 bg-white rounded border border-gray-200">
+          <div class="text-center text-lg tracking-wider py-2 px-4 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 dark:text-gray-100">
             <%= code %>
           </div>
         <% end %>
       </div>
 
       <div class="mt-6 flex gap-3">
-        <button data-action="click->backup-codes#download" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <button data-action="click->backup-codes#download" class="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
           <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Download Codes
         </button>
 
-        <button data-action="click->backup-codes#print" class="inline-flex items-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <button data-action="click->backup-codes#print" class="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
           <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
@@ -47,13 +47,12 @@
       <div class="mt-8">
         <% if @auto_signin_pending %>
           <%= button_to "Continue to Sign In", complete_totp_setup_path, method: :post,
-              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900" %>
         <% else %>
           <%= link_to "Done", profile_path,
-              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" %>
+              class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900" %>
         <% end %>
       </div>
     </div>
   </div>
 </div>
-

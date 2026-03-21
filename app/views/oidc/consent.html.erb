@@ -1,30 +1,30 @@
 <div class="mx-auto max-w-md">
-  <div class="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
+  <div class="bg-white dark:bg-gray-800 py-8 px-6 shadow rounded-lg sm:px-10">
     <div class="mb-8 text-center">
       <% if @application.icon.attached? %>
-        <%= image_tag @application.icon, class: "mx-auto h-20 w-20 rounded-xl object-cover border-2 border-gray-200 shadow-sm mb-4", alt: "#{@application.name} icon" %>
+        <%= image_tag @application.icon, class: "mx-auto h-20 w-20 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 shadow-sm mb-4", alt: "#{@application.name} icon" %>
       <% else %>
-        <div class="mx-auto h-20 w-20 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center mb-4">
-          <svg class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="mx-auto h-20 w-20 rounded-xl bg-gray-100 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center mb-4">
+          <svg class="h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
       <% end %>
-      <h2 class="text-2xl font-bold text-gray-900">Authorize Application</h2>
-      <p class="mt-2 text-sm text-gray-600">
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Authorize Application</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
         <strong><%= @application.name %></strong> is requesting access to your account.
       </p>
     </div>
 
     <div class="mb-6">
-      <h3 class="text-sm font-medium text-gray-900 mb-3">This application will be able to:</h3>
+      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">This application will be able to:</h3>
       <ul class="space-y-2">
         <% if @scopes.include?("openid") %>
           <li class="flex items-start">
             <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
-            <span class="text-sm text-gray-700">Verify your identity</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">Verify your identity</span>
           </li>
         <% end %>
         <% if @scopes.include?("email") %>
@@ -32,7 +32,7 @@
             <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
-            <span class="text-sm text-gray-700">Access your email address (<%= Current.session.user.email_address %>)</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">Access your email address (<%= Current.session.user.email_address %>)</span>
           </li>
         <% end %>
         <% if @scopes.include?("profile") %>
@@ -40,7 +40,7 @@
             <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
-            <span class="text-sm text-gray-700">Access your profile information</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">Access your profile information</span>
           </li>
         <% end %>
         <% if @scopes.include?("groups") %>
@@ -48,18 +48,18 @@
             <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
-            <span class="text-sm text-gray-700">Access your group memberships</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">Access your group memberships</span>
           </li>
         <% end %>
       </ul>
     </div>
 
-    <div class="rounded-md bg-blue-50 p-4 mb-6">
+    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-4 mb-6">
       <div class="flex">
         <svg class="h-5 w-5 text-blue-400 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
         </svg>
-        <div class="text-sm text-blue-700">
+        <div class="text-sm text-blue-700 dark:text-blue-300">
           <p>You'll be redirected to:</p>
           <p class="mt-1 font-mono text-xs break-all"><%= @redirect_uri %></p>
         </div>
@@ -68,13 +68,13 @@
 
     <%= form_with url: "/oauth/authorize/consent", method: :post, class: "space-y-3", data: { turbo: false }, local: true do |form| %>
       <%= form.submit "Authorize",
-          class: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" %>
+          class: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 focus:ring-blue-500" %>
 
       <%= button_tag "Deny",
           type: :submit,
           name: :deny,
           value: "1",
-          class: "w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" %>
+          class: "w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 focus:ring-blue-500" %>
     <% end %>
   </div>
 </div>

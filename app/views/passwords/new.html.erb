@@ -7,7 +7,7 @@
 
   <%= form_with url: passwords_path, class: "contents", data: { controller: "form-errors" } do |form| %>
     <div class="my-5">
-      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email_address], class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email_address], class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" %>
     </div>
 
     <div class="inline">
