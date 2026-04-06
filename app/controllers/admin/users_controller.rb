@@ -122,15 +122,14 @@ module Admin
     end
 
     def user_params
-      # Base attributes that all admins can modify
-      base_params = params.require(:user).permit(:email_address, :username, :name, :password, :status, :totp_required, :custom_claims)
+      permitted = [:email_address, :username, :name, :password, :status, :totp_required, :custom_claims]
 
       # Only allow modifying admin status when editing other users (prevent self-demotion)
       if params[:id] != Current.session.user.id.to_s
-        base_params[:admin] = params[:user][:admin] if params[:user][:admin].present?
+        permitted << :admin
       end
 
-      base_params
+      params.require(:user).permit(*permitted)
     end
   end
 end

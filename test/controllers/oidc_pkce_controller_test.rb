@@ -33,8 +33,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     config = JSON.parse(@response.body)
 
     assert config.key?("code_challenge_methods_supported")
-    assert_includes config["code_challenge_methods_supported"], "S256"
-    assert_includes config["code_challenge_methods_supported"], "plain"
+    assert_equal ["S256"], config["code_challenge_methods_supported"]
   end
 
   test "authorization endpoint accepts PKCE parameters (S256)" do
@@ -58,7 +57,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_match(/consent/, @response.body.downcase)
   end
 
-  test "authorization endpoint accepts PKCE parameters (plain)" do
+  test "authorization endpoint rejects PKCE plain method" do
     code_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 
     auth_params = {
@@ -74,9 +73,9 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
 
     get "/oauth/authorize", params: auth_params
 
-    # Should show consent page (user is already authenticated)
-    assert_response :success
-    assert_match(/consent/, @response.body.downcase)
+    assert_response :redirect
+    assert_match(/error=invalid_request/, @response.location)
+    assert_match(/S256/, @response.location)
   end
 
   test "authorization endpoint rejects invalid code_challenge_method" do
@@ -153,7 +152,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_match(/code_verifier is required/, error["error_description"])
   end
 
-  test "token endpoint requires code_verifier when PKCE was used (plain)" do
+  test "token endpoint requires code_verifier when PKCE was used" do
     # Create consent for token endpoint
     OidcUserConsent.create!(
       user: @user,
@@ -163,14 +162,16 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       sid: "test-sid-123"
     )
 
-    # Create authorization code with PKCE plain
+    code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    code_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
+
     auth_code = OidcAuthorizationCode.create!(
       application: @application,
       user: @user,
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
-      code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
-      code_challenge_method: "plain",
+      code_challenge: code_challenge,
+      code_challenge_method: "S256",
       expires_at: 10.minutes.from_now
     )
 
@@ -274,28 +275,24 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Bearer", tokens["token_type"]
   end
 
-  test "token endpoint accepts valid code_verifier (plain)" do
-    # Create consent for token endpoint
-    OidcUserConsent.create!(
-      user: @user,
-      application: @application,
-      scopes_granted: "openid profile",
-      granted_at: Time.current,
-      sid: "test-sid-123"
-    )
-
+  test "token endpoint rejects code_verifier with plain challenge method" do
     code_verifier = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 
-    # Create authorization code with PKCE plain
-    auth_code = OidcAuthorizationCode.create!(
+    # Directly insert a plain auth code to simulate legacy data
+    # Generate code HMAC manually since save!(validate: false) skips before_validation
+    plaintext_code = SecureRandom.urlsafe_base64(32)
+    auth_code = OidcAuthorizationCode.new(
       application: @application,
       user: @user,
       redirect_uri: "http://localhost:4000/callback",
       scope: "openid profile",
-      code_challenge: code_verifier, # Same as verifier for plain method
+      code_challenge: code_verifier,
       code_challenge_method: "plain",
+      code_hmac: OidcAuthorizationCode.compute_code_hmac(plaintext_code),
       expires_at: 10.minutes.from_now
     )
+    auth_code.plaintext_code = plaintext_code
+    auth_code.save!(validate: false)
 
     token_params = {
       grant_type: "authorization_code",
@@ -308,11 +305,9 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       "Authorization" => "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@application.client_secret}")
     }
 
-    assert_response :success
-    tokens = JSON.parse(@response.body)
-    assert tokens.key?("access_token")
-    assert tokens.key?("id_token")
-    assert_equal "Bearer", tokens["token_type"]
+    assert_response :bad_request
+    body = JSON.parse(@response.body)
+    assert_equal "invalid_request", body["error"]
   end
 
   test "token endpoint works without PKCE (backward compatibility)" do

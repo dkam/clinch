@@ -11,7 +11,7 @@ Rails.application.configure do
 
     # Scripts: Allow self, importmaps, unsafe-inline for Turbo/StimulusJS, and blob: for downloads
     # Note: unsafe_inline is needed for Stimulus controllers and Turbo navigation
-    policy.script_src :self, :unsafe_inline, :unsafe_eval, "blob:"
+    policy.script_src :self, :unsafe_inline, "blob:"
 
     # Styles: Allow self and unsafe_inline for TailwindCSS dynamic classes
     # and Stimulus controller style manipulations

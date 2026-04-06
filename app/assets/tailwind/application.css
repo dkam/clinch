@@ -3,6 +3,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
+  input:where([type="text"], [type="email"], [type="password"], [type="number"], [type="url"], [type="tel"], [type="search"]),
+  textarea,
+  select {
+    padding: 0.5rem 0.75rem;
+  }
+
   .dark input:where([type="text"], [type="email"], [type="password"], [type="number"], [type="url"], [type="tel"], [type="search"]),
   .dark textarea,
   .dark select {

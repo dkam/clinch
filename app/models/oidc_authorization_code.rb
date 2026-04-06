@@ -9,7 +9,7 @@ class OidcAuthorizationCode < ApplicationRecord
 
   validates :code_hmac, presence: true, uniqueness: true
   validates :redirect_uri, presence: true
-  validates :code_challenge_method, inclusion: {in: %w[plain S256], allow_nil: true}
+  validates :code_challenge_method, inclusion: {in: %w[S256], allow_nil: true}
   validate :validate_code_challenge_format, if: -> { code_challenge.present? }
 
   scope :valid, -> { where(used: false).where("expires_at > ?", Time.current) }

@@ -26,7 +26,7 @@ class Application < ApplicationRecord
 
   has_one_attached :icon
 
-  # Fix SVG content type after attachment
+  before_validation :sanitize_svg_icon, if: -> { attachment_changes["icon"].present? }
   after_save :fix_icon_content_type, if: -> { icon.attached? && saved_change_to_attribute?(:id) == false }
 
   has_many :application_groups, dependent: :destroy
@@ -281,6 +281,21 @@ class Application < ApplicationRecord
     if icon.filename.extension == "svg" && icon.content_type == "application/octet-stream"
       icon.blob.update(content_type: "image/svg+xml")
     end
+  end
+
+  def sanitize_svg_icon
+    return unless icon.content_type == "image/svg+xml"
+
+    raw_svg = icon.download
+    doc = Loofah.xml_document(raw_svg)
+    doc.scrub!(SvgScrubber.new)
+    clean_svg = doc.to_xml
+
+    icon.attach(
+      io: StringIO.new(clean_svg),
+      filename: icon.filename.to_s,
+      content_type: "image/svg+xml"
+    )
   end
 
   def icon_validation

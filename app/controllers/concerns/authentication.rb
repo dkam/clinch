@@ -31,7 +31,7 @@ module Authentication
   end
 
   def find_session_by_cookie
-    Session.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
+    Session.active.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
   end
 
   def request_authentication
@@ -58,8 +58,8 @@ module Authentication
         {
           value: session.id,
           httponly: true,
-          same_site: :none,  # Allow cross-site cookies for OIDC testing
-          secure: true        # Required for SameSite=None
+          same_site: :lax,
+          secure: true
         }
       else
         {

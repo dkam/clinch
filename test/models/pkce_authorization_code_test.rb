@@ -38,23 +38,18 @@ class PkceAuthorizationCodeTest < ActiveSupport::TestCase
     assert auth_code.uses_pkce?
   end
 
-  test "authorization code can store PKCE challenge with plain method" do
-    code_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
-    code_challenge_method = "plain"
-
-    auth_code = OidcAuthorizationCode.create!(
-      application: @application,
-      user: @user,
-      redirect_uri: "http://localhost:4000/callback",
-      scope: "openid profile",
-      code_challenge: code_challenge,
-      code_challenge_method: code_challenge_method,
-      expires_at: 10.minutes.from_now
-    )
-
-    assert_equal code_challenge, auth_code.code_challenge
-    assert_equal code_challenge_method, auth_code.code_challenge_method
-    assert auth_code.uses_pkce?
+  test "authorization code rejects plain PKCE method" do
+    assert_raises(ActiveRecord::RecordInvalid) do
+      OidcAuthorizationCode.create!(
+        application: @application,
+        user: @user,
+        redirect_uri: "http://localhost:4000/callback",
+        scope: "openid profile",
+        code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        code_challenge_method: "plain",
+        expires_at: 10.minutes.from_now
+      )
+    end
   end
 
   test "authorization code works without PKCE (backward compatibility)" do

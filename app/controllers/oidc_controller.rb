@@ -1,4 +1,6 @@
 class OidcController < ApplicationController
+  SUPPORTED_SCOPES = %w[openid profile email groups offline_access].freeze
+
   # Discovery and JWKS endpoints are public
   # authorize is also unauthenticated to handle prompt=none and prompt=login specially
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout, :authorize]
@@ -29,7 +31,7 @@ class OidcController < ApplicationController
       grant_types_supported: ["authorization_code", "refresh_token"],
       subject_types_supported: ["pairwise"],
       id_token_signing_alg_values_supported: ["RS256"],
-      scopes_supported: ["openid", "profile", "email", "groups", "offline_access"],
+      scopes_supported: SUPPORTED_SCOPES,
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
       claims_supported: [
         "sub",              # Always included
@@ -42,7 +44,7 @@ class OidcController < ApplicationController
         # Note: Custom claims are also supported but not listed here
         # ID-token-only claims (auth_time, acr, azp, at_hash, nonce) are not listed
       ],
-      code_challenge_methods_supported: ["plain", "S256"],
+      code_challenge_methods_supported: ["S256"],
       backchannel_logout_supported: true,
       backchannel_logout_session_supported: true,
       request_parameter_supported: false,
@@ -67,7 +69,7 @@ class OidcController < ApplicationController
     scope = params[:scope] || "openid"
     response_type = params[:response_type]
     code_challenge = params[:code_challenge]
-    code_challenge_method = params[:code_challenge_method] || "plain"
+    code_challenge_method = params[:code_challenge_method] || "S256"
 
     # Validate client_id first (required before we can look up the application)
     # OAuth2 RFC 6749 Section 4.1.2.1: If client_id is missing/invalid, show error page (don't redirect)
@@ -146,10 +148,10 @@ class OidcController < ApplicationController
 
     # Validate PKCE parameters if present (now we can safely redirect with error)
     if code_challenge.present?
-      unless %w[plain S256].include?(code_challenge_method)
+      unless code_challenge_method == "S256"
         Rails.logger.error "OAuth: Invalid code_challenge_method: #{code_challenge_method}"
         error_uri = "#{redirect_uri}?error=invalid_request"
-        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge_method: must be 'plain' or 'S256'")}"
+        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge_method: only 'S256' is supported")}"
         error_uri += "&state=#{CGI.escape(state)}" if state.present?
         redirect_to error_uri, allow_other_host: true
         return
@@ -289,7 +291,15 @@ class OidcController < ApplicationController
       return
     end
 
-    requested_scopes = scope.split(" ")
+    requested_scopes = scope.split(" ") & SUPPORTED_SCOPES
+    scope = requested_scopes.join(" ")
+
+    unless requested_scopes.include?("openid")
+      error_uri = "#{redirect_uri}?error=invalid_scope&error_description=#{CGI.escape("The 'openid' scope is required")}"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
 
     # Check if application is configured to skip consent
     # If so, automatically create consent and proceed without showing consent screen
@@ -420,8 +430,7 @@ class OidcController < ApplicationController
 
     user = Current.session.user
 
-    # Record user consent
-    requested_scopes = oauth_params["scope"].split(" ")
+    requested_scopes = oauth_params["scope"].split(" ") & SUPPORTED_SCOPES
     parsed_claims = begin
       JSON.parse(oauth_params["claims_requests"])
     rescue
@@ -1041,16 +1050,14 @@ class OidcController < ApplicationController
 
     # Recreate code challenge based on method
     expected_challenge = case auth_code.code_challenge_method
-    when "plain"
-      code_verifier
     when "S256"
       Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false)
     else
       return {
         valid: false,
-        error: "server_error",
-        error_description: "Unsupported code challenge method",
-        status: :internal_server_error
+        error: "invalid_request",
+        error_description: "Unsupported code challenge method: only 'S256' is supported",
+        status: :bad_request
       }
     end
 
@@ -1156,6 +1163,7 @@ class OidcController < ApplicationController
   # id_token and/or userinfo keys, each mapping to claim requests
   def parse_claims_parameter(claims_string)
     return {} if claims_string.blank?
+    return nil if claims_string.length > 4096
 
     parsed = JSON.parse(claims_string)
     return nil unless parsed.is_a?(Hash)

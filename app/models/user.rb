@@ -107,12 +107,12 @@ class User < ApplicationRecord
       save! # Save the updated array
 
       # Log successful backup code usage for security monitoring
-      Rails.logger.info "Backup code used successfully - User ID: #{id}, IP: #{Current.session&.client_ip}"
+      Rails.logger.info "Backup code used successfully - User ID: #{id}, IP: #{Current.session&.ip_address}"
       true
     else
       # Increment failed attempt counter and log for security monitoring
       increment_backup_code_failed_attempts
-      Rails.logger.warn "Failed backup code attempt - User ID: #{id}, IP: #{Current.session&.client_ip}"
+      Rails.logger.warn "Failed backup code attempt - User ID: #{id}, IP: #{Current.session&.ip_address}"
       false
     end
   end

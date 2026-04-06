@@ -1,6 +1,8 @@
 class OidcJwtService
   extend ClaimsMerger
 
+  RESERVED_CLAIMS = %i[iss sub aud exp iat nbf jti nonce azp].freeze
+
   class << self
     # Generate an ID token (JWT) for the user
     def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil, scopes: "openid", claims_requests: {})
@@ -79,15 +81,16 @@ class OidcJwtService
 
       # Merge custom claims from groups (arrays are combined, not overwritten)
       # Note: Custom claims from groups are always merged (not scope-dependent)
+      # Reserved claims are stripped as defense-in-depth (also validated at model layer)
       user.groups.each do |group|
-        payload = deep_merge_claims(payload, group.parsed_custom_claims)
+        payload = deep_merge_claims(payload, group.parsed_custom_claims.except(*RESERVED_CLAIMS))
       end
 
       # Merge custom claims from user (arrays are combined, other values override)
-      payload = deep_merge_claims(payload, user.parsed_custom_claims)
+      payload = deep_merge_claims(payload, user.parsed_custom_claims.except(*RESERVED_CLAIMS))
 
       # Merge app-specific custom claims (highest priority, arrays are combined)
-      payload = deep_merge_claims(payload, application.custom_claims_for_user(user))
+      payload = deep_merge_claims(payload, application.custom_claims_for_user(user).except(*RESERVED_CLAIMS))
 
       # Filter custom claims based on claims parameter
       # If claims parameter is present, only include requested custom claims
