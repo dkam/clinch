@@ -1,6 +1,6 @@
-<div class="mx-auto md:w-2/3 w-full" data-controller="webauthn login-form" data-webauthn-check-url-value="/webauthn/check">
+<div class="mx-auto max-w-md w-full" data-controller="webauthn login-form" data-webauthn-check-url-value="/webauthn/check">
   <div class="mb-8">
-    <h1 class="font-bold text-4xl">Sign in to Clinch</h1>
+    <h1 class="font-bold text-4xl text-center">Sign in to Clinch</h1>
   </div>
 
   <%= form_with url: signin_path, class: "contents", data: { controller: "form-errors" } do |form| %>
@@ -51,6 +51,11 @@
             placeholder: "Enter your password",
             maxlength: 72,
             class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" %>
+      </div>
+
+      <div class="my-5 flex items-center">
+        <%= form.check_box :remember_me, { class: "rounded border-gray-400 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800" }, "1", "0" %>
+        <%= form.label :remember_me, "Remember me for 30 days", class: "ml-2 text-sm text-gray-600 dark:text-gray-400" %>
       </div>
 
       <div class="my-5">

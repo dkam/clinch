@@ -76,6 +76,7 @@ class SessionsController < ApplicationController
       # TOTP is enabled, proceed to verification
       # Store user ID in session temporarily for TOTP verification
       session[:pending_totp_user_id] = user.id
+      session[:pending_remember_me] = remember_me?
       # Preserve the redirect URL through TOTP verification (after validation)
       if params[:rd].present?
         validated_url = validate_redirect_url(params[:rd])
@@ -86,7 +87,7 @@ class SessionsController < ApplicationController
     end
 
     # Sign in successful (password only)
-    start_new_session_for user, acr: "1"
+    start_new_session_for user, acr: "1", remember_me: remember_me?
 
     # Use status: :see_other to ensure browser makes a GET request
     # This prevents Turbo from converting it to a TURBO_STREAM request
@@ -118,6 +119,8 @@ class SessionsController < ApplicationController
         return
       end
 
+      remember_me = session.delete(:pending_remember_me) || false
+
       # Try TOTP verification first (password + TOTP = 2FA)
       if user.verify_totp(code)
         session.delete(:pending_totp_user_id)
@@ -125,7 +128,7 @@ class SessionsController < ApplicationController
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
-        start_new_session_for user, acr: "2"
+        start_new_session_for user, acr: "2", remember_me: remember_me
         redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
         return
       end
@@ -137,7 +140,7 @@ class SessionsController < ApplicationController
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
-        start_new_session_for user, acr: "2"
+        start_new_session_for user, acr: "2", remember_me: remember_me
         redirect_to after_authentication_url, notice: "Signed in successfully using backup code.", allow_other_host: true
         return
       end
@@ -189,6 +192,7 @@ class SessionsController < ApplicationController
 
     # Store user ID in session for verification
     session[:pending_webauthn_user_id] = user.id
+    session[:pending_remember_me] = remember_me?
 
     # Store redirect URL if present
     if params[:rd].present?
@@ -284,12 +288,13 @@ class SessionsController < ApplicationController
 
       # Clean up session
       session.delete(:pending_webauthn_user_id)
+      remember_me = session.delete(:pending_remember_me) || false
       if session[:webauthn_redirect_url].present?
         session[:return_to_after_authenticating] = session.delete(:webauthn_redirect_url)
       end
 
       # Create session (WebAuthn/passkey = phishing-resistant, ACR = "2")
-      start_new_session_for user, acr: "2"
+      start_new_session_for user, acr: "2", remember_me: remember_me
 
       render json: {
         success: true,
@@ -309,6 +314,10 @@ class SessionsController < ApplicationController
   end
 
   private
+
+  def remember_me?
+    ActiveModel::Type::Boolean.new.cast(params[:remember_me]) || false
+  end
 
   def validate_redirect_url(url)
     return nil unless url.present?

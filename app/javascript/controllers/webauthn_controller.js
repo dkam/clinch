@@ -180,7 +180,8 @@ export default class extends Controller {
           "X-CSRF-Token": this.getCSRFToken()
         },
         body: JSON.stringify({
-          email: this.getUserEmail()
+          email: this.getUserEmail(),
+          remember_me: this.getRememberMe()
         })
       });
 
@@ -293,6 +294,11 @@ export default class extends Controller {
       emailInput = document.querySelector('input[name="webauthn_email"]');
     }
     return emailInput ? emailInput.value.trim() : "";
+  }
+
+  getRememberMe() {
+    const checkbox = document.querySelector('input[name="remember_me"][type="checkbox"]');
+    return checkbox ? checkbox.checked : false;
   }
 
   isValidEmail(email) {
