@@ -168,6 +168,12 @@ class OidcController < ApplicationController
       end
     end
 
+    # Normalize requested scopes to the set we support. Needed here so claims
+    # validation below can check claim→scope coverage against what will actually
+    # be granted.
+    requested_scopes = scope.split(" ") & SUPPORTED_SCOPES
+    scope = requested_scopes.join(" ")
+
     # Parse claims parameter (JSON string) for OIDC claims request
     # Per OIDC Core §5.5: The claims parameter is a JSON object that requests
     # specific claims to be returned in the id_token and/or userinfo
@@ -290,9 +296,6 @@ class OidcController < ApplicationController
       render plain: "You do not have permission to access this application", status: :forbidden
       return
     end
-
-    requested_scopes = scope.split(" ") & SUPPORTED_SCOPES
-    scope = requested_scopes.join(" ")
 
     unless requested_scopes.include?("openid")
       error_uri = "#{redirect_uri}?error=invalid_scope&error_description=#{CGI.escape("The 'openid' scope is required")}"
