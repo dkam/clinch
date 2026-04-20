@@ -163,16 +163,25 @@ module Api
 
     def check_forward_auth_token
       token = params[:fa_token]
-      return nil unless token.present?
+      return nil if token.blank?
 
-      session_id = Rails.cache.read("forward_auth_token:#{token}")
-      return nil unless session_id
+      cached = Rails.cache.read("forward_auth_token:#{token}")
+      return nil unless cached.is_a?(Hash)
 
-      session = Session.find_by(id: session_id)
+      # The token is bound to the host that created it. If the request is
+      # arriving at a different host, refuse — and do NOT burn the cache
+      # entry, so that the legitimate destination can still redeem within
+      # the 60s TTL.
+      request_host = (request.headers["X-Forwarded-Host"] || request.headers["Host"])
+        .to_s.sub(/:\d+\z/, "").downcase
+      return nil if request_host.blank?
+      return nil unless cached[:host] == request_host
+
+      session = Session.find_by(id: cached[:session_id])
       return nil unless session && !session.expired?
 
       Rails.cache.delete("forward_auth_token:#{token}")
-      session_id
+      cached[:session_id]
     end
 
     def extract_session_id

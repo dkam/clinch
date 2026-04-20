@@ -130,35 +130,35 @@ module Authentication
   end
 
   # Create a one-time token for forward auth to handle the race condition
-  # where the browser hasn't processed the session cookie yet
+  # where the browser hasn't processed the session cookie yet.
+  #
+  # The token is bound to the destination host so that anyone who observes
+  # the token (Referer leaks, access logs, JS monitors) cannot redeem it for
+  # a different application within the 60-second TTL.
   def create_forward_auth_token(session_obj)
-    # Generate a secure random token
-    token = SecureRandom.urlsafe_base64(32)
+    controller_session = session
+    return unless controller_session[:return_to_after_authenticating].present?
 
-    # Store it with an expiry of 60 seconds
+    uri = URI.parse(controller_session[:return_to_after_authenticating])
+
+    # OAuth flow handles its own session propagation — no fa_token needed.
+    return if uri.path&.start_with?("/oauth/")
+
+    # Path-only URLs are same-origin on Clinch; the cookie race doesn't apply
+    # and we have no destination host to bind against.
+    bound_host = uri.hostname&.downcase
+    return if bound_host.blank?
+
+    token = SecureRandom.urlsafe_base64(32)
     Rails.cache.write(
       "forward_auth_token:#{token}",
-      session_obj.id,
+      { session_id: session_obj.id, host: bound_host },
       expires_in: 60.seconds
     )
 
-    # Set the token as a query parameter on the redirect URL
-    # We need to store this in the controller's session
-    controller_session = session
-    if controller_session[:return_to_after_authenticating].present?
-      original_url = controller_session[:return_to_after_authenticating]
-      uri = URI.parse(original_url)
-
-      # Skip adding fa_token for OAuth URLs (OAuth flow should not have forward auth tokens)
-      unless uri.path&.start_with?("/oauth/")
-        # Add token as query parameter
-        query_params = URI.decode_www_form(uri.query || "").to_h
-        query_params["fa_token"] = token
-        uri.query = URI.encode_www_form(query_params)
-
-        # Update the session with the tokenized URL
-        controller_session[:return_to_after_authenticating] = uri.to_s
-      end
-    end
+    query_params = URI.decode_www_form(uri.query || "").to_h
+    query_params["fa_token"] = token
+    uri.query = URI.encode_www_form(query_params)
+    controller_session[:return_to_after_authenticating] = uri.to_s
   end
 end

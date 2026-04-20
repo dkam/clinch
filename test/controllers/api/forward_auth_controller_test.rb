@@ -698,6 +698,137 @@ module Api
       assert_equal 30, count, "Successful request should not reset or decrement failure counter"
     end
 
+    # fa_token Host-Binding Tests (H-2)
+    #
+    # Rails.cache is a :null_store in test, so these cases swap in a
+    # MemoryStore for the duration of each test and restore it after.
+    class FaTokenHostBindingTest < ActionDispatch::IntegrationTest
+      setup do
+        @user = users(:bob)
+        Application.create!(name: "Bound App", slug: "bound-app", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+
+        @original_cache = Rails.cache
+        Rails.cache = ActiveSupport::Cache::MemoryStore.new
+
+        @session = Session.create!(user: @user, ip_address: "127.0.0.1", user_agent: "test")
+        @token = "test-fa-token-123"
+        Rails.cache.write(
+          "forward_auth_token:#{@token}",
+          {session_id: @session.id, host: "app.example.com"},
+          expires_in: 60.seconds
+        )
+      end
+
+      teardown do
+        Rails.cache = @original_cache
+      end
+
+      test "matching X-Forwarded-Host allows redemption" do
+        get "/api/verify", params: {fa_token: @token},
+          headers: {"X-Forwarded-Host" => "app.example.com"}
+
+        assert_response 200
+        assert_nil Rails.cache.read("forward_auth_token:#{@token}"),
+          "cache entry should be burned on successful redemption"
+      end
+
+      test "mismatched X-Forwarded-Host is rejected and cache entry survives" do
+        get "/api/verify", params: {fa_token: @token},
+          headers: {"X-Forwarded-Host" => "evil.example.com"}
+
+        # Falls through to session-cookie auth; no cookie in this test -> 302 unauth redirect
+        assert_response 302
+        assert_equal "No session cookie", response.headers["x-auth-reason"]
+
+        cached = Rails.cache.read("forward_auth_token:#{@token}")
+        assert cached.is_a?(Hash), "cache entry must NOT be burned on host mismatch"
+        assert_equal "app.example.com", cached[:host]
+      end
+
+      test "port in X-Forwarded-Host is ignored for host binding" do
+        # Note: the subsequent Application domain-pattern match uses the raw
+        # X-Forwarded-Host (with port) and would 403, but that's orthogonal to
+        # the fa_token check. Successful binding is proven by the cache entry
+        # being burned.
+        get "/api/verify", params: {fa_token: @token},
+          headers: {"X-Forwarded-Host" => "APP.example.com:8443"}
+
+        assert_nil Rails.cache.read("forward_auth_token:#{@token}"),
+          "port + case variation should still match the bound host and burn the token"
+      end
+
+      test "falls back to Host header when X-Forwarded-Host is missing" do
+        get "/api/verify", params: {fa_token: @token},
+          headers: {"Host" => "app.example.com"}
+
+        assert_response 200
+      end
+
+      test "rejects when neither X-Forwarded-Host nor Host match" do
+        get "/api/verify", params: {fa_token: @token},
+          headers: {"Host" => "unknown.example.com"}
+
+        assert_response 302
+        cached = Rails.cache.read("forward_auth_token:#{@token}")
+        assert cached.is_a?(Hash), "cache entry must survive mismatched Host"
+      end
+    end
+
+    # fa_token Creation Tests (H-2)
+    #
+    # The URL-rewriting half of the H-2 fix: tokens are only created when the
+    # return URL has a host. Path-only URLs must not produce an fa_token
+    # (no cookie race exists for same-origin redirects, and there is no
+    # host to bind against).
+    class FaTokenCreationTest < ActionDispatch::IntegrationTest
+      setup do
+        @user = users(:bob)
+        Application.create!(name: "Create App", slug: "create-app", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+
+        @original_cache = Rails.cache
+        Rails.cache = ActiveSupport::Cache::MemoryStore.new
+      end
+
+      teardown do
+        Rails.cache = @original_cache
+      end
+
+      test "path-only return_to does not produce an fa_token or cache entry" do
+        # Path-only rd (no host) — signin should not append fa_token.
+        post "/signin",
+          params: {email_address: @user.email_address, password: "password", rd: "/profile"}
+
+        assert_response 303
+        refute_match(/fa_token=/, response.location, "no fa_token for path-only return_to")
+
+        # And no forward_auth_token:* cache entries should have been written.
+        # MemoryStore exposes @data; we just assert there are no matching keys.
+        keys = Rails.cache.instance_variable_get(:@data).keys
+        fa_keys = keys.select { |k| k.to_s.start_with?("forward_auth_token:") }
+        assert_empty fa_keys, "no fa_token cache entries for path-only return_to"
+      end
+
+      test "cross-origin return_to produces an fa_token bound to that host" do
+        # First bounce through /api/verify to populate session[:return_to_after_authenticating]
+        # with a full URL, then sign in.
+        get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
+        assert_response 302
+
+        post "/signin",
+          params: {email_address: @user.email_address, password: "password"}
+        assert_response 303
+
+        # Extract the fa_token that was appended.
+        assert_match(/fa_token=([^&]+)/, response.location)
+        token = response.location[/fa_token=([^&]+)/, 1]
+
+        cached = Rails.cache.read("forward_auth_token:#{token}")
+        assert cached.is_a?(Hash), "cache entry should be a Hash, not legacy integer"
+        assert_equal "app.example.com", cached[:host]
+        assert cached[:session_id].present?
+      end
+    end
+
     # Performance and Load Tests
     test "should handle requests efficiently under load" do
       sign_in_as(@user)
