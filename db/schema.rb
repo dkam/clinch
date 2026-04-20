@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_20_073319) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -118,6 +118,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
     t.integer "application_id", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
+    t.integer "oidc_authorization_code_id"
     t.datetime "revoked_at"
     t.string "scope"
     t.string "token_hmac"
@@ -126,6 +127,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
     t.index ["application_id", "user_id"], name: "index_oidc_access_tokens_on_application_id_and_user_id"
     t.index ["application_id"], name: "index_oidc_access_tokens_on_application_id"
     t.index ["expires_at"], name: "index_oidc_access_tokens_on_expires_at"
+    t.index ["oidc_authorization_code_id"], name: "index_oidc_access_tokens_on_oidc_authorization_code_id"
     t.index ["revoked_at"], name: "index_oidc_access_tokens_on_revoked_at"
     t.index ["token_hmac"], name: "index_oidc_access_tokens_on_token_hmac", unique: true
     t.index ["user_id"], name: "index_oidc_access_tokens_on_user_id"
@@ -162,6 +164,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.integer "oidc_access_token_id", null: false
+    t.integer "oidc_authorization_code_id"
     t.datetime "revoked_at"
     t.string "scope"
     t.integer "token_family_id"
@@ -172,6 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
     t.index ["application_id"], name: "index_oidc_refresh_tokens_on_application_id"
     t.index ["expires_at"], name: "index_oidc_refresh_tokens_on_expires_at"
     t.index ["oidc_access_token_id"], name: "index_oidc_refresh_tokens_on_oidc_access_token_id"
+    t.index ["oidc_authorization_code_id"], name: "index_oidc_refresh_tokens_on_oidc_authorization_code_id"
     t.index ["revoked_at"], name: "index_oidc_refresh_tokens_on_revoked_at"
     t.index ["token_family_id"], name: "index_oidc_refresh_tokens_on_token_family_id"
     t.index ["token_hmac"], name: "index_oidc_refresh_tokens_on_token_hmac", unique: true
@@ -274,11 +278,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000001) do
   add_foreign_key "application_user_claims", "applications", on_delete: :cascade
   add_foreign_key "application_user_claims", "users", on_delete: :cascade
   add_foreign_key "oidc_access_tokens", "applications"
+  add_foreign_key "oidc_access_tokens", "oidc_authorization_codes"
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
   add_foreign_key "oidc_refresh_tokens", "applications"
   add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
+  add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes"
   add_foreign_key "oidc_refresh_tokens", "users"
   add_foreign_key "oidc_user_consents", "applications"
   add_foreign_key "oidc_user_consents", "users"

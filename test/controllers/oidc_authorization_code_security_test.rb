@@ -846,4 +846,62 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     old_token_record = OidcRefreshToken.find(refresh_token.id)
     assert old_token_record.revoked?
   end
+
+  test "code replay revokes the full token chain including rotated descendants" do
+    OidcUserConsent.create!(
+      user: @user,
+      application: @application,
+      scopes_granted: "openid profile",
+      granted_at: Time.current,
+      sid: "test-sid-chain"
+    )
+
+    auth_code = OidcAuthorizationCode.create!(
+      application: @application,
+      user: @user,
+      redirect_uri: "http://localhost:4000/callback",
+      scope: "openid profile",
+      expires_at: 10.minutes.from_now
+    )
+
+    basic = "Basic " + Base64.strict_encode64("#{@application.client_id}:#{@plain_client_secret}")
+
+    # Initial exchange -> A1 + R1
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.plaintext_code,
+      redirect_uri: "http://localhost:4000/callback"
+    }, headers: {"Authorization" => basic}
+    assert_response :success
+    first_refresh = JSON.parse(@response.body)["refresh_token"]
+
+    # Rotate once -> A2 + R2 (same auth_code FK carried forward)
+    post "/oauth/token", params: {
+      grant_type: "refresh_token",
+      refresh_token: first_refresh
+    }, headers: {"Authorization" => basic}
+    assert_response :success
+
+    # Sanity: the full chain is now linked to the auth_code
+    assert_equal 2, auth_code.oidc_access_tokens.count
+    assert_equal 2, auth_code.oidc_refresh_tokens.count
+
+    # Replay the original code
+    post "/oauth/token", params: {
+      grant_type: "authorization_code",
+      code: auth_code.plaintext_code,
+      redirect_uri: "http://localhost:4000/callback"
+    }, headers: {"Authorization" => basic}
+    assert_response :bad_request
+
+    # Every descendant token must now have revoked_at set
+    auth_code.oidc_access_tokens.each do |token|
+      assert_not_nil token.reload.revoked_at,
+        "access token #{token.id} should have revoked_at set after replay"
+    end
+    auth_code.oidc_refresh_tokens.each do |token|
+      assert_not_nil token.reload.revoked_at,
+        "refresh token #{token.id} should have revoked_at set after replay"
+    end
+  end
 end

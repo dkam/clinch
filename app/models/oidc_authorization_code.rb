@@ -1,6 +1,8 @@
 class OidcAuthorizationCode < ApplicationRecord
   belongs_to :application
   belongs_to :user
+  has_many :oidc_access_tokens
+  has_many :oidc_refresh_tokens
 
   attr_accessor :plaintext_code
 

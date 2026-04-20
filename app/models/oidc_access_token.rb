@@ -1,6 +1,7 @@
 class OidcAccessToken < ApplicationRecord
   belongs_to :application
   belongs_to :user
+  belongs_to :oidc_authorization_code, optional: true
   has_many :oidc_refresh_tokens, dependent: :destroy
 
   before_validation :generate_token, on: :create

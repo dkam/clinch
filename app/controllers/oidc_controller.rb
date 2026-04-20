@@ -513,12 +513,12 @@ class OidcController < ApplicationController
           # Per OAuth 2.0 spec, if an auth code is reused, revoke all tokens issued from it
           Rails.logger.warn "OAuth Security: Authorization code reuse detected for code #{auth_code.id}"
 
-          # Revoke all access tokens issued from this authorization code
-          OidcAccessToken.where(
-            application: application,
-            user: auth_code.user,
-            created_at: auth_code.created_at..Time.current
-          ).update_all(expires_at: Time.current)
+          # Revoke the entire token chain derived from this code. revoke! sets
+          # revoked_at and cascades from each access token to its refresh tokens.
+          # Iterating refresh tokens directly is defensive in case rotation ever
+          # leaves an access token without its linked refresh token.
+          auth_code.oidc_access_tokens.find_each(&:revoke!)
+          auth_code.oidc_refresh_tokens.find_each(&:revoke!)
 
           render json: {
             error: "invalid_grant",
@@ -559,7 +559,8 @@ class OidcController < ApplicationController
         access_token_record = OidcAccessToken.create!(
           application: application,
           user: user,
-          scope: auth_code.scope
+          scope: auth_code.scope,
+          oidc_authorization_code: auth_code
         )
 
         # Generate refresh token (opaque, with hashing)
@@ -567,6 +568,7 @@ class OidcController < ApplicationController
           application: application,
           user: user,
           oidc_access_token: access_token_record,
+          oidc_authorization_code: auth_code,
           scope: auth_code.scope,
           auth_time: auth_code.auth_time,
           acr: auth_code.acr
@@ -694,7 +696,8 @@ class OidcController < ApplicationController
     new_access_token = OidcAccessToken.create!(
       application: application,
       user: user,
-      scope: refresh_token_record.scope
+      scope: refresh_token_record.scope,
+      oidc_authorization_code: refresh_token_record.oidc_authorization_code  # Carry FK so replay revocation catches rotated tokens
     )
 
     # Generate new refresh token (token rotation)
@@ -702,6 +705,7 @@ class OidcController < ApplicationController
       application: application,
       user: user,
       oidc_access_token: new_access_token,
+      oidc_authorization_code: refresh_token_record.oidc_authorization_code,  # Carry FK so replay revocation catches rotated tokens
       scope: refresh_token_record.scope,
       token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
       auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
