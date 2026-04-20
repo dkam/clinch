@@ -510,15 +510,12 @@ class OidcController < ApplicationController
 
         # Check if code has already been used (CRITICAL: check AFTER locking)
         if auth_code.used?
-          # Per OAuth 2.0 spec, if an auth code is reused, revoke all tokens issued from it
+          # Per OAuth 2.0 spec, if an auth code is reused, revoke every token
+          # descended from it (both generations across any rotations).
           Rails.logger.warn "OAuth Security: Authorization code reuse detected for code #{auth_code.id}"
-
-          # Revoke the entire token chain derived from this code. revoke! sets
-          # revoked_at and cascades from each access token to its refresh tokens.
-          # Iterating refresh tokens directly is defensive in case rotation ever
-          # leaves an access token without its linked refresh token.
-          auth_code.oidc_access_tokens.find_each(&:revoke!)
-          auth_code.oidc_refresh_tokens.find_each(&:revoke!)
+          now = Time.current
+          auth_code.oidc_access_tokens.where(revoked_at: nil).update_all(revoked_at: now)
+          auth_code.oidc_refresh_tokens.where(revoked_at: nil).update_all(revoked_at: now)
 
           render json: {
             error: "invalid_grant",
@@ -693,11 +690,15 @@ class OidcController < ApplicationController
     refresh_token_record.revoke!
 
     # Generate new access token record (opaque token with BCrypt hashing)
+    # Carry the authorization-code FK forward across rotations so replay
+    # revocation reaches every descendant token in the chain.
+    issuing_auth_code = refresh_token_record.oidc_authorization_code
+
     new_access_token = OidcAccessToken.create!(
       application: application,
       user: user,
       scope: refresh_token_record.scope,
-      oidc_authorization_code: refresh_token_record.oidc_authorization_code  # Carry FK so replay revocation catches rotated tokens
+      oidc_authorization_code: issuing_auth_code
     )
 
     # Generate new refresh token (token rotation)
@@ -705,7 +706,7 @@ class OidcController < ApplicationController
       application: application,
       user: user,
       oidc_access_token: new_access_token,
-      oidc_authorization_code: refresh_token_record.oidc_authorization_code,  # Carry FK so replay revocation catches rotated tokens
+      oidc_authorization_code: issuing_auth_code,
       scope: refresh_token_record.scope,
       token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
       auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
