@@ -6,6 +6,11 @@ class OidcController < ApplicationController
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout, :authorize]
   skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout, :authorize, :consent]
 
+  # RFC 6749 §4.1.2.1: client_id and redirect_uri must be validated *before* any
+  # other error can be reported via redirect. Failures here render a plain page.
+  before_action :set_application, only: :authorize
+  before_action :validate_redirect_uri, only: :authorize
+
   # Rate limiting to prevent brute force and abuse
   rate_limit to: 60, within: 1.minute, only: [:token, :revoke], with: -> {
     render json: {error: "too_many_requests", error_description: "Rate limit exceeded. Try again later."}, status: :too_many_requests
@@ -61,7 +66,8 @@ class OidcController < ApplicationController
 
   # GET /oauth/authorize
   def authorize
-    # Get parameters (ignore forward auth tokens and other unknown params)
+    # @application and a validated redirect_uri are guaranteed by the before_actions.
+    # Read the remaining parameters (ignore forward auth tokens and other unknown params).
     client_id = params[:client_id]
     redirect_uri = params[:redirect_uri]
     state = params[:state]
@@ -71,55 +77,8 @@ class OidcController < ApplicationController
     code_challenge = params[:code_challenge]
     code_challenge_method = params[:code_challenge_method] || "S256"
 
-    # Validate client_id first (required before we can look up the application)
-    # OAuth2 RFC 6749 Section 4.1.2.1: If client_id is missing/invalid, show error page (don't redirect)
-    unless client_id.present?
-      render plain: "Invalid request: client_id is required", status: :bad_request
-      return
-    end
-
-    # Find the application by client_id
-    @application = Application.find_by(client_id: client_id, app_type: "oidc")
-    unless @application
-      # Log all OIDC applications for debugging
-      all_oidc_apps = Application.where(app_type: "oidc")
-      Rails.logger.error "OAuth: Invalid request - application not found for client_id: #{client_id}"
-      Rails.logger.error "OAuth: Available OIDC applications: #{all_oidc_apps.pluck(:id, :client_id, :name)}"
-
-      error_msg = if Rails.env.development?
-        "Invalid request: Application not found for client_id '#{client_id}'. Available OIDC applications: #{all_oidc_apps.pluck(:name, :client_id).map { |name, id| "#{name} (#{id})" }.join(", ")}"
-      else
-        "Invalid request: Application not found"
-      end
-
-      render plain: error_msg, status: :bad_request
-      return
-    end
-
-    # Validate redirect_uri presence and format
-    # OAuth2 RFC 6749 Section 4.1.2.1: If redirect_uri is missing/invalid, show error page (don't redirect)
-    unless redirect_uri.present?
-      render plain: "Invalid request: redirect_uri is required", status: :bad_request
-      return
-    end
-
-    # Validate redirect URI matches one of the registered URIs
-    unless @application.parsed_redirect_uris.include?(redirect_uri)
-      Rails.logger.error "OAuth: Invalid request - redirect URI mismatch. Expected: #{@application.parsed_redirect_uris}, Got: #{redirect_uri}"
-
-      # For development, show detailed error
-      error_msg = if Rails.env.development?
-        "Invalid request: Redirect URI mismatch. Application is configured for: #{@application.parsed_redirect_uris.join(", ")}, but received: #{redirect_uri}"
-      else
-        "Invalid request: Redirect URI not registered for this application"
-      end
-
-      render plain: error_msg, status: :bad_request
-      return
-    end
-
     # ============================================================================
-    # At this point we have a valid client_id and redirect_uri
+    # client_id and redirect_uri are already validated (see before_actions).
     # All subsequent errors should redirect back to the client with error parameters
     # per OAuth2 RFC 6749 Section 4.1.2.1
     # ============================================================================
@@ -1011,6 +970,55 @@ class OidcController < ApplicationController
   end
 
   private
+
+  # Look up @application from client_id. RFC 6749 §4.1.2.1 requires that an
+  # invalid client_id be reported on-page, not via redirect.
+  def set_application
+    client_id = params[:client_id]
+
+    unless client_id.present?
+      render plain: "Invalid request: client_id is required", status: :bad_request
+      return
+    end
+
+    @application = Application.find_by(client_id: client_id, app_type: "oidc")
+    return if @application
+
+    Rails.logger.error "OAuth: Invalid request - application not found for client_id: #{client_id}"
+
+    error_msg = if Rails.env.development?
+      all_oidc_apps = Application.where(app_type: "oidc")
+      Rails.logger.error "OAuth: Available OIDC applications: #{all_oidc_apps.pluck(:id, :client_id, :name)}"
+      "Invalid request: Application not found for client_id '#{client_id}'. Available OIDC applications: #{all_oidc_apps.pluck(:name, :client_id).map { |name, id| "#{name} (#{id})" }.join(", ")}"
+    else
+      "Invalid request: Application not found"
+    end
+
+    render plain: error_msg, status: :bad_request
+  end
+
+  # Confirm the redirect_uri param is present and registered on @application.
+  # Must run after set_application. Errors render on-page per RFC 6749 §4.1.2.1.
+  def validate_redirect_uri
+    redirect_uri = params[:redirect_uri]
+
+    unless redirect_uri.present?
+      render plain: "Invalid request: redirect_uri is required", status: :bad_request
+      return
+    end
+
+    return if @application.parsed_redirect_uris.include?(redirect_uri)
+
+    Rails.logger.error "OAuth: Invalid request - redirect URI mismatch. Expected: #{@application.parsed_redirect_uris}, Got: #{redirect_uri}"
+
+    error_msg = if Rails.env.development?
+      "Invalid request: Redirect URI mismatch. Application is configured for: #{@application.parsed_redirect_uris.join(", ")}, but received: #{redirect_uri}"
+    else
+      "Invalid request: Redirect URI not registered for this application"
+    end
+
+    render plain: error_msg, status: :bad_request
+  end
 
   def validate_pkce(application, auth_code, code_verifier)
     # Check if PKCE is required for this application
