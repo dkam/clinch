@@ -35,8 +35,6 @@
       <div>
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Step 2: Verify</h3>
         <%= form_with url: totp_path, method: :post, class: "space-y-4" do |form| %>
-          <%= hidden_field_tag :totp_secret, @totp_secret %>
-
           <div>
             <%= label_tag :code, "Verification Code", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
             <%= text_field_tag :code,

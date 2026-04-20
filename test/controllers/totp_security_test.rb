@@ -257,6 +257,79 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
   # TOTP RECOVERY FLOW TESTS
   # ====================
 
+  # ====================
+  # TOTP ENROLLMENT — SECRET BINDING TESTS (H-1)
+  # ====================
+
+  test "enrollment uses the server-issued secret, not any client-submitted one" do
+    user = User.create!(email_address: "totp_enroll_binding@example.com", password: "password123")
+    post signin_path, params: {email_address: "totp_enroll_binding@example.com", password: "password123"}
+    assert_response :redirect
+
+    # Start enrollment: server generates a secret and stores it in the session
+    get new_totp_path
+    assert_response :success
+
+    # Attacker-supplied secret + a code that's valid for THAT secret must not
+    # succeed. The server should only ever consider its own session-stored secret.
+    attacker_secret = ROTP::Base32.random
+    attacker_code = ROTP::TOTP.new(attacker_secret).now
+
+    assert_no_enqueued_emails do
+      post totp_path, params: {totp_secret: attacker_secret, code: attacker_code}
+    end
+
+    user.reload
+    assert_nil user.totp_secret, "attacker-chosen secret must not be saved"
+    assert_not user.totp_enabled?
+
+    user.sessions.delete_all
+    user.destroy
+  end
+
+  test "enrollment succeeds, clears pending secret, and notifies the user by email" do
+    user = User.create!(email_address: "totp_enroll_success@example.com", password: "password123")
+    post signin_path, params: {email_address: "totp_enroll_success@example.com", password: "password123"}
+    assert_response :redirect
+
+    get new_totp_path
+    assert_response :success
+
+    # Pull the session-stored secret and produce a valid code for it
+    pending_secret = session[:pending_totp_secret]
+    assert pending_secret.present?, "new action should stash the secret in session"
+    valid_code = ROTP::TOTP.new(pending_secret).now
+
+    assert_enqueued_email_with TotpMailer, :enabled, args: [user] do
+      post totp_path, params: {code: valid_code}
+    end
+
+    user.reload
+    assert_equal pending_secret, user.totp_secret
+    assert user.totp_enabled?
+    assert_nil session[:pending_totp_secret], "pending secret must be cleared after enrollment"
+
+    user.sessions.delete_all
+    user.destroy
+  end
+
+  test "enrollment without a prior GET new is rejected" do
+    user = User.create!(email_address: "totp_enroll_no_session@example.com", password: "password123")
+    post signin_path, params: {email_address: "totp_enroll_no_session@example.com", password: "password123"}
+    assert_response :redirect
+
+    # Skip GET /totp/new — no session[:pending_totp_secret] is set
+    post totp_path, params: {code: "123456"}
+    assert_redirected_to new_totp_path
+
+    user.reload
+    assert_nil user.totp_secret
+    assert_not user.totp_enabled?
+
+    user.sessions.delete_all
+    user.destroy
+  end
+
   test "user can sign in with backup code when TOTP device is lost" do
     user = User.create!(email_address: "totp_recovery_test@example.com", password: "password123")
 
