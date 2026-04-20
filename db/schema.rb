@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_20_073319) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_20_080000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -278,13 +278,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_20_073319) do
   add_foreign_key "application_user_claims", "applications", on_delete: :cascade
   add_foreign_key "application_user_claims", "users", on_delete: :cascade
   add_foreign_key "oidc_access_tokens", "applications"
-  add_foreign_key "oidc_access_tokens", "oidc_authorization_codes"
+  add_foreign_key "oidc_access_tokens", "oidc_authorization_codes", on_delete: :nullify
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
   add_foreign_key "oidc_refresh_tokens", "applications"
   add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
-  add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes"
+  add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes", on_delete: :nullify
   add_foreign_key "oidc_refresh_tokens", "users"
   add_foreign_key "oidc_user_consents", "applications"
   add_foreign_key "oidc_user_consents", "users"
