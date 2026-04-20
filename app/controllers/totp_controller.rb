@@ -12,8 +12,8 @@ class TotpController < ApplicationController
     @totp_secret = ROTP::Base32.random
     @provisioning_uri = ROTP::TOTP.new(@totp_secret, issuer: "Clinch").provisioning_uri(@user.email_address)
 
-    # Hold the secret server-side until the user confirms it with a valid code.
-    # The view no longer round-trips it through a hidden form field.
+    # Hold the secret server-side until the user confirms it with a valid code,
+    # so an attacker with session access cannot substitute one they control.
     session[:pending_totp_secret] = @totp_secret
 
     # Generate QR code
@@ -39,7 +39,6 @@ class TotpController < ApplicationController
       plain_codes = @user.send(:generate_backup_codes) # Use private method from User model
       @user.save!
 
-      # Consume the pending secret and notify the user that 2FA is now active
       session.delete(:pending_totp_secret)
       TotpMailer.enabled(@user).deliver_later
 
