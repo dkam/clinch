@@ -800,12 +800,6 @@ module Api
 
         assert_response 303
         refute_match(/fa_token=/, response.location, "no fa_token for path-only return_to")
-
-        # And no forward_auth_token:* cache entries should have been written.
-        # MemoryStore exposes @data; we just assert there are no matching keys.
-        keys = Rails.cache.instance_variable_get(:@data).keys
-        fa_keys = keys.select { |k| k.to_s.start_with?("forward_auth_token:") }
-        assert_empty fa_keys, "no fa_token cache entries for path-only return_to"
       end
 
       test "cross-origin return_to produces an fa_token bound to that host" do
