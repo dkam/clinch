@@ -34,7 +34,9 @@ port ENV.fetch("PORT", 3000)
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
 
-# Solid Queue plugin removed - now using async processor
+# Run the Solid Queue supervisor inside Puma. Clinch ships as a single
+# container, so the web process is always the worker too.
+plugin :solid_queue if ENV.fetch("RAILS_ENV", "development") == "production"
 
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.
