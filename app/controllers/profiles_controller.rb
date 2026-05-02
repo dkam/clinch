@@ -15,6 +15,7 @@ class ProfilesController < ApplicationController
       end
 
       if @user.update(password_params)
+        SecurityMailer.password_changed(@user, **security_event_context).deliver_later
         redirect_to profile_path, notice: "Password updated successfully."
       else
         render :show, status: :unprocessable_entity
@@ -27,7 +28,15 @@ class ProfilesController < ApplicationController
         return
       end
 
+      old_email = @user.email_address
       if @user.update(email_params)
+        new_email = @user.email_address
+        if old_email != new_email
+          context = security_event_context
+          [old_email, new_email].uniq.each do |recipient|
+            SecurityMailer.email_address_changed(@user, recipient: recipient, old_email: old_email, new_email: new_email, **context).deliver_later
+          end
+        end
         redirect_to profile_path, notice: "Email updated successfully."
       else
         render :show, status: :unprocessable_entity

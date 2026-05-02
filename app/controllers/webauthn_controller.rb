@@ -91,6 +91,8 @@ class WebauthnController < ApplicationController
         backup_state: backup_state
       )
 
+      SecurityMailer.passkey_added(user, nickname: @webauthn_credential.nickname, **security_event_context).deliver_later
+
       render json: {
         success: true,
         message: "Passkey '#{nickname}' registered successfully",
@@ -109,7 +111,10 @@ class WebauthnController < ApplicationController
   # Remove a passkey
   def destroy
     nickname = @webauthn_credential.nickname
+    user = @webauthn_credential.user
     @webauthn_credential.destroy
+
+    SecurityMailer.passkey_removed(user, nickname: nickname, **security_event_context).deliver_later
 
     respond_to do |format|
       format.html {

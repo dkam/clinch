@@ -1,0 +1,11 @@
+<hr>
+<p>
+  This action was recorded at <strong><%= @occurred_at.to_fs(:long) %></strong>
+  from IP <strong><%= @ip %></strong>
+  using <strong><%= @user_agent.presence || "an unknown client" %></strong>.
+</p>
+
+<p>
+  If you did <strong>not</strong> perform this action, reset your password
+  immediately and contact your administrator.
+</p>

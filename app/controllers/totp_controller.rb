@@ -103,6 +103,7 @@ class TotpController < ApplicationController
     # Generate new backup codes and store BCrypt hashes
     plain_codes = @user.send(:generate_backup_codes)
     @user.save!
+    SecurityMailer.backup_codes_regenerated(@user, **security_event_context).deliver_later
 
     # Store plain codes temporarily in session for display
     session[:temp_backup_codes] = plain_codes
@@ -136,6 +137,7 @@ class TotpController < ApplicationController
     end
 
     @user.disable_totp!
+    SecurityMailer.totp_disabled(@user, **security_event_context).deliver_later
     redirect_to profile_path, notice: "Two-factor authentication has been disabled."
   end
 

@@ -20,6 +20,7 @@ class PasswordsController < ApplicationController
 
   def update
     if @user.update(params.permit(:password, :password_confirmation))
+      SecurityMailer.password_changed(@user, **security_event_context).deliver_later
       @user.sessions.destroy_all
       redirect_to signin_path, notice: "Password has been reset."
     else

@@ -14,6 +14,7 @@ class ApiKeysController < ApplicationController
     @api_key = Current.session.user.api_keys.build(api_key_params)
 
     if @api_key.save
+      SecurityMailer.api_key_created(Current.session.user, name: @api_key.name, **security_event_context).deliver_later
       flash[:api_key_token] = @api_key.plaintext_token
       redirect_to api_key_path(@api_key)
     else
@@ -31,6 +32,7 @@ class ApiKeysController < ApplicationController
 
   def destroy
     @api_key.revoke!
+    SecurityMailer.api_key_revoked(@api_key.user, name: @api_key.name, **security_event_context).deliver_later
     redirect_to api_keys_path, notice: "API key revoked."
   end
 

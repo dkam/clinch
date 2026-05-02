@@ -14,6 +14,10 @@ class ApplicationController < ActionController::Base
 
   private
 
+  def security_event_context
+    {ip: request.remote_ip, user_agent: request.user_agent, occurred_at: Time.current}
+  end
+
   # Remove a query parameter from a URL using proper URI parsing
   # More robust than regex - handles URL encoding, edge cases, etc.
   #

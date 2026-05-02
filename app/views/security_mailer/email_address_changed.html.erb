@@ -1,0 +1,22 @@
+<p>Hello,</p>
+
+<% if @recipient == @new_email %>
+  <p>
+    The email address on your Clinch account is now
+    <strong><%= @new_email %></strong>.
+    It was previously <strong><%= @old_email %></strong>.
+  </p>
+<% else %>
+  <p>
+    The email address on your Clinch account was changed away from this
+    address (<strong><%= @old_email %></strong>) to
+    <strong><%= @new_email %></strong>.
+  </p>
+  <p>
+    If this was <strong>not</strong> you, contact your administrator
+    immediately — whoever made the change can now receive password
+    reset emails for the account.
+  </p>
+<% end %>
+
+<%= render "event_metadata" %>
