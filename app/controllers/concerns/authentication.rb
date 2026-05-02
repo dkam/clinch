@@ -73,7 +73,15 @@ module Authentication
       # Set domain for cross-subdomain authentication if we can extract it
       cookie_options[:domain] = domain if domain.present?
 
-      cookies.signed.permanent[:session_id] = cookie_options
+      # When "Remember me" is off, issue a browser-session cookie (no Expires)
+      # so closing the browser signs the user out — especially important on
+      # shared devices. The server Session#expires_at still enforces the
+      # 24h / 30d window regardless.
+      if remember_me
+        cookies.signed.permanent[:session_id] = cookie_options
+      else
+        cookies.signed[:session_id] = cookie_options
+      end
 
       # Create a one-time token for immediate forward auth after authentication
       # This solves the race condition where browser hasn't processed cookie yet

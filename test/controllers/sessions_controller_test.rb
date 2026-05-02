@@ -30,4 +30,22 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to signin_path
     assert_empty cookies[:session_id]
   end
+
+  test "session cookie has no Expires attribute when remember_me is off" do
+    post session_path, params: {email_address: @user.email_address, password: "password", remember_me: "0"}
+
+    set_cookie = Array(response.headers["Set-Cookie"]).find { |c| c.start_with?("session_id=") }
+    assert set_cookie, "session_id cookie should be set"
+    refute_match(/expires=/i, set_cookie,
+      "without Remember me, the session cookie must be a browser-session cookie (no Expires)")
+  end
+
+  test "session cookie has long-lived Expires attribute when remember_me is on" do
+    post session_path, params: {email_address: @user.email_address, password: "password", remember_me: "1"}
+
+    set_cookie = Array(response.headers["Set-Cookie"]).find { |c| c.start_with?("session_id=") }
+    assert set_cookie, "session_id cookie should be set"
+    assert_match(/expires=/i, set_cookie,
+      "with Remember me, the cookie should have an Expires attribute")
+  end
 end
