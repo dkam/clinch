@@ -25,6 +25,32 @@
             Public clients do not have a client secret. PKCE is required.
           </div>
         <% end %>
+
+        <% env_lines = [] %>
+        <% env_lines << "OIDC_CLIENT_ID=#{flash[:client_id]}" %>
+        <% if flash[:client_secret] %>
+          <% env_lines << "OIDC_CLIENT_SECRET=#{flash[:client_secret]}" %>
+        <% elsif flash[:public_client] %>
+          <% env_lines << "OIDC_CLIENT_SECRET=" %>
+        <% end %>
+        <% env_lines << "OIDC_DISCOVERY_URL=#{OidcJwtService.issuer_url}" %>
+        <% env_lines << "OIDC_PROVIDER_NAME='Clinch'" %>
+        <% env_lines << "OIDC_REQUIRE_PKCE=#{@application.requires_pkce? ? 'true' : 'false'}" %>
+
+        <div class="mt-4" data-controller="clipboard">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-yellow-700 dark:text-yellow-300">Environment variables (copy &amp; paste):</span>
+            <button type="button"
+                    data-action="clipboard#copy"
+                    class="text-xs font-medium text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">
+              <span data-clipboard-target="label">Copy</span>
+            </button>
+          </div>
+          <textarea data-clipboard-target="source"
+                    readonly
+                    rows="<%= env_lines.length %>"
+                    class="block w-full bg-yellow-100 dark:bg-yellow-900/50 px-3 py-2 rounded font-mono text-xs text-gray-900 dark:text-gray-100 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500"><%= env_lines.join("\n") %></textarea>
+        </div>
       </div>
     </div>
   <% end %>
