@@ -26,16 +26,7 @@
           </div>
         <% end %>
 
-        <% env_lines = [] %>
-        <% env_lines << "OIDC_CLIENT_ID=#{flash[:client_id]}" %>
-        <% if flash[:client_secret] %>
-          <% env_lines << "OIDC_CLIENT_SECRET=#{flash[:client_secret]}" %>
-        <% elsif flash[:public_client] %>
-          <% env_lines << "OIDC_CLIENT_SECRET=" %>
-        <% end %>
-        <% env_lines << "OIDC_DISCOVERY_URL=#{OidcJwtService.issuer_url}" %>
-        <% env_lines << "OIDC_PROVIDER_NAME='Clinch'" %>
-        <% env_lines << "OIDC_REQUIRE_PKCE=#{@application.requires_pkce? ? 'true' : 'false'}" %>
+        <% env_lines = oidc_env_lines(@application, client_secret: flash[:client_secret]) %>
 
         <div class="mt-4" data-controller="clipboard">
           <div class="flex items-center justify-between mb-2">
@@ -183,6 +174,30 @@
                 </dd>
               </div>
             <% end %>
+            <div>
+              <details class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                <summary class="cursor-pointer bg-gray-50 dark:bg-gray-700 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Environment variables
+                </summary>
+                <div class="px-4 py-3" data-controller="clipboard">
+                  <% env_lines = oidc_env_lines(@application) %>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      <%= @application.confidential_client? ? "Replace <your-client-secret> with your saved secret." : "Public client — no secret required." %>
+                    </span>
+                    <button type="button"
+                            data-action="clipboard#copy"
+                            class="text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 underline">
+                      <span data-clipboard-target="label">Copy</span>
+                    </button>
+                  </div>
+                  <textarea data-clipboard-target="source"
+                            readonly
+                            rows="<%= env_lines.length %>"
+                            class="block w-full bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded font-mono text-xs text-gray-900 dark:text-gray-100 resize-none focus:outline-none focus:ring-1 focus:ring-gray-500"><%= env_lines.join("\n") %></textarea>
+                </div>
+              </details>
+            </div>
           <% end %>
           <div>
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Redirect URIs</dt>

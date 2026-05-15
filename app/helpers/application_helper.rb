@@ -20,6 +20,21 @@ module ApplicationHelper
     end
   end
 
+  def oidc_env_lines(application, client_secret: nil)
+    lines = ["OIDC_CLIENT_ID=#{application.client_id}"]
+    lines << if client_secret
+      "OIDC_CLIENT_SECRET=#{client_secret}"
+    elsif application.public_client?
+      "OIDC_CLIENT_SECRET="
+    else
+      "OIDC_CLIENT_SECRET=<your-client-secret>"
+    end
+    lines << "OIDC_DISCOVERY_URL=#{OidcJwtService.issuer_url}"
+    lines << "OIDC_PROVIDER_NAME='Clinch'"
+    lines << "OIDC_REQUIRE_PKCE=#{application.requires_pkce? ? 'true' : 'false'}"
+    lines
+  end
+
   def border_class_for(type)
     case type.to_s
     when "notice" then "border-green-200 dark:border-green-700"
