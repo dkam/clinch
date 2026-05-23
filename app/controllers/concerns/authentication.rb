@@ -43,6 +43,32 @@ module Authentication
     session.delete(:return_to_after_authenticating) || root_url
   end
 
+  # When a sign-in form will eventually redirect through /oauth/authorize to an
+  # external client, Safari enforces CSP form-action against every hop in the
+  # redirect chain. With the default form-action 'self', the final cross-origin
+  # hop to the OAuth client's redirect_uri gets blocked. Add the redirect_uri
+  # host to form-action so the chain completes.
+  def allow_oauth_redirect_in_csp
+    stored = session[:return_to_after_authenticating]
+    return if stored.blank?
+
+    uri = URI.parse(stored)
+    return unless uri.path&.start_with?("/oauth/")
+
+    redirect_uri = Rack::Utils.parse_query(uri.query.to_s)["redirect_uri"]
+    return if redirect_uri.blank?
+
+    redirect_host = URI.parse(redirect_uri).host
+    return if redirect_host.blank?
+
+    csp = request.content_security_policy
+    return unless csp&.respond_to?(:form_action) && csp.form_action.respond_to?(:<<)
+
+    csp.form_action << "https://#{redirect_host}"
+  rescue URI::InvalidURIError
+    nil
+  end
+
   def start_new_session_for(user, acr: "1", remember_me: false)
     user.update!(last_sign_in_at: Time.current)
     user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip, acr: acr, remember_me: remember_me).tap do |session|

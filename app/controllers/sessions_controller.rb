@@ -28,6 +28,8 @@ class SessionsController < ApplicationController
       end
     end
 
+    allow_oauth_redirect_in_csp
+
     respond_to do |format|
       format.html # render HTML login page
       format.json { render json: {error: "Authentication required"}, status: :unauthorized }
@@ -153,6 +155,8 @@ class SessionsController < ApplicationController
     # Pass data to the view for passkey option
     @user_has_webauthn = user&.can_authenticate_with_webauthn?
     @pending_email = user&.email_address
+
+    allow_oauth_redirect_in_csp
 
     # Just render the form
   end
