@@ -15,6 +15,7 @@ module Admin
     def new
       @group = Group.new
       @available_users = User.order(:email_address)
+      @available_applications = Application.order(:name)
     end
 
     def create
@@ -28,6 +29,7 @@ module Admin
           @group = Group.new
           @group.errors.add(:custom_claims, "must be valid JSON")
           @available_users = User.order(:email_address)
+          @available_applications = Application.order(:name)
           render :new, status: :unprocessable_entity
           return
         end
@@ -45,15 +47,23 @@ module Admin
           @group.users = User.where(id: user_ids)
         end
 
+        # Handle application assignments
+        if params[:group][:application_ids].present?
+          application_ids = params[:group][:application_ids].reject(&:blank?)
+          @group.applications = Application.where(id: application_ids)
+        end
+
         redirect_to admin_group_path(@group), notice: "Group created successfully."
       else
         @available_users = User.order(:email_address)
+        @available_applications = Application.order(:name)
         render :new, status: :unprocessable_entity
       end
     end
 
     def edit
       @available_users = User.order(:email_address)
+      @available_applications = Application.order(:name)
     end
 
     def update
@@ -66,6 +76,7 @@ module Admin
         rescue JSON::ParserError
           @group.errors.add(:custom_claims, "must be valid JSON")
           @available_users = User.order(:email_address)
+          @available_applications = Application.order(:name)
           render :edit, status: :unprocessable_entity
           return
         end
@@ -83,9 +94,18 @@ module Admin
           @group.users = []
         end
 
+        # Handle application assignments
+        if params[:group][:application_ids].present?
+          application_ids = params[:group][:application_ids].reject(&:blank?)
+          @group.applications = Application.where(id: application_ids)
+        else
+          @group.applications = []
+        end
+
         redirect_to admin_group_path(@group), notice: "Group updated successfully."
       else
         @available_users = User.order(:email_address)
+        @available_applications = Application.order(:name)
         render :edit, status: :unprocessable_entity
       end
     end

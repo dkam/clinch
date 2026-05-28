@@ -32,6 +32,29 @@
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Select which users should be members of this group.</p>
   </div>
 
+  <div>
+    <%= form.label :application_ids, "Assigned Applications", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <div class="mt-2 space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-3">
+      <% if @available_applications.any? %>
+        <% @available_applications.each do |application| %>
+          <div class="flex items-center">
+            <%= check_box_tag "group[application_ids][]", application.id, group.applications.include?(application), class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+            <%= label_tag "group_application_ids_#{application.id}", application.name, class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+            <% case application.app_type %>
+            <% when "oidc" %>
+              <span class="ml-2 inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300">OIDC</span>
+            <% when "trusted_header" %>
+              <span class="ml-2 inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">ForwardAuth</span>
+            <% end %>
+          </div>
+        <% end %>
+      <% else %>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No applications available.</p>
+      <% end %>
+    </div>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Select which applications this group grants access to.</p>
+  </div>
+
   <div data-controller="json-validator" data-json-validator-valid-class="border-green-500 focus:border-green-500 focus:ring-green-500" data-json-validator-invalid-class="border-red-500 focus:border-red-500 focus:ring-red-500" data-json-validator-valid-status-class="text-green-600" data-json-validator-invalid-status-class="text-red-600">
     <%= form.label :custom_claims, "Custom Claims (JSON)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
     <%= form.text_area :custom_claims, value: (group.custom_claims.present? ? JSON.pretty_generate(group.custom_claims) : ""), rows: 8,
