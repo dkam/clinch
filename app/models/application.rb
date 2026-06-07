@@ -278,18 +278,52 @@ class Application < ApplicationRecord
   end
 
   def sanitize_svg_icon
-    return unless icon.content_type == "image/svg+xml"
+    # Runs in before_validation. The blob has NOT yet been uploaded to disk at
+    # this point (Active Storage uploads in before_save), so we cannot call
+    # icon.download — we must read from the pending attachable.
+    #
+    # icon.attach below re-sets attachment_changes and would re-fire this
+    # callback; we skip if the pending attachable is the cleaned hash we just
+    # installed (tracked by object identity).
+    change = attachment_changes["icon"]
+    return unless change
+    attachable = change.attachable
+    return if attachable.equal?(@svg_sanitized_attachable)
 
-    raw_svg = icon.download
+    raw_svg, filename, content_type = read_pending_icon(attachable)
+    return unless raw_svg
+    return unless content_type == "image/svg+xml" || filename.to_s.downcase.end_with?(".svg")
+
     doc = Loofah.xml_document(raw_svg)
     doc.scrub!(SvgScrubber.new)
     clean_svg = doc.to_xml
 
-    icon.attach(
+    sanitized = {
       io: StringIO.new(clean_svg),
-      filename: icon.filename.to_s,
+      filename: filename,
       content_type: "image/svg+xml"
-    )
+    }
+    @svg_sanitized_attachable = sanitized
+    icon.attach(sanitized)
+  end
+
+  def read_pending_icon(attachable)
+    case attachable
+    when ActionDispatch::Http::UploadedFile, Rack::Test::UploadedFile
+      content = attachable.read
+      attachable.rewind
+      [content, attachable.original_filename, attachable.content_type]
+    when Hash
+      io = attachable[:io] || attachable["io"]
+      return [nil, nil, nil] unless io
+      content = io.read
+      io.rewind if io.respond_to?(:rewind)
+      [content,
+        attachable[:filename] || attachable["filename"],
+        attachable[:content_type] || attachable["content_type"]]
+    else
+      [nil, nil, nil]
+    end
   end
 
   def icon_validation
