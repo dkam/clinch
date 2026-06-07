@@ -15,6 +15,11 @@ class Group < ApplicationRecord
   normalizes :name, with: ->(name) { name.strip.downcase }
   validate :no_reserved_claim_names
 
+  scope :auto_assign, -> { where(auto_assign: true) }
+  scope :admin, -> { where(admin: true) }
+
+  before_destroy :ensure_other_admin_group_exists
+
   # Parse custom_claims JSON field
   def parsed_custom_claims
     return {} if custom_claims.blank?
@@ -22,6 +27,13 @@ class Group < ApplicationRecord
   end
 
   private
+
+  def ensure_other_admin_group_exists
+    return unless admin?
+    return if Group.where(admin: true).where.not(id: id).exists?
+    errors.add(:base, "cannot delete the last administrators group")
+    throw :abort
+  end
 
   def no_reserved_claim_names
     return if custom_claims.blank?

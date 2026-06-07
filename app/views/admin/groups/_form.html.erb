@@ -13,6 +13,22 @@
   </div>
 
   <div>
+    <div class="flex items-center">
+      <%= form.check_box :auto_assign, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :auto_assign, "Auto Assign", class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+    </div>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">New users will be automatically added to this group when invited. You can mark multiple groups as auto-assigned.</p>
+  </div>
+
+  <div>
+    <div class="flex items-center">
+      <%= form.check_box :admin, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+      <%= form.label :admin, "Administrators", class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+    </div>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Members of this group can access the admin panel. Does not grant automatic access to applications.</p>
+  </div>
+
+  <div>
     <%= form.label :user_ids, "Group Members", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
     <div class="mt-2 space-y-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-3">
       <% if @available_users.any? %>

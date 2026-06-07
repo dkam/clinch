@@ -10,6 +10,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       redirect_uris: ["http://localhost:4000/callback"].to_json,
       active: true
     )
+    grant_everyone_access(@application)
 
     # Sign in the user using the test helper
     sign_in_as(@user)

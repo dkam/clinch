@@ -10,6 +10,7 @@ class ApiKeyTest < ActiveSupport::TestCase
       domain_pattern: "webdav.example.com",
       active: true
     )
+    @app.allowed_groups << groups(:everyone)
   end
 
   test "generates clk_ prefixed token on create" do
@@ -78,9 +79,8 @@ class ApiKeyTest < ActiveSupport::TestCase
   end
 
   test "validates user must have access to application" do
-    group = groups(:admin_group)
-    @app.allowed_groups << group
-    # @user (bob) is not in admin_group
+    # Restrict the app to admin_group only — bob is not in admin_group.
+    @app.allowed_groups = [groups(:admin_group)]
     key = @user.api_keys.build(name: "No Access", application: @app)
     assert_not key.valid?
     assert_includes key.errors[:user], "does not have access to this application"

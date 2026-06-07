@@ -33,11 +33,36 @@
     <%= form.select :status, User.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
   </div>
 
-  <div class="flex items-center">
-    <%= form.check_box :admin, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500", disabled: (user == Current.session.user) %>
-    <%= form.label :admin, "Administrator", class: "ml-2 block text-sm text-gray-900 dark:text-gray-100" %>
-    <% if user == Current.session.user %>
-      <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">(Cannot change your own admin status)</span>
+  <div>
+    <%= form.label :group_ids, "Group Memberships", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+    <div class="mt-2 space-y-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-3">
+      <% if @available_groups.any? %>
+        <% @available_groups.each do |group| %>
+          <div class="flex items-center">
+            <%= check_box_tag "user[group_ids][]", group.id, user.groups.include?(group), class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+            <%= label_tag "user_group_ids_#{group.id}", group.name, class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+            <% if group.admin? %>
+              <span class="ml-2 inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Admin</span>
+            <% end %>
+            <% if group.auto_assign? %>
+              <span class="ml-2 inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">Auto Assign</span>
+            <% end %>
+          </div>
+        <% end %>
+      <% else %>
+        <p class="text-sm text-gray-500 dark:text-gray-400">No groups available. Create a group first.</p>
+      <% end %>
+    </div>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Administrators are members of any group with the Admin flag set. You cannot remove yourself from your last administrator group.</p>
+    <% unless user.persisted? %>
+      <% auto_names = Group.where(auto_assign: true).pluck(:name) %>
+      <% if auto_names.any? %>
+        <div class="mt-2 flex items-center">
+          <%= check_box_tag "auto_assign", "1", true, class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" %>
+          <%= label_tag "auto_assign", "Auto-assign to default groups (#{auto_names.join(", ")})", class: "ml-2 text-sm text-gray-900 dark:text-gray-100" %>
+        </div>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Uncheck to invite this user without auto-assigning the default group(s) — useful for restricted accounts.</p>
+      <% end %>
     <% end %>
   </div>
 

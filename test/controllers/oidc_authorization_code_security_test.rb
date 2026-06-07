@@ -17,6 +17,7 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
     @application.generate_new_client_secret!
     @plain_client_secret = @application.client_secret
     @application.save!
+    grant_everyone_access(@application)
   end
 
   def teardown

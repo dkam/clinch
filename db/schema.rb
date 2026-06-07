@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_20_080000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_000003) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -106,11 +106,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_20_080000) do
   end
 
   create_table "groups", force: :cascade do |t|
+    t.boolean "admin", default: false, null: false
+    t.boolean "auto_assign", default: false, null: false
     t.datetime "created_at", null: false
     t.json "custom_claims", default: {}, null: false
     t.text "description"
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index ["admin"], name: "index_groups_on_admin", where: "admin"
+    t.index ["auto_assign"], name: "index_groups_on_auto_assign", where: "auto_assign"
     t.index ["name"], name: "index_groups_on_name", unique: true
   end
 
@@ -225,7 +229,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_20_080000) do
   end
 
   create_table "users", force: :cascade do |t|
-    t.boolean "admin", default: false, null: false
     t.json "backup_codes"
     t.datetime "created_at", null: false
     t.json "custom_claims", default: {}, null: false

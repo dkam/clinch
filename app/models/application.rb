@@ -118,14 +118,12 @@ class Application < ApplicationRecord
   end
 
   # Access control
+  # Default-deny: an empty allowed_groups list means no one gets in.
+  # To make an app accessible to "everyone", attach the seeded auto-assign
+  # group (or any group every user is in).
   def user_allowed?(user)
     return false unless active?
     return false unless user.active?
-
-    # If no groups are specified, allow all active users
-    return true if allowed_groups.empty?
-
-    # Otherwise, user must be in at least one of the allowed groups
     (user.groups & allowed_groups).any?
   end
 
@@ -168,10 +166,6 @@ class Application < ApplicationRecord
     return "deny" unless active?
     return "deny" unless user.active?
 
-    # If no groups specified, bypass authentication
-    return "bypass" if allowed_groups.empty?
-
-    # If user is in allowed groups, determine auth level
     if user_allowed?(user)
       # Require 2FA if user has TOTP configured, otherwise one factor
       user.totp_enabled? ? "two_factor" : "one_factor"

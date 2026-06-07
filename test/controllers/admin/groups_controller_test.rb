@@ -48,5 +48,23 @@ module Admin
 
       assert_equal [app], Group.find_by(name: "new group").applications
     end
+
+    test "can mark a group as auto_assign and admin" do
+      patch admin_group_path(@group), params: {
+        group: {name: @group.name, auto_assign: "1", admin: "1"}
+      }
+
+      @group.reload
+      assert @group.auto_assign?
+      assert @group.admin?
+    end
+
+    test "cannot delete the last admin group" do
+      admins = groups(:admin_group)
+
+      delete admin_group_path(admins)
+      # Destroy was aborted by the before_destroy guard
+      assert Group.exists?(admins.id), "admin group should not have been deleted"
+    end
   end
 end

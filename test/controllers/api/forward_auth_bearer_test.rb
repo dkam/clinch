@@ -11,6 +11,7 @@ module Api
         domain_pattern: "webdav.example.com",
         active: true
       )
+      grant_everyone_access(@app)
       @api_key = @user.api_keys.create!(name: "Test Key", application: @app)
       @token = @api_key.plaintext_token
     end

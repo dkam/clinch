@@ -1,0 +1,95 @@
+<div class="mb-6">
+  <div class="sm:flex sm:items-center sm:justify-between">
+    <div>
+      <div class="flex items-center gap-2">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100"><%= @user.email_address %></h1>
+        <% if @user.admin? %>
+          <span class="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Admin</span>
+        <% end %>
+        <% case @user.status %>
+        <% when "active" %>
+          <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">Active</span>
+        <% when "disabled" %>
+          <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">Disabled</span>
+        <% when "pending_invitation" %>
+          <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">Pending Invitation</span>
+        <% end %>
+      </div>
+      <% if @user.name.present? %>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= @user.name %></p>
+      <% end %>
+    </div>
+    <div class="mt-4 sm:mt-0 flex gap-3">
+      <%= link_to "Edit", edit_admin_user_path(@user), class: "rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600" %>
+    </div>
+  </div>
+</div>
+
+<div class="space-y-6">
+  <!-- Group memberships -->
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4">
+        Group memberships (<%= @user.groups.count %>)
+      </h3>
+      <% if @user.groups.any? %>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+          <% @user.groups.order(:name).each do |group| %>
+            <li class="px-4 py-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= group.name %></p>
+                <% if group.admin? %>
+                  <span class="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Admin</span>
+                <% end %>
+                <% if group.auto_assign? %>
+                  <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">Auto Assign</span>
+                <% end %>
+              </div>
+              <%= link_to "View", admin_group_path(group), class: "text-blue-600 hover:text-blue-900 text-sm" %>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <p class="text-sm text-gray-500 dark:text-gray-400">This user is in no groups.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- Accessible applications -->
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4">
+        Accessible applications (<%= @accessible_applications.count %>)
+      </h3>
+      <% unless @user.active? %>
+        <div class="rounded-md bg-amber-50 dark:bg-amber-900/30 p-4">
+          <p class="text-sm text-amber-700 dark:text-amber-300">
+            User is <%= @user.status.humanize.downcase %> — access is denied regardless of group memberships.
+          </p>
+        </div>
+      <% end %>
+      <% if @accessible_applications.any? %>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+          <% @accessible_applications.each do |app| %>
+            <% via = app.allowed_groups & @user.groups %>
+            <li class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= app.name %></p>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  <% via.each do |g| %>
+                    <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">via <%= g.name %></span>
+                  <% end %>
+                </div>
+              </div>
+              <%= link_to "View", admin_application_path(app), class: "text-blue-600 hover:text-blue-900 text-sm" %>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <div class="rounded-md bg-gray-50 dark:bg-gray-700 p-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">No accessible applications. Add the user to a group that's attached to one or more applications.</p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

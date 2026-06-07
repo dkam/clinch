@@ -274,11 +274,11 @@
         <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Allowed Groups</dt>
         <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
           <% if @allowed_groups.empty? %>
-            <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-4">
+            <div class="rounded-md bg-amber-50 dark:bg-amber-900/30 p-4">
               <div class="flex">
                 <div class="ml-3">
-                  <p class="text-sm text-blue-700 dark:text-blue-300">
-                    No groups assigned - all active users can access this application.
+                  <p class="text-sm text-amber-700 dark:text-amber-300">
+                    No groups assigned — no one can access this application. Attach a group to grant access.
                   </p>
                 </div>
               </div>
@@ -297,6 +297,37 @@
           <% end %>
         </dd>
       </div>
+    </div>
+  </div>
+
+  <!-- Users with access -->
+  <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4">
+        Users with access (<%= @users_with_access.count %>)
+      </h3>
+      <% if @users_with_access.any? %>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+          <% @users_with_access.each do |user| %>
+            <% via = user.groups & @application.allowed_groups %>
+            <li class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= user.email_address %></p>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  <% via.each do |g| %>
+                    <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">via <%= g.name %></span>
+                  <% end %>
+                </div>
+              </div>
+              <%= link_to "View", admin_user_path(user), class: "text-blue-600 hover:text-blue-900 text-sm" %>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <div class="rounded-md bg-gray-50 dark:bg-gray-700 p-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">No users currently have access. Attach a group to grant access.</p>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>

@@ -12,6 +12,15 @@ module SessionTestHelper
     Current.session&.destroy!
     cookies.delete("session_id")
   end
+
+  # Attach the auto-assign "everyone" group to the given app so existing tests
+  # written under the old "empty allowed_groups = public" rule keep working.
+  # New tests should attach groups explicitly to model real access intent.
+  def grant_everyone_access(app)
+    everyone = (groups(:everyone) rescue Group.find_by(auto_assign: true))
+    app.allowed_groups << everyone unless app.allowed_groups.include?(everyone)
+    app
+  end
 end
 
 ActiveSupport.on_load(:action_dispatch_integration_test) do

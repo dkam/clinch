@@ -122,7 +122,7 @@ module Admin
     end
 
     def group_params
-      params.require(:group).permit(:name, :description, :custom_claims)
+      params.require(:group).permit(:name, :description, :custom_claims, :auto_assign, :admin)
     end
   end
 end

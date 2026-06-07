@@ -135,21 +135,34 @@ class UserTest < ActiveSupport::TestCase
     assert_equal user, found_user
   end
 
-  test "admin scope" do
-    admin_user = User.create!(
-      email_address: "admin@example.com",
-      password: "password123",
-      admin: true
-    )
-    regular_user = User.create!(
-      email_address: "user@example.com",
-      password: "password123",
-      admin: false
-    )
+  test "admin scope returns users in admin groups" do
+    admin_group = groups(:admin_group)
+    admin_user = User.create!(email_address: "admin@example.com", password: "password123")
+    admin_user.groups << admin_group
+    regular_user = User.create!(email_address: "user@example.com", password: "password123")
 
     admins = User.admins
     assert_includes admins, admin_user
     assert_not_includes admins, regular_user
+  end
+
+  test "admin? reflects membership in any admin: true group" do
+    user = User.create!(email_address: "promoted@example.com", password: "password123")
+    assert_not user.admin?
+    user.groups << groups(:admin_group)
+    assert user.reload.admin?
+  end
+
+  test "after_create auto-joins all auto_assign groups" do
+    user = User.create!(email_address: "newbie@example.com", password: "password123")
+    assert_includes user.groups, groups(:everyone)
+  end
+
+  test "skip_auto_assign disables the after_create callback" do
+    user = User.new(email_address: "skipper@example.com", password: "password123")
+    user.skip_auto_assign = true
+    user.save!
+    assert_not_includes user.groups, groups(:everyone)
   end
 
   test "validates email address format" do

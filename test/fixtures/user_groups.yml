@@ -1,7 +1,26 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+# All users belong to "everyone" so existing tests that create group-less apps
+# can be made compatible by attaching that group.
+
+one_everyone:
+  user: one
+  group: everyone
+two_everyone:
+  user: two
+  group: everyone
+alice_everyone:
+  user: alice
+  group: everyone
+bob_everyone:
+  user: bob
+  group: everyone
 
 alice_admin_group:
   user: alice
+  group: admin_group
+
+two_admin_group:
+  user: two
   group: admin_group
 
 bob_editor_group:

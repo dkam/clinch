@@ -42,7 +42,18 @@ class User < ApplicationRecord
   enum :status, {active: 0, disabled: 1, pending_invitation: 2}
 
   # Scopes
-  scope :admins, -> { where(admin: true) }
+  scope :admins, -> { joins(:groups).where(groups: {admin: true}).distinct }
+
+  # Set true on a user (or on the user_params) to skip the auto-assign callback
+  # for that record. Used by the admin invite form (opt-out checkbox) and by
+  # tests that want a clean slate.
+  attr_accessor :skip_auto_assign
+
+  after_create :add_to_auto_assign_groups, unless: :skip_auto_assign
+
+  def admin?
+    groups.any?(&:admin?)
+  end
 
   # TOTP methods
   def totp_enabled?
@@ -221,6 +232,10 @@ class User < ApplicationRecord
   end
 
   private
+
+  def add_to_auto_assign_groups
+    Group.auto_assign.each { |g| groups << g }
+  end
 
   def no_reserved_claim_names
     return if custom_claims.blank?

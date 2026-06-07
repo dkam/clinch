@@ -12,7 +12,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
   # End-to-End Authentication Flow Tests
   test "complete forward auth flow with default headers" do
     # Create an application with default headers
-    Application.create!(name: "App", slug: "app-system-test", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+    grant_everyone_access Application.create!(name: "App", slug: "app-system-test", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
 
     # Step 1: Unauthenticated request to protected resource
     get "/api/verify", headers: {
@@ -48,14 +48,14 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
   test "multiple domain access with single session" do
     # Create applications for different domains
-    Application.create!(name: "App Domain", slug: "app-domain", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
-    Application.create!(
+    grant_everyone_access Application.create!(name: "App Domain", slug: "app-domain", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+    grant_everyone_access Application.create!(
       name: "Grafana", slug: "grafana-system-test", app_type: "forward_auth",
       domain_pattern: "grafana.example.com",
       active: true,
       headers_config: {user: "X-WEBAUTH-USER", email: "X-WEBAUTH-EMAIL"}
     )
-    Application.create!(
+    grant_everyone_access Application.create!(
       name: "Metube", slug: "metube-system-test", app_type: "forward_auth",
       domain_pattern: "metube.example.com",
       active: true,
@@ -106,7 +106,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
     # Should have access (in allowed group)
     get "/api/verify", headers: {"X-Forwarded-Host" => "admin.example.com"}
     assert_response 200
-    assert_equal @group.name, response.headers["x-remote-groups"]
+    assert_includes response.headers["x-remote-groups"], @group.name
 
     # Add user to second group
     @user.groups << @group2
@@ -126,31 +126,27 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
     assert_response 403
   end
 
-  test "bypass mode when no groups assigned to rule" do
-    # Create bypass application (no groups)
+  test "default deny when no groups assigned to rule" do
+    # An app with no allowed_groups now denies all users (was: bypass mode).
     Application.create!(
-      name: "Public", slug: "public-system-test", app_type: "forward_auth",
-      domain_pattern: "public.example.com",
+      name: "No Groups", slug: "nogroups-system-test", app_type: "forward_auth",
+      domain_pattern: "nogroups.example.com",
       active: true
     )
 
-    # Create user with no groups
     @user.groups.clear
 
-    # Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
     assert_response 303
 
-    # Should have access (bypass mode)
-    get "/api/verify", headers: {"X-Forwarded-Host" => "public.example.com"}
-    assert_response 200
-    assert_equal @user.email_address, response.headers["x-remote-user"]
+    get "/api/verify", headers: {"X-Forwarded-Host" => "nogroups.example.com"}
+    assert_response 403
   end
 
   # Security System Tests
   test "session expiration and cleanup" do
     # Create test application
-    Application.create!(
+    grant_everyone_access Application.create!(
       name: "Test", slug: "test-system-test", app_type: "forward_auth",
       domain_pattern: "test.example.com",
       active: true
@@ -179,7 +175,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
 
   test "concurrent access with rate limiting considerations" do
     # Create wildcard application
-    Application.create!(
+    grant_everyone_access Application.create!(
       name: "Wildcard", slug: "wildcard-test", app_type: "forward_auth",
       domain_pattern: "*.example.com",
       active: true
@@ -246,7 +242,11 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
         active: true,
         headers_config: app[:headers_config]
       )
-      app[:groups].each { |group| rule.allowed_groups << group }
+      if app[:groups].any?
+        app[:groups].each { |group| rule.allowed_groups << group }
+      else
+        grant_everyone_access(rule)
+      end
       rule
     end
 
@@ -286,7 +286,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
     ]
 
     patterns.each_with_index do |pattern_config, idx|
-      Application.create!(
+      grant_everyone_access Application.create!(
         name: "Pattern Test #{idx}", slug: "pattern-test-#{idx}", app_type: "forward_auth",
         domain_pattern: pattern_config[:pattern],
         active: true
@@ -310,7 +310,7 @@ class ForwardAuthAdvancedTest < ActionDispatch::IntegrationTest
   # Performance System Tests
   test "system performance under load" do
     # Create test application with wildcard pattern
-    Application.create!(name: "Load Test", slug: "loadtest", app_type: "forward_auth", domain_pattern: "*.loadtest.example.com", active: true)
+    grant_everyone_access Application.create!(name: "Load Test", slug: "loadtest", app_type: "forward_auth", domain_pattern: "*.loadtest.example.com", active: true)
 
     # Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}

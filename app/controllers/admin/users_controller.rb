@@ -7,27 +7,38 @@ module Admin
     end
 
     def show
+      @accessible_applications = Application.where(active: true)
+        .joins(:allowed_groups)
+        .where(groups: {id: @user.groups})
+        .distinct
+        .includes(:allowed_groups)
+        .order(:name)
     end
 
     def new
       @user = User.new
+      @available_groups = Group.order(:name)
     end
 
     def create
       @user = User.new(user_params)
       @user.password = SecureRandom.alphanumeric(16) if user_params[:password].blank?
       @user.status = :pending_invitation
+      @user.skip_auto_assign = true if params[:auto_assign] == "0"
 
       if @user.save
+        assign_groups_from_params(@user)
         InvitationsMailer.invite_user(@user).deliver_later
         redirect_to admin_users_path, notice: "User created successfully. Invitation email sent to #{@user.email_address}."
       else
+        @available_groups = Group.order(:name)
         render :new, status: :unprocessable_entity
       end
     end
 
     def edit
       @applications = Application.active.order(:name)
+      @available_groups = Group.order(:name)
     end
 
     def update
@@ -43,6 +54,7 @@ module Admin
         rescue JSON::ParserError
           @user.errors.add(:custom_claims, "must be valid JSON")
           @applications = Application.active.order(:name)
+          @available_groups = Group.order(:name)
           render :edit, status: :unprocessable_entity
           return
         end
@@ -52,9 +64,16 @@ module Admin
       end
 
       if @user.update(update_params)
+        unless assign_groups_from_params(@user)
+          @applications = Application.active.order(:name)
+          @available_groups = Group.order(:name)
+          render :edit, status: :unprocessable_entity
+          return
+        end
         redirect_to admin_users_path, notice: "User updated successfully."
       else
         @applications = Application.active.order(:name)
+        @available_groups = Group.order(:name)
         render :edit, status: :unprocessable_entity
       end
     end
@@ -122,14 +141,28 @@ module Admin
     end
 
     def user_params
-      permitted = [:email_address, :username, :name, :password, :status, :totp_required, :custom_claims]
+      params.require(:user).permit(:email_address, :username, :name, :password, :status, :totp_required, :custom_claims)
+    end
 
-      # Only allow modifying admin status when editing other users (prevent self-demotion)
-      if params[:id] != Current.session.user.id.to_s
-        permitted << :admin
+    # Apply group_ids from the form, with a guard preventing self-demotion when
+    # the user is the last member of the last admin group. Returns true on
+    # success, false if a guard fired (caller should re-render).
+    def assign_groups_from_params(user)
+      return true unless params[:user].key?(:group_ids)
+
+      raw_ids = Array(params[:user][:group_ids]).reject(&:blank?).map(&:to_i)
+      new_groups = Group.where(id: raw_ids)
+
+      if user == Current.session.user
+        losing_admin = user.groups.where(admin: true).any? && new_groups.none?(&:admin?)
+        if losing_admin
+          user.errors.add(:base, "you cannot remove yourself from all administrator groups")
+          return false
+        end
       end
 
-      params.require(:user).permit(*permitted)
+      user.groups = new_groups
+      true
     end
   end
 end

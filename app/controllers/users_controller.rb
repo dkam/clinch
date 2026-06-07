@@ -8,12 +8,16 @@ class UsersController < ApplicationController
 
   def create
     @user = User.new(user_params)
-
-    # First user becomes admin automatically
-    @user.admin = true if User.count.zero?
     @user.status = "active"
+    first_user = User.count.zero?
 
     if @user.save
+      # First user automatically becomes a member of every admin group, so they
+      # can reach the admin panel without an existing admin to grant access.
+      if first_user
+        Group.where(admin: true).each { |g| @user.groups << g }
+      end
+
       start_new_session_for @user
       redirect_to root_path, notice: "Welcome to Clinch! Your account has been created."
     else

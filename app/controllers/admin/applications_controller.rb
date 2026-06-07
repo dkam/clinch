@@ -8,6 +8,12 @@ module Admin
 
     def show
       @allowed_groups = @application.allowed_groups
+      @users_with_access = User.where(status: User.statuses[:active])
+        .joins(groups: :applications)
+        .where(applications: {id: @application.id})
+        .distinct
+        .includes(:groups)
+        .order(:email_address)
     end
 
     def new

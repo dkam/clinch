@@ -11,7 +11,13 @@ two:
 admin_group:
   name: Administrators
   description: System administrators with full access
+  admin: true
 
 editor_group:
   name: Editors
   description: Content editors with limited access
+
+everyone:
+  name: everyone
+  description: Auto-assigned to new users.
+  auto_assign: true

@@ -95,7 +95,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "admin claim should not be included in token" do
-    @user.update!(admin: true)
+    # alice is already in admin_group via fixtures, so admin? is true here
+    assert @user.admin?
 
     token = @service.generate_id_token(@user, @application)
 

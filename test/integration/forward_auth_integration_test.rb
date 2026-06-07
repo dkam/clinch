@@ -15,6 +15,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
       domain_pattern: "test.example.com",
       active: true
     )
+    grant_everyone_access(@test_app)
   end
 
   # Basic Authentication Flow Tests
@@ -56,8 +57,8 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Domain and Rule Integration Tests
   test "different domain patterns with same session" do
     # Create test rules
-    Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
-    Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
+    grant_everyone_access Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
+    grant_everyone_access Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
 
     # Sign in
     post "/signin", params: {email_address: @user.email_address, password: "password"}
@@ -103,14 +104,14 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   # Header Configuration Integration Tests
   test "different header configurations with same user" do
     # Create applications with different configs
-    Application.create!(name: "Default App", slug: "default-app", app_type: "forward_auth", domain_pattern: "default.example.com", active: true)
-    Application.create!(
+    grant_everyone_access Application.create!(name: "Default App", slug: "default-app", app_type: "forward_auth", domain_pattern: "default.example.com", active: true)
+    grant_everyone_access Application.create!(
       name: "Custom App", slug: "custom-app", app_type: "forward_auth",
       domain_pattern: "custom.example.com",
       active: true,
       headers_config: {user: "X-WEBAUTH-USER", groups: "X-WEBAUTH-ROLES"}
     )
-    Application.create!(
+    grant_everyone_access Application.create!(
       name: "No Headers App", slug: "no-headers-app", app_type: "forward_auth",
       domain_pattern: "noheaders.example.com",
       active: true,
@@ -196,7 +197,7 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     admin_user = users(:two)
 
     # Create restricted rule
-    Application.create!(
+    grant_everyone_access Application.create!(
       name: "Admin App", slug: "admin-app", app_type: "forward_auth",
       domain_pattern: "admin.example.com",
       active: true,

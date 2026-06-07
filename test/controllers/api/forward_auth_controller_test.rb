@@ -7,8 +7,8 @@ module Api
       @admin_user = users(:alice)
       @inactive_user = User.create!(email_address: "inactive@example.com", password: "password", status: :disabled)
       @group = groups(:admin_group)
-      @rule = Application.create!(name: "Test App", slug: "test-app", app_type: "forward_auth", domain_pattern: "test.example.com", active: true)
-      @inactive_rule = Application.create!(name: "Inactive App", slug: "inactive-app", app_type: "forward_auth", domain_pattern: "inactive.example.com", active: false)
+      @rule = grant_everyone_access(Application.create!(name: "Test App", slug: "test-app", app_type: "forward_auth", domain_pattern: "test.example.com", active: true))
+      @inactive_rule = grant_everyone_access(Application.create!(name: "Inactive App", slug: "inactive-app", app_type: "forward_auth", domain_pattern: "inactive.example.com", active: false))
     end
 
     # Authentication Tests
@@ -65,7 +65,7 @@ module Api
     end
 
     test "should return 403 when rule exists but user not in allowed groups" do
-      @rule.allowed_groups << @group
+      @rule.allowed_groups = [@group]
       sign_in_as(@user)  # User not in group
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -75,7 +75,7 @@ module Api
     end
 
     test "should return 200 when user is in allowed groups" do
-      @rule.allowed_groups << @group
+      @rule.allowed_groups = [@group]
       @user.groups << @group
       sign_in_as(@user)
 
@@ -86,7 +86,7 @@ module Api
 
     # Domain Pattern Tests
     test "should match wildcard domains correctly" do
-      Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
+      grant_everyone_access Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
       sign_in_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
@@ -101,7 +101,7 @@ module Api
     end
 
     test "should match exact domains correctly" do
-      Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
+      grant_everyone_access Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
       sign_in_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "api.example.com"}
@@ -126,7 +126,7 @@ module Api
     end
 
     test "should return custom headers when configured" do
-      Application.create!(
+      grant_everyone_access Application.create!(
         name: "Custom App",
         slug: "custom-app",
         app_type: "forward_auth",
@@ -151,7 +151,7 @@ module Api
     end
 
     test "should return no headers when all headers disabled" do
-      Application.create!(
+      grant_everyone_access Application.create!(
         name: "No Headers App",
         slug: "no-headers-app",
         app_type: "forward_auth",
@@ -182,11 +182,19 @@ module Api
       assert_includes groups_header, "Editors"
     end
 
-    test "should not include groups header when user has no groups" do
-      @user.groups.clear  # Remove fixture groups
+    test "should not include groups header when user has no groups beyond the granting one and groups header empty" do
+      # Under default-deny the user must be in at least one group to access the app.
+      # This rewritten test verifies that when an app's headers_config disables the
+      # groups header, no x-remote-groups is sent regardless of memberships.
+      app = grant_everyone_access Application.create!(
+        name: "Headers Hidden", slug: "headers-hidden", app_type: "forward_auth",
+        domain_pattern: "hidden.example.com",
+        active: true,
+        headers_config: {groups: ""}
+      )
       sign_in_as(@user)
 
-      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      get "/api/verify", headers: {"X-Forwarded-Host" => "hidden.example.com"}
 
       assert_response 200
       assert_nil response.headers["x-remote-groups"]
@@ -705,7 +713,7 @@ module Api
     class FaTokenHostBindingTest < ActionDispatch::IntegrationTest
       setup do
         @user = users(:bob)
-        Application.create!(name: "Bound App", slug: "bound-app", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+        grant_everyone_access Application.create!(name: "Bound App", slug: "bound-app", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
 
         @original_cache = Rails.cache
         Rails.cache = ActiveSupport::Cache::MemoryStore.new
