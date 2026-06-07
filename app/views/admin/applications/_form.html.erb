@@ -115,6 +115,23 @@
         </div>
       </div>
     </div>
+
+    <div class="mt-4">
+      <%= form.label :icon_dark, "Dark mode icon (optional)", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Used in place of the main icon when the user's theme is dark. If omitted, the main icon is used in both modes.</p>
+      <% if application.icon_dark.attached? && application.persisted? && application.icon_dark.blob&.persisted? && application.icon_dark.blob.key.present? %>
+        <div class="mt-2 mb-3 flex items-center gap-4">
+          <%= image_tag application.icon_dark, class: "h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-700 bg-gray-900", alt: "Current dark-mode icon" %>
+          <div class="text-sm text-gray-600 dark:text-gray-400">
+            <p class="font-medium">Current dark-mode icon</p>
+            <p class="text-xs"><%= number_to_human_size(application.icon_dark.blob.byte_size) %></p>
+          </div>
+        </div>
+      <% end %>
+      <%= form.file_field :icon_dark,
+          accept: "image/png,image/jpg,image/jpeg,image/gif,image/svg+xml",
+          class: "mt-2 block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50" %>
+    </div>
   </div>
 
   <div>

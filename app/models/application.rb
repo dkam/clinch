@@ -25,9 +25,12 @@ class Application < ApplicationRecord
   after_commit :bust_forward_auth_cache, if: :forward_auth?
 
   has_one_attached :icon
+  has_one_attached :icon_dark
 
-  before_validation :sanitize_svg_icon, if: -> { attachment_changes["icon"].present? }
-  after_save :fix_icon_content_type, if: -> { icon.attached? && saved_change_to_attribute?(:id) == false }
+  ICON_ATTACHMENTS = %i[icon icon_dark].freeze
+
+  before_validation :sanitize_svg_icons
+  after_save :fix_icon_content_types
 
   has_many :application_groups, dependent: :destroy
   has_many :allowed_groups, through: :application_groups, source: :group
@@ -55,7 +58,7 @@ class Application < ApplicationRecord
   validate :backchannel_logout_uri_must_be_https_in_production, if: -> { backchannel_logout_uri.present? }
 
   # Icon validation using ActiveStorage validators
-  validate :icon_validation, if: -> { icon.attached? }
+  validate :icon_validation
 
   # Token TTL validations (for OIDC apps)
   validates :access_token_ttl, numericality: {greater_than_or_equal_to: 300, less_than_or_equal_to: 86400}, if: :oidc?  # 5 min - 24 hours
@@ -268,43 +271,49 @@ class Application < ApplicationRecord
     Rails.application.config.forward_auth_cache&.delete("fa_apps")
   end
 
-  def fix_icon_content_type
-    return unless icon.attached?
-
-    # Fix SVG content type if it was detected incorrectly
-    if icon.filename.extension == "svg" && icon.content_type == "application/octet-stream"
-      icon.blob.update(content_type: "image/svg+xml")
+  def fix_icon_content_types
+    ICON_ATTACHMENTS.each do |attr|
+      attachment = public_send(attr)
+      next unless attachment.attached?
+      # Fix SVG content type if it was detected incorrectly
+      if attachment.filename.extension == "svg" && attachment.content_type == "application/octet-stream"
+        attachment.blob.update(content_type: "image/svg+xml")
+      end
     end
   end
 
-  def sanitize_svg_icon
+  def sanitize_svg_icons
     # Runs in before_validation. The blob has NOT yet been uploaded to disk at
     # this point (Active Storage uploads in before_save), so we cannot call
-    # icon.download — we must read from the pending attachable.
+    # download — we must read from the pending attachable.
     #
-    # icon.attach below re-sets attachment_changes and would re-fire this
-    # callback; we skip if the pending attachable is the cleaned hash we just
-    # installed (tracked by object identity).
-    change = attachment_changes["icon"]
-    return unless change
-    attachable = change.attachable
-    return if attachable.equal?(@svg_sanitized_attachable)
+    # attach below re-sets attachment_changes and would re-fire this callback;
+    # we skip if the pending attachable is the cleaned hash we just installed
+    # (tracked by object identity, per-attribute).
+    @svg_sanitized_attachables ||= {}
 
-    raw_svg, filename, content_type = read_pending_icon(attachable)
-    return unless raw_svg
-    return unless content_type == "image/svg+xml" || filename.to_s.downcase.end_with?(".svg")
+    ICON_ATTACHMENTS.each do |attr|
+      change = attachment_changes[attr.to_s]
+      next unless change
+      attachable = change.attachable
+      next if attachable.equal?(@svg_sanitized_attachables[attr])
 
-    doc = Loofah.xml_document(raw_svg)
-    doc.scrub!(SvgScrubber.new)
-    clean_svg = doc.to_xml
+      raw_svg, filename, content_type = read_pending_icon(attachable)
+      next unless raw_svg
+      next unless content_type == "image/svg+xml" || filename.to_s.downcase.end_with?(".svg")
 
-    sanitized = {
-      io: StringIO.new(clean_svg),
-      filename: filename,
-      content_type: "image/svg+xml"
-    }
-    @svg_sanitized_attachable = sanitized
-    icon.attach(sanitized)
+      doc = Loofah.xml_document(raw_svg)
+      doc.scrub!(SvgScrubber.new)
+      clean_svg = doc.to_xml
+
+      sanitized = {
+        io: StringIO.new(clean_svg),
+        filename: filename,
+        content_type: "image/svg+xml"
+      }
+      @svg_sanitized_attachables[attr] = sanitized
+      public_send(attr).attach(sanitized)
+    end
   end
 
   def read_pending_icon(attachable)
@@ -327,17 +336,19 @@ class Application < ApplicationRecord
   end
 
   def icon_validation
-    return unless icon.attached?
-
-    # Check content type
     allowed_types = ["image/png", "image/jpg", "image/jpeg", "image/gif", "image/svg+xml"]
-    unless allowed_types.include?(icon.content_type)
-      errors.add(:icon, "must be a PNG, JPG, GIF, or SVG image")
-    end
 
-    # Check file size (2MB limit)
-    if icon.blob.byte_size > 2.megabytes
-      errors.add(:icon, "must be less than 2MB")
+    ICON_ATTACHMENTS.each do |attr|
+      attachment = public_send(attr)
+      next unless attachment.attached?
+
+      unless allowed_types.include?(attachment.content_type)
+        errors.add(attr, "must be a PNG, JPG, GIF, or SVG image")
+      end
+
+      if attachment.blob.byte_size > 2.megabytes
+        errors.add(attr, "must be less than 2MB")
+      end
     end
   end
 

@@ -44,4 +44,45 @@ module ApplicationHelper
     else "border-gray-200 dark:border-gray-700"
     end
   end
+
+  # Picks 1-2 character initials for a monogram fallback when an Application
+  # has no icon. Prefers capital letters (ShelfLife -> SL); falls back to the
+  # first two letters of the name (Audiobookshelf -> AU).
+  MONOGRAM_PALETTE = %w[
+    #4f46e5 #0891b2 #16a34a #ca8a04
+    #db2777 #9333ea #ea580c #475569
+  ].freeze
+
+  def monogram_initials(name)
+    return "?" if name.blank?
+    caps = name.scan(/[A-Z]/)
+    initials = if caps.size >= 2
+      caps.first(2).join
+    else
+      name.upcase.gsub(/[^A-Z0-9]/, "").first(2)
+    end
+    initials.presence || "?"
+  end
+
+  def monogram_color(name)
+    return MONOGRAM_PALETTE.first if name.blank?
+    index = Digest::MD5.hexdigest(name).to_i(16) % MONOGRAM_PALETTE.size
+    MONOGRAM_PALETTE[index]
+  end
+
+  # Renders an application icon as a <picture> that swaps based on the user's
+  # color-scheme preference. If only `icon` is attached, the same image is used
+  # in both modes. Caller is responsible for ensuring at least app.icon is
+  # attached; the monogram fallback handles the no-icon case separately.
+  def app_icon_picture(app, class:, alt: nil)
+    img_class = binding.local_variable_get(:class)
+    alt ||= "#{app.name} icon"
+    light = url_for(app.icon)
+    dark = app.icon_dark.attached? ? url_for(app.icon_dark) : nil
+    tag.picture do
+      sources = []
+      sources << tag.source(media: "(prefers-color-scheme: dark)", srcset: dark) if dark
+      safe_join(sources + [image_tag(app.icon, class: img_class, alt: alt)])
+    end
+  end
 end

@@ -1,0 +1,18 @@
+<%# Renders a deterministic monogram SVG for an Application that has no icon.
+    Locals:
+      name   - the application name (required)
+      class  - css classes for the <svg> element (e.g. "h-12 w-12 rounded-lg")
+%>
+<% initials = monogram_initials(name) %>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"
+     class="<%= local_assigns[:class] || "h-12 w-12 rounded-lg" %>"
+     role="img" aria-label="<%= name %> icon">
+  <rect width="40" height="40" fill="<%= monogram_color(name) %>" />
+  <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-weight="600" fill="#ffffff"
+        font-size="<%= initials.length == 1 ? 22 : 17 %>"
+        letter-spacing="-0.5">
+    <%= initials %>
+  </text>
+</svg>

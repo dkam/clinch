@@ -110,7 +110,7 @@ module Admin
       permitted = params.require(:application).permit(
         :name, :slug, :app_type, :active, :redirect_uris, :description, :metadata,
         :domain_pattern, :landing_url, :access_token_ttl, :refresh_token_ttl, :id_token_ttl,
-        :icon, :backchannel_logout_uri, :is_public_client, :require_pkce, :skip_consent
+        :icon, :icon_dark, :backchannel_logout_uri, :is_public_client, :require_pkce, :skip_consent
       )
 
       # Handle headers_config - it comes as a JSON string from the text area
