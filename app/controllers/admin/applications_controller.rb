@@ -3,7 +3,21 @@ module Admin
     before_action :set_application, only: [:show, :edit, :update, :destroy, :regenerate_credentials]
 
     def index
-      @applications = Application.order(created_at: :desc)
+      @applications = Application.order(created_at: :desc).includes(:allowed_groups)
+
+      # Distinct active users that have access to each app, preloaded to avoid N+1.
+      @user_count_by_app = User.where(status: User.statuses[:active])
+        .joins(groups: :applications)
+        .group("applications.id")
+        .distinct
+        .count("users.id")
+
+      # Top-of-page summary
+      @total_users_with_access = User.where(status: User.statuses[:active])
+        .joins(groups: :applications)
+        .distinct
+        .count("users.id")
+      @total_groups_granting_access = Group.joins(:applications).distinct.count
     end
 
     def show

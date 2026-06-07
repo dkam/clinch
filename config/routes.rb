@@ -95,6 +95,8 @@ Rails.application.routes.draw do
       end
     end
     resources :groups
+    get "access", to: "access_checks#new"
+    post "access", to: "access_checks#create"
   end
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
