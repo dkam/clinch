@@ -1,0 +1,66 @@
+<%# Compact icon uploader. Locals:
+      form              - the form builder
+      field             - symbol for the file field (:icon or :icon_dark)
+      label             - heading text
+      help              - small helper paragraph (optional)
+      current_attached  - the attachment to show as "current" preview
+      current_label     - text for the preview row (e.g. "Current icon")
+      preview_extra_class - extra css for the preview img (e.g. "bg-gray-900")
+%>
+<div>
+  <%= form.label field, label, class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+  <% if local_assigns[:help].present? %>
+    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400"><%= help %></p>
+  <% end %>
+
+  <% if current_attached&.attached? && current_attached.blob&.persisted? && current_attached.blob.key.present? %>
+    <div class="mt-2 mb-3 flex items-center gap-3">
+      <%= image_tag current_attached, class: "h-12 w-12 rounded-md object-cover border border-gray-200 dark:border-gray-700 #{local_assigns[:preview_extra_class]}", alt: current_label %>
+      <div class="text-sm text-gray-600 dark:text-gray-400">
+        <p class="font-medium"><%= current_label %></p>
+        <p class="text-xs"><%= number_to_human_size(current_attached.blob.byte_size) %></p>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="mt-2" data-controller="file-drop image-paste">
+    <div class="flex items-center gap-3 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-md hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors"
+         data-file-drop-target="dropzone"
+         data-image-paste-target="dropzone"
+         data-action="dragover->file-drop#dragover dragleave->file-drop#dragleave drop->file-drop#drop paste->image-paste#handlePaste"
+         tabindex="0">
+      <svg class="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+      </svg>
+      <div class="flex-1 text-sm">
+        <label for="<%= form.field_id(field) %>" class="cursor-pointer font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+          <span>Upload</span>
+          <%= form.file_field field,
+              accept: "image/png,image/jpg,image/jpeg,image/gif,image/svg+xml",
+              class: "sr-only",
+              data: {
+                file_drop_target: "input",
+                image_paste_target: "input",
+                action: "change->file-drop#handleFiles"
+              } %>
+        </label>
+        <span class="text-gray-600 dark:text-gray-400"> · drag and drop · or click and paste (⌘V)</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF or SVG · max 2MB</p>
+      </div>
+    </div>
+    <div data-file-drop-target="preview" class="mt-2 hidden">
+      <div class="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-200 dark:border-blue-700">
+        <img data-file-drop-target="previewImage" class="h-10 w-10 rounded object-cover" alt="Preview">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 dark:text-gray-100" data-file-drop-target="filename"></p>
+          <p class="text-xs text-gray-500 dark:text-gray-400" data-file-drop-target="filesize"></p>
+        </div>
+        <button type="button" data-action="click->file-drop#clear" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
