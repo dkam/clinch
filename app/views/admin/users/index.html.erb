@@ -61,7 +61,7 @@
           <% @users.each do |user| %>
             <tr>
               <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-0">
-                <%= user.email_address %>
+                <%= link_to user.email_address, admin_user_path(user), class: "text-blue-600 hover:text-blue-900" %>
               </td>
               <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                 <% if user.status.present? %>
@@ -110,6 +110,7 @@
                         data: { turbo_method: :post },
                         class: "text-yellow-600 hover:text-yellow-900" %>
                   <% end %>
+                  <%= link_to "View", admin_user_path(user), class: "text-blue-600 hover:text-blue-900" %>
                   <%= link_to "Edit", edit_admin_user_path(user), class: "text-blue-600 hover:text-blue-900" %>
                   <%= link_to "Delete", admin_user_path(user),
                       data: { turbo_method: :delete, turbo_confirm: "Are you sure you want to delete this user?" },
