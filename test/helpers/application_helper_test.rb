@@ -31,4 +31,23 @@ class ApplicationHelperTest < ActionView::TestCase
     # not a guarantee for all pairs, but should hold for at least one pair
     assert_not_equal monogram_color("Kavita"), monogram_color("Navidrome")
   end
+
+  test "app_icon_picture renders both icons with Tailwind dark: toggles when icon_dark is attached" do
+    app = applications(:kavita_app)
+    app.icon.attach(io: StringIO.new("light"), filename: "light.png", content_type: "image/png")
+    app.icon_dark.attach(io: StringIO.new("dark"), filename: "dark.png", content_type: "image/png")
+
+    html = app_icon_picture(app, class: "h-10 w-10 rounded-lg")
+    assert_match(/dark:hidden/, html)
+    assert_match(/hidden dark:block/, html)
+  end
+
+  test "app_icon_picture renders one img when no icon_dark is attached" do
+    app = applications(:kavita_app)
+    app.icon.attach(io: StringIO.new("light"), filename: "light.png", content_type: "image/png")
+
+    html = app_icon_picture(app, class: "h-10 w-10")
+    refute_match(/dark:hidden/, html)
+    refute_match(/hidden dark:block/, html)
+  end
 end

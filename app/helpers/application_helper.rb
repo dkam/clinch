@@ -70,19 +70,23 @@ module ApplicationHelper
     MONOGRAM_PALETTE[index]
   end
 
-  # Renders an application icon as a <picture> that swaps based on the user's
-  # color-scheme preference. If only `icon` is attached, the same image is used
-  # in both modes. Caller is responsible for ensuring at least app.icon is
-  # attached; the monogram fallback handles the no-icon case separately.
+  # Renders an application icon with optional dark-mode variant. If
+  # `icon_dark` is attached, we render both <img> tags and Tailwind's class-
+  # based `dark:` modifier hides the inactive one — so it follows the in-app
+  # theme toggle (.dark on <html>), not the OS preference. If only `icon` is
+  # attached, the same image is used in both modes. Caller must ensure at
+  # least app.icon is attached; the monogram fallback handles no-icon.
   def app_icon_picture(app, class:, alt: nil)
     img_class = binding.local_variable_get(:class)
     alt ||= "#{app.name} icon"
-    light = url_for(app.icon)
-    dark = app.icon_dark.attached? ? url_for(app.icon_dark) : nil
-    tag.picture do
-      sources = []
-      sources << tag.source(media: "(prefers-color-scheme: dark)", srcset: dark) if dark
-      safe_join(sources + [image_tag(app.icon, class: img_class, alt: alt)])
+
+    if app.icon_dark.attached?
+      safe_join([
+        image_tag(app.icon, class: "#{img_class} dark:hidden", alt: alt),
+        image_tag(app.icon_dark, class: "#{img_class} hidden dark:block", alt: alt)
+      ])
+    else
+      image_tag(app.icon, class: img_class, alt: alt)
     end
   end
 end
