@@ -56,6 +56,7 @@ class Application < ApplicationRecord
     message: "must be a valid HTTP or HTTPS URL"
   }
   validate :backchannel_logout_uri_must_be_https_in_production, if: -> { backchannel_logout_uri.present? }
+  validate :backchannel_logout_uri_not_internal, if: -> { backchannel_logout_uri.present? }
 
   # Icon validation using ActiveStorage validators
   validate :icon_validation
@@ -389,5 +390,18 @@ class Application < ApplicationRecord
     rescue URI::InvalidURIError
       # Let the format validator handle invalid URIs
     end
+  end
+
+  # SSRF guard: the backchannel logout URI is dialled server-side on every user
+  # logout, so it must not target internal infrastructure (loopback, private
+  # ranges, or the link-local cloud metadata endpoint). This is the fast,
+  # config-time check; BackchannelLogoutJob re-checks with DNS resolution.
+  def backchannel_logout_uri_not_internal
+    uri = URI.parse(backchannel_logout_uri)
+    if uri.host.present? && PrivateAddressCheck.internal_host?(uri.host)
+      errors.add(:backchannel_logout_uri, "must not point to a private, loopback, or link-local address")
+    end
+  rescue URI::InvalidURIError
+    # Let the format validator handle invalid URIs
   end
 end

@@ -199,7 +199,7 @@ class SessionSecurityTest < ActionDispatch::IntegrationTest
       slug: "logout-test-app",
       app_type: "oidc",
       redirect_uris: ["http://localhost:4000/callback"].to_json,
-      backchannel_logout_uri: "http://localhost:4000/logout",
+      backchannel_logout_uri: "https://rp.example.com/backchannel-logout",
       active: true
     )
 

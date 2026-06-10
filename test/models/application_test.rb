@@ -56,4 +56,29 @@ class ApplicationTest < ActiveSupport::TestCase
     tempfile&.close
     tempfile&.unlink
   end
+
+  test "rejects backchannel_logout_uri pointing at internal addresses (SSRF guard)" do
+    app = applications(:kavita_app)
+
+    internal_uris = [
+      "http://127.0.0.1/logout",
+      "http://localhost/logout",
+      "https://169.254.169.254/latest/meta-data/",
+      "http://10.0.0.5/logout",
+      "http://192.168.1.10/logout"
+    ]
+
+    internal_uris.each do |uri|
+      app.backchannel_logout_uri = uri
+      refute app.valid?, "expected #{uri} to be rejected"
+      assert_includes app.errors[:backchannel_logout_uri].join, "private, loopback, or link-local"
+    end
+  end
+
+  test "allows backchannel_logout_uri pointing at a public host" do
+    app = applications(:kavita_app)
+    app.backchannel_logout_uri = "https://relying-party.example.com/backchannel-logout"
+
+    assert app.valid?, app.errors.full_messages.to_sentence
+  end
 end

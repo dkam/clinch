@@ -28,6 +28,14 @@ class BackchannelLogoutJob < ApplicationJob
     # Send HTTP POST to the application's backchannel logout URI
     uri = URI.parse(application.backchannel_logout_uri)
 
+    # SSRF guard: re-check at request time (with DNS resolution) in case the URI
+    # predates the validation, or a public hostname now resolves to an internal
+    # address. Abort without retrying — retries would not change the outcome.
+    if PrivateAddressCheck.internal_host?(uri.host) || PrivateAddressCheck.resolves_to_internal?(uri.host)
+      Rails.logger.error "BackchannelLogout: Refusing to send logout to #{application.name} - #{uri.host} is or resolves to a non-public address (SSRF guard)"
+      return
+    end
+
     begin
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 5, read_timeout: 5) do |http|
         request = Net::HTTP::Post.new(uri.path.presence || "/")
