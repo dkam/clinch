@@ -113,6 +113,42 @@ module Api
       assert_equal "Application is inactive", json["error"]
     end
 
+    test "bearer token returns 401 once user is removed from allowed groups" do
+      # App restricted to a specific group; user is a member when the key is made.
+      group = Group.create!(name: "webdav-users")
+      restricted_app = Application.create!(
+        name: "Restricted WebDAV",
+        slug: "restricted-webdav",
+        app_type: "forward_auth",
+        domain_pattern: "restricted.example.com",
+        active: true
+      )
+      restricted_app.allowed_groups << group
+      @user.groups << group
+
+      key = @user.api_keys.create!(name: "Restricted Key", application: restricted_app)
+      token = key.plaintext_token
+
+      # Sanity: access works while membership stands.
+      get "/api/verify", headers: {
+        "Authorization" => "Bearer #{token}",
+        "X-Forwarded-Host" => "restricted.example.com"
+      }
+      assert_response :ok
+
+      # Revoke group membership; the existing key must stop working.
+      @user.groups.destroy(group)
+
+      get "/api/verify", headers: {
+        "Authorization" => "Bearer #{token}",
+        "X-Forwarded-Host" => "restricted.example.com"
+      }
+
+      assert_response :unauthorized
+      json = JSON.parse(response.body)
+      assert_equal "Access denied: insufficient group membership", json["error"]
+    end
+
     test "no bearer token falls through to cookie auth" do
       # No auth header, no session -> should redirect (cookie flow)
       get "/api/verify", headers: {

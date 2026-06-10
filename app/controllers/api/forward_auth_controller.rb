@@ -138,6 +138,14 @@ module Api
         return render_bearer_error("Application is inactive")
       end
 
+      # Re-check group membership at use-time. The ApiKey model only validates
+      # access on creation, so a user removed from the app's allowed groups
+      # afterwards must not keep access via an existing key.
+      unless app.user_allowed?(user)
+        Rails.logger.info "ForwardAuth: API key '#{api_key.name}' denied - user #{user.email_address} lacks group access to #{app.domain_pattern}"
+        return render_bearer_error("Access denied: insufficient group membership")
+      end
+
       api_key.touch_last_used!
 
       headers = app.headers_for_user(user)
