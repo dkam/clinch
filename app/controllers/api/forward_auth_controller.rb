@@ -243,18 +243,13 @@ module Api
     def determine_base_url(redirect_url)
       return redirect_url if redirect_url.present?
 
-      if ENV["CLINCH_HOST"].present?
-        host = ENV["CLINCH_HOST"]
-        host.match?(/^https?:\/\//) ? host : "https://#{host}"
-      else
-        request_host = request.host || request.headers["X-Forwarded-Host"]
-        if request_host.present?
-          Rails.logger.warn "ForwardAuth: CLINCH_HOST not set, using request host: #{request_host}"
-          "https://#{request_host}"
-        else
-          raise StandardError, "ForwardAuth: CLINCH_HOST environment variable not set and no request host available."
-        end
-      end
+      # CLINCH_HOST is the IdP's canonical origin and is mandatory in deployed
+      # environments (enforced at boot in config/initializers/clinch_host.rb).
+      # We never fall back to the request host: a spoofed X-Forwarded-Host would
+      # otherwise redirect the login flow to an attacker-controlled origin. The
+      # localhost default only applies to local dev/test.
+      host = ENV["CLINCH_HOST"].presence || "http://localhost:3000"
+      host.match?(%r{\Ahttps?://}) ? host : "https://#{host}"
     end
   end
 end

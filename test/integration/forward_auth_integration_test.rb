@@ -177,13 +177,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   test "spoofed X-Forwarded-Host is not reflected as a redirect target" do
-    # CLINCH_HOST pins the IdP origin (as in production) so base_url cannot be
-    # influenced by the request; this isolates the return_to/redirect behaviour.
-    original_clinch_host = ENV["CLINCH_HOST"]
-    ENV["CLINCH_HOST"] = "https://auth.example.com"
-
     # No forward-auth app exists for evil.com, and no valid rd is supplied. The
-    # attacker-controlled host must NOT be stored or reflected into the signin URL.
+    # attacker-controlled host must NOT be stored or reflected into the signin URL,
+    # and base_url must come from CLINCH_HOST (or the safe localhost default in
+    # test) rather than the request host.
     get "/api/verify", headers: {
       "X-Forwarded-Host" => "evil.com",
       "X-Forwarded-Uri" => "/steal"
@@ -193,8 +190,6 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert_match %r{/signin}, response.location
     refute_includes response.location, "evil.com"
     refute_match(/evil\.com/, session[:return_to_after_authenticating].to_s)
-  ensure
-    ENV["CLINCH_HOST"] = original_clinch_host
   end
 
   test "return URL functionality after authentication" do
