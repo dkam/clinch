@@ -4,7 +4,11 @@ class OidcController < ApplicationController
   # Discovery and JWKS endpoints are public
   # authorize is also unauthenticated to handle prompt=none and prompt=login specially
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :userinfo, :logout, :authorize]
-  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout, :authorize, :consent]
+  # Machine-to-machine endpoints (token/revoke/userinfo) and pure redirect handlers
+  # (logout/authorize) legitimately skip CSRF. The consent endpoint is browser-facing
+  # and state-changing (it grants OAuth scopes), so it MUST keep CSRF protection — the
+  # consent form already embeds the token via form_with.
+  skip_before_action :verify_authenticity_token, only: [:token, :revoke, :userinfo, :logout, :authorize]
 
   # RFC 6749 §4.1.2.1: client_id and redirect_uri must be validated *before* any
   # other error can be reported via redirect. Failures here render a plain page.

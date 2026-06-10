@@ -34,6 +34,25 @@ class OidcAuthorizationCodeSecurityTest < ActionDispatch::IntegrationTest
   # CRITICAL SECURITY TESTS
   # ====================
 
+  test "consent endpoint rejects cross-site POST without a CSRF token" do
+    sign_in_as(@user)
+
+    # Forgery protection is disabled in the test env by default; enable it so the
+    # before_action actually runs, mirroring production behaviour.
+    original = ActionController::Base.allow_forgery_protection
+    ActionController::Base.allow_forgery_protection = true
+    begin
+      # No authenticity_token param: a forged cross-site submission. Because
+      # :consent is NOT in the verify_authenticity_token skip list, this must be
+      # rejected before the action can grant any OAuth scopes.
+      post "/oauth/authorize/consent", params: {approve: "true"}
+
+      assert_response :unprocessable_entity
+    ensure
+      ActionController::Base.allow_forgery_protection = original
+    end
+  end
+
   test "prevents authorization code reuse - sequential attempts" do
     # Create consent
     OidcUserConsent.create!(

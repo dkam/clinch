@@ -242,6 +242,20 @@ module Api
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
+    # Fail closed when no host can be determined: emitting identity headers without
+    # an application would bypass all per-domain group access control.
+    test "should fail closed and emit no identity headers when host is absent" do
+      sign_in_as(@user)
+
+      # Blank both host sources so forwarded_host is not present.
+      get "/api/verify", headers: {"X-Forwarded-Host" => "", "Host" => ""}
+
+      assert_response 403
+      assert_equal "No host header present", response.headers["x-auth-reason"]
+      assert_nil response.headers["X-Remote-User"]
+      assert_nil response.headers["X-Remote-Groups"]
+    end
+
     # Security Tests
     test "should handle very long domain names" do
       long_domain = "a" * 250 + ".example.com"

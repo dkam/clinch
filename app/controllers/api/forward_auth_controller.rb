@@ -64,26 +64,16 @@ module Api
           return render_forbidden("No authentication rule configured for this domain")
         end
       else
-        Rails.logger.info "ForwardAuth: User #{user.email_address} authenticated (no domain specified)"
+        # Fail closed: with no host we cannot resolve an application or evaluate its
+        # group policy. Emitting identity headers here would bypass all per-domain
+        # access control, so reject instead.
+        Rails.logger.info "ForwardAuth: Access denied - no host header present"
+        return render_forbidden("No host header present")
       end
 
-      headers = if app
-        app.headers_for_user(user)
-      else
-        Application::DEFAULT_HEADERS.map { |key, header_name|
-          case key
-          when :user, :email, :name
-            [header_name, user.email_address]
-          when :username
-            [header_name, user.username] if user.username.present?
-          when :groups
-            user.groups.any? ? [header_name, user.groups.map(&:name).join(",")] : nil
-          when :admin
-            [header_name, user.admin? ? "true" : "false"]
-          end
-        }.compact.to_h
-      end
-
+      # Reaching here implies a matching, active application was resolved above
+      # (every other path returns forbidden), so headers are always scoped to it.
+      headers = app.headers_for_user(user)
       headers.each { |key, value| response.headers[key] = value }
       Rails.logger.debug "ForwardAuth: Headers sent: #{headers.keys.join(", ")}" if headers.any?
 
