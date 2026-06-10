@@ -63,7 +63,10 @@ class User < ApplicationRecord
   def enable_totp!
     require "rotp"
     self.totp_secret = ROTP::Base32.random
-    self.backup_codes = generate_backup_codes
+    # generate_backup_codes assigns the BCrypt hashes to self.backup_codes and
+    # returns the plaintext codes for display. Do NOT reassign backup_codes to the
+    # return value — that would store the plaintext codes and break verification.
+    generate_backup_codes
     save!
   end
 
@@ -86,7 +89,13 @@ class User < ApplicationRecord
 
     require "rotp"
     totp = ROTP::TOTP.new(totp_secret)
-    totp.verify(code, drift_behind: 30, drift_ahead: 30)
+    # Pass `after:` so a code can only be accepted once: ROTP rejects any timestep
+    # at or before the last accepted one, closing the ~90s drift-window replay.
+    verified_at = totp.verify(code, drift_behind: 30, drift_ahead: 30, after: last_otp_at)
+    return false unless verified_at
+
+    update_column(:last_otp_at, verified_at)
+    true
   end
 
   # Console/debug helper: get current TOTP code

@@ -19,16 +19,21 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
 
     # First use of the code should succeed
     post totp_verification_path, params: {code: valid_code}
-    assert_response :redirect
     assert_redirected_to root_path
 
     # Sign out
     delete session_path
     assert_response :redirect
 
-    # Note: In the current implementation, TOTP codes CAN be reused within the 60-second time window
-    # This is standard TOTP behavior. For enhanced security, you could implement used code tracking.
-    # This test documents the current behavior - codes work within their time window
+    # Replay the SAME code in a fresh sign-in attempt. Because verify_totp records
+    # the accepted timestep (ROTP `after:`), the code is now rejected even though
+    # it is still within its drift window — so we stay on the verification step.
+    post signin_path, params: {email_address: "totp_replay_test@example.com", password: "password123"}
+    assert_redirected_to totp_verification_path
+
+    post totp_verification_path, params: {code: valid_code}
+    assert_redirected_to totp_verification_path
+    assert_equal "Invalid verification code. Please try again.", flash[:alert]
 
     user.sessions.delete_all
     user.destroy
