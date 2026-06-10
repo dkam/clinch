@@ -196,11 +196,14 @@ module Api
       original_host = request.headers["X-Forwarded-Host"]
       original_uri = request.headers["X-Forwarded-Uri"] || request.headers["X-Forwarded-Path"] || "/"
 
-      original_url = if original_host
-        "https://#{original_host}#{original_uri}"
-      else
-        redirect_url || base_url
-      end
+      # X-Forwarded-Host is attacker-influenceable, so only honour the forwarded
+      # URL as a post-login redirect target if it resolves to a known, active
+      # forward-auth application. Otherwise this is an open redirect: a spoofed
+      # host would be stored and reflected into the signin `rd`, then followed
+      # (with allow_other_host) after the user authenticates. Fall back to a
+      # validated `rd` or, failing that, the IdP's own base URL.
+      forwarded_url = "https://#{original_host}#{original_uri}" if original_host.present?
+      original_url = validate_redirect_url(forwarded_url) || redirect_url || base_url
 
       session[:return_to_after_authenticating] = original_url
 

@@ -153,6 +153,10 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
 
   # Redirect URL Integration Tests
   test "unauthenticated request redirects to signin with parameters" do
+    # grafana.example.com must be a registered forward-auth app for its URL to be
+    # honoured as a redirect target (otherwise it would be an open-redirect vector).
+    grant_everyone_access Application.create!(name: "Grafana", slug: "grafana", app_type: "forward_auth", domain_pattern: "grafana.example.com", active: true)
+
     # Test that unauthenticated requests redirect to signin with rd and rm parameters
     get "/api/verify", headers: {
       "X-Forwarded-Host" => "grafana.example.com"
@@ -172,7 +176,32 @@ class ForwardAuthIntegrationTest < ActionDispatch::IntegrationTest
     assert_includes location, "grafana.example.com"
   end
 
+  test "spoofed X-Forwarded-Host is not reflected as a redirect target" do
+    # CLINCH_HOST pins the IdP origin (as in production) so base_url cannot be
+    # influenced by the request; this isolates the return_to/redirect behaviour.
+    original_clinch_host = ENV["CLINCH_HOST"]
+    ENV["CLINCH_HOST"] = "https://auth.example.com"
+
+    # No forward-auth app exists for evil.com, and no valid rd is supplied. The
+    # attacker-controlled host must NOT be stored or reflected into the signin URL.
+    get "/api/verify", headers: {
+      "X-Forwarded-Host" => "evil.com",
+      "X-Forwarded-Uri" => "/steal"
+    }
+
+    assert_response 302
+    assert_match %r{/signin}, response.location
+    refute_includes response.location, "evil.com"
+    refute_match(/evil\.com/, session[:return_to_after_authenticating].to_s)
+  ensure
+    ENV["CLINCH_HOST"] = original_clinch_host
+  end
+
   test "return URL functionality after authentication" do
+    # app.example.com must be a registered forward-auth app for its URL to be
+    # honoured as a redirect target.
+    grant_everyone_access Application.create!(name: "App FA", slug: "app-fa", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
+
     # Initial request should set return URL
     get "/api/verify", headers: {
       "X-Forwarded-Host" => "app.example.com",
