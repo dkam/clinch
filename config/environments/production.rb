@@ -118,14 +118,17 @@ Rails.application.configure do
       registrable_domain = domain.domain  # Gets "example.com" from "auth.example.com"
 
       if registrable_domain.present?
-        # Create regex to allow any subdomain of the registrable domain
-        allowed_hosts << /.*#{Regexp.escape(registrable_domain)}/
+        # Allow the registrable domain and any subdomain of it. The pattern is
+        # anchored (\A...\z) with a mandatory dot before the domain so that
+        # look-alikes such as "evil-example.com" or "example.com.attacker.com"
+        # do NOT match — an unanchored /.*example\.com/ would allow both.
+        allowed_hosts << /\A(.+\.)?#{Regexp.escape(registrable_domain)}\z/i
       end
     rescue PublicSuffix::DomainInvalid
       # Fallback to simple domain extraction if PublicSuffix fails
       Rails.logger.warn "Could not parse domain '#{host_domain}' with PublicSuffix, using fallback"
       base_domain = host_domain.split(".").last(2).join(".")
-      allowed_hosts << /.*#{Regexp.escape(base_domain)}/
+      allowed_hosts << /\A(.+\.)?#{Regexp.escape(base_domain)}\z/i
     end
   end
 
