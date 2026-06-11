@@ -213,6 +213,50 @@ class OidcRefreshTokenControllerTest < ActionDispatch::IntegrationTest
     assert_equal family_id, new_refresh_token.token_family_id
   end
 
+  test "reusing a revoked refresh token revokes every access token in the family" do
+    access_token = OidcAccessToken.create!(
+      application: @application,
+      user: @user,
+      scope: "openid profile email"
+    )
+    refresh_token = OidcRefreshToken.create!(
+      application: @application,
+      user: @user,
+      oidc_access_token: access_token,
+      scope: "openid profile email"
+    )
+    family_id = refresh_token.token_family_id
+    old_plaintext = refresh_token.token
+
+    # Rotate once: the old refresh token is revoked; a new access + refresh token
+    # are issued into the same family.
+    post "/oauth/token", params: {
+      grant_type: "refresh_token",
+      refresh_token: old_plaintext,
+      client_id: @application.client_id,
+      client_secret: @client_secret
+    }
+    assert_response :success
+
+    new_refresh = OidcRefreshToken.in_family(family_id).where.not(id: refresh_token.id).first
+    new_access_token = new_refresh.oidc_access_token
+    refute new_access_token.reload.revoked?, "rotated-in access token should start active"
+
+    # Reuse the OLD (now revoked) refresh token -> rotation-attack detection.
+    post "/oauth/token", params: {
+      grant_type: "refresh_token",
+      refresh_token: old_plaintext,
+      client_id: @application.client_id,
+      client_secret: @client_secret
+    }
+    assert_response :bad_request
+
+    # Both the original and the rotated-in access token must now be revoked, so a
+    # stolen access token from anywhere in the chain stops working at /userinfo.
+    assert access_token.reload.revoked?, "original access token should be revoked"
+    assert new_access_token.reload.revoked?, "rotated-in access token should be revoked"
+  end
+
   test "userinfo endpoint works with hashed access token" do
     access_token = OidcAccessToken.create!(
       application: @application,

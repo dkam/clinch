@@ -49,11 +49,21 @@ class OidcRefreshToken < ApplicationRecord
     update!(revoked_at: Time.current)
   end
 
-  # Revoke all refresh tokens in the same family (token rotation security)
+  # Revoke all refresh tokens in the same family (token rotation security).
+  # Also revoke every access token issued within the family: on a detected reuse
+  # attack the stolen chain's access tokens must not remain usable at /userinfo
+  # until they expire.
   def revoke_family!
     return unless token_family_id.present?
 
-    OidcRefreshToken.in_family(token_family_id).update_all(revoked_at: Time.current)
+    now = Time.current
+    family = OidcRefreshToken.in_family(token_family_id)
+    access_token_ids = family.pluck(:oidc_access_token_id).compact.uniq
+
+    family.update_all(revoked_at: now)
+    if access_token_ids.any?
+      OidcAccessToken.where(id: access_token_ids, revoked_at: nil).update_all(revoked_at: now)
+    end
   end
 
   private
