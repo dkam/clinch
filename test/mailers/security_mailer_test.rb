@@ -54,6 +54,15 @@ class SecurityMailerTest < ActionMailer::TestCase
     assert_bodies_contain email, "Old MacBook"
   end
 
+  test "suspicious_passkey_used warns about a blocked clone sign-in" do
+    email = SecurityMailer.suspicious_passkey_used(@user, nickname: "Yubikey-5", **CONTEXT)
+
+    assert_equal [@user.email_address], email.to
+    assert_match(/blocked/i, email.subject)
+    assert_bodies_contain email, "Yubikey-5"
+    assert_bodies_match email, /clon/i
+  end
+
   test "api_key_created includes the key name" do
     email = SecurityMailer.api_key_created(@user, name: "CI bot", **CONTEXT)
 

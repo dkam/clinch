@@ -295,10 +295,14 @@ class SessionsController < ApplicationController
         sign_count: stored_credential.sign_count
       )
 
-      # Check for suspicious sign count (possible clone)
+      # Clone detection: a non-advancing signature counter signals the credential
+      # may have been copied. Reject the sign-in (do NOT create a session or update
+      # the stored counter) and alert the user, per WebAuthn §6.1.1.
       if stored_credential.suspicious_sign_count?(webauthn_credential.sign_count)
-        Rails.logger.warn "Suspicious WebAuthn sign count for user #{user.id}, credential #{stored_credential.id}"
-        # You might want to notify admins or temporarily disable the credential
+        Rails.logger.warn "Suspicious WebAuthn sign count for user #{user.id}, credential #{stored_credential.id} (stored=#{stored_credential.sign_count}, presented=#{webauthn_credential.sign_count})"
+        SecurityMailer.suspicious_passkey_used(user, nickname: stored_credential.display_name, **security_event_context).deliver_later
+        render json: {error: "Passkey authentication could not be completed. Please contact support."}, status: :unprocessable_entity
+        return
       end
 
       # Update credential usage

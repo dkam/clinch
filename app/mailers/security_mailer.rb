@@ -40,6 +40,12 @@ class SecurityMailer < ApplicationMailer
     mail subject: "#{SUBJECT_PREFIX}An API key was revoked on your account", to: user.email_address
   end
 
+  def suspicious_passkey_used(user, nickname:, ip:, user_agent:, occurred_at:)
+    assign_context(user, ip, user_agent, occurred_at)
+    @nickname = nickname
+    mail subject: "#{SUBJECT_PREFIX}A passkey sign-in was blocked", to: user.email_address
+  end
+
   def email_address_changed(user, recipient:, old_email:, new_email:, ip:, user_agent:, occurred_at:)
     assign_context(user, ip, user_agent, occurred_at)
     @recipient = recipient

@@ -1,0 +1,11 @@
+Hello,
+
+A sign-in to your Clinch account (<%= @user.email_address %>) using your passkey
+("<%= @nickname %>") was BLOCKED because its security counter did not advance as
+expected. This can indicate the passkey has been copied (cloned).
+
+If this was you and you are unable to sign in, remove this passkey and register a
+new one. If you do not recognise this activity, treat it as a compromise: remove
+the passkey and review your account security.
+
+<%= render "event_metadata" %>

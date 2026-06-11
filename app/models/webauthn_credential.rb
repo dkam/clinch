@@ -52,13 +52,17 @@ class WebauthnCredential < ApplicationRecord
     end
   end
 
-  # Check if sign count is suspicious (clone detection)
+  # Check if sign count is suspicious (clone detection).
+  #
+  # Per WebAuthn §6.1.1, a signature counter of 0 means the authenticator does
+  # not implement a counter (true of most synced passkeys — Apple/Google report
+  # 0 every time), so it cannot be used for clone detection. Only when BOTH the
+  # stored and presented counts are non-zero does a non-increasing value signal
+  # a possible clone.
   def suspicious_sign_count?(new_sign_count)
-    return false if sign_count.zero? && new_sign_count > 0 # First use
-    return false if new_sign_count > sign_count # Normal increment
+    return false if sign_count.zero? || new_sign_count.zero?
 
-    # Sign count didn't increase - possible clone
-    true
+    new_sign_count <= sign_count
   end
 
   # Format for display in UI
