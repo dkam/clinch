@@ -9,13 +9,15 @@ Rails.application.configure do
     # Default to self for everything, plus blob: for file downloads
     policy.default_src :self, "blob:"
 
-    # Scripts: Allow self, importmaps, unsafe-inline for Turbo/StimulusJS, and blob: for downloads
-    # Note: unsafe_inline is needed for Stimulus controllers and Turbo navigation
-    policy.script_src :self, :unsafe_inline, "blob:"
+    # Scripts: self + per-response nonce (see nonce config below) + blob: for
+    # downloads. No unsafe-inline — importmap/Turbo/Stimulus inline tags carry the
+    # nonce automatically, and the one hand-written inline script is nonced.
+    policy.script_src :self, "blob:"
 
-    # Styles: Allow self and unsafe_inline for TailwindCSS dynamic classes
-    # and Stimulus controller style manipulations
-    policy.style_src :self, :unsafe_inline
+    # Styles: self + per-response nonce. No unsafe-inline — Tailwind ships as an
+    # external stylesheet, Turbo's injected <style> carries the nonce, and Stimulus
+    # sets styles via the CSSOM (not governed by CSP).
+    policy.style_src :self
 
     # Images: Allow self, data URLs, and https for external images
     policy.img_src :self, :data, :https
@@ -58,6 +60,13 @@ Rails.application.configure do
     # CSP reporting using report_uri (supported method)
     policy.report_uri "/api/csp-violation-report"
   end
+
+  # Per-response random nonce applied to script-src and style-src. The app does
+  # not page-cache HTML, so a fresh random nonce per response is the most secure
+  # choice (no reuse across responses). csp_meta_tag (in the layout) and
+  # importmap-rails read this nonce automatically.
+  config.content_security_policy_nonce_generator = ->(_request) { SecureRandom.base64(16) }
+  config.content_security_policy_nonce_directives = %w[script-src style-src]
 
   # Start with CSP in report-only mode for testing
   # Set to false after verifying everything works in production
