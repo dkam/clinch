@@ -7,6 +7,9 @@ class Session < ApplicationRecord
   # Scopes
   scope :active, -> { where("expires_at > ?", Time.current) }
   scope :expired, -> { where("expires_at <= ?", Time.current) }
+  # Sessions whose owning user is currently active. Used at request time so a
+  # disabled account cannot continue to authenticate with an existing session.
+  scope :for_active_user, -> { joins(:user).where(users: {status: User.statuses[:active]}) }
 
   def expired?
     expires_at.present? && expires_at <= Time.current

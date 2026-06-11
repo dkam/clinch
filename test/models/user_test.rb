@@ -1,6 +1,27 @@
 require "test_helper"
 
 class UserTest < ActiveSupport::TestCase
+  test "disabling a user destroys their active sessions" do
+    user = User.create!(email_address: "disable_sessions@example.com", password: "password123")
+    user.sessions.create!
+    user.sessions.create!
+    assert_equal 2, user.sessions.count
+
+    user.update!(status: :disabled)
+
+    assert_equal 0, user.reload.sessions.count
+  end
+
+  test "reactivating or other updates do not destroy sessions" do
+    user = User.create!(email_address: "keep_sessions@example.com", password: "password123")
+    user.sessions.create!
+
+    # An update that does not change status must leave sessions intact.
+    user.update!(username: "keepsessions")
+
+    assert_equal 1, user.reload.sessions.count
+  end
+
   test "downcases and strips email_address" do
     user = User.new(email_address: " DOWNCASED@EXAMPLE.COM ")
     assert_equal("downcased@example.com", user.email_address)

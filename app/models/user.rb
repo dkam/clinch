@@ -41,6 +41,11 @@ class User < ApplicationRecord
   # Enum - automatically creates scopes (User.active, User.disabled, etc.)
   enum :status, {active: 0, disabled: 1, pending_invitation: 2}
 
+  # When an account stops being active (e.g. an admin disables it), immediately
+  # terminate its sessions so access is revoked everywhere, not just on expiry.
+  # Defence-in-depth: session lookup also filters by active status at request time.
+  after_update_commit :revoke_sessions_when_deactivated
+
   # Scopes
   scope :admins, -> { joins(:groups).where(groups: {admin: true}).distinct }
 
@@ -244,6 +249,13 @@ class User < ApplicationRecord
 
   def add_to_auto_assign_groups
     Group.auto_assign.each { |g| groups << g }
+  end
+
+  def revoke_sessions_when_deactivated
+    return unless saved_change_to_status?
+    return if active?
+
+    sessions.destroy_all
   end
 
   def no_reserved_claim_names

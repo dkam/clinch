@@ -2,6 +2,49 @@ require "test_helper"
 
 class SessionSecurityTest < ActionDispatch::IntegrationTest
   # ====================
+  # ACCOUNT DEACTIVATION TESTS
+  # ====================
+
+  test "TOTP verification rejects a user disabled mid-flow" do
+    user = User.create!(email_address: "midflow_totp@example.com", password: "password123")
+    user.enable_totp!
+    code = ROTP::TOTP.new(user.totp_secret).now
+
+    # Phase A: password step stashes the pending 2FA user
+    post signin_path, params: {email_address: "midflow_totp@example.com", password: "password123"}
+    assert_redirected_to totp_verification_path
+
+    # Admin disables the account while the user is on the 2FA screen
+    user.update!(status: :disabled)
+
+    # Phase B: completing TOTP must NOT create a session
+    post totp_verification_path, params: {code: code}
+    assert_redirected_to signin_path
+    assert_equal 0, user.reload.sessions.count
+
+    user.destroy
+  end
+
+  test "an existing session stops authenticating once the user is disabled" do
+    user = User.create!(email_address: "disabled_session@example.com", password: "password123")
+    sign_in_as(user)
+
+    get root_path
+    assert_response :success
+
+    # Disable bypassing the destroy callback to isolate the request-time lookup
+    # guard (find_session_by_cookie filtering on active users).
+    user.update_column(:status, User.statuses[:disabled])
+
+    get root_path
+    assert_response :redirect
+    assert_match %r{/signin}, response.location
+
+    user.sessions.delete_all
+    user.destroy
+  end
+
+  # ====================
   # SESSION TIMEOUT TESTS
   # ====================
 

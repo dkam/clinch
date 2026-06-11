@@ -121,6 +121,16 @@ class SessionsController < ApplicationController
         return
       end
 
+      # Re-check account status: active? was verified at the password step, but an
+      # admin may have disabled the account while the user sat on this 2FA screen.
+      # Without this, a disabled account could still mint a valid session here.
+      unless user.active?
+        session.delete(:pending_totp_user_id)
+        session.delete(:pending_remember_me)
+        redirect_to signin_path, alert: "Your account is not active. Please contact an administrator."
+        return
+      end
+
       remember_me = session.delete(:pending_remember_me) || false
 
       # Try TOTP verification first (password + TOTP = 2FA)
@@ -238,6 +248,14 @@ class SessionsController < ApplicationController
     unless user
       session.delete(:pending_webauthn_user_id)
       render json: {error: "Session expired. Please try again."}, status: :unprocessable_entity
+      return
+    end
+
+    # Re-check account status: an admin may have disabled the account between the
+    # password step and this passkey verification. Reject before creating a session.
+    unless user.active?
+      session.delete(:pending_webauthn_user_id)
+      render json: {error: "Your account is not active."}, status: :unauthorized
       return
     end
 
