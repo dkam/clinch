@@ -4,5 +4,8 @@
 # Use this to limit dissemination of sensitive information.
 # See the ActiveSupport::ParameterFilter documentation for supported notations and behaviors.
 Rails.application.config.filter_parameters += [
-  :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc, :backup
+  :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc, :backup,
+  # :code partially matches the TOTP/backup `code` param, the OAuth authorization
+  # `code`, and the PKCE `code_verifier`/`code_challenge` — all sensitive in logs.
+  :code
 ]
