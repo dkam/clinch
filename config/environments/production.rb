@@ -139,9 +139,6 @@ Rails.application.configure do
 
   # Allow internal IP access for cross-compose or host networking
   if ENV["CLINCH_ALLOW_INTERNAL_IPS"] == "true"
-    # Specific host IP
-    allowed_hosts << "192.168.2.246"
-
     # Private IP ranges for internal network access
     allowed_hosts += [
       /192\.168\.\d+\.\d+/,    # 192.168.0.0/16 private network
