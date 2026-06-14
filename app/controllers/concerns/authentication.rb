@@ -62,9 +62,14 @@ module Authentication
     return if redirect_host.blank?
 
     csp = request.content_security_policy
-    return unless csp&.respond_to?(:form_action) && csp.form_action.respond_to?(:<<)
+    return unless csp
 
-    csp.form_action << "https://#{redirect_host}"
+    # NOTE: `csp.form_action` (no args) is destructive — it deletes the directive
+    # and returns its old value, so reading it twice yields nil. Mutate the
+    # underlying `directives` hash (a public reader of the real values) instead.
+    form_action = (csp.directives["form-action"] ||= ["'self'"])
+    host = "https://#{redirect_host}"
+    form_action << host unless form_action.include?(host)
   rescue URI::InvalidURIError
     nil
   end

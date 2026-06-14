@@ -32,6 +32,42 @@ class CspTest < ActionDispatch::IntegrationTest
       "inline theme script must carry the matching CSP nonce")
   end
 
+  test "signin page adds the OAuth redirect_uri host to form-action without 500ing" do
+    # A user must exist, otherwise /signin redirects to signup before the CSP
+    # branch runs.
+    User.create!(email_address: "csp_oauth@example.com", password: "password123")
+
+    app = Application.create!(
+      name: "CSP OAuth App",
+      slug: "csp-oauth-app",
+      app_type: "oidc",
+      redirect_uris: ["https://app.example.com/callback"].to_json,
+      active: true,
+      require_pkce: false
+    )
+
+    # An unauthenticated authorize request stores the full /oauth/authorize URL
+    # in the session and redirects to signin (oidc_controller.rb:202).
+    get "/oauth/authorize", params: {
+      client_id: app.client_id,
+      redirect_uri: app.parsed_redirect_uris.first,
+      response_type: "code",
+      scope: "openid"
+    }
+    assert_redirected_to signin_path
+
+    # Following to signin must reach allow_oauth_redirect_in_csp without raising.
+    # Regression: csp.form_action is a destructive getter, so reading it twice
+    # returned nil and `nil << host` raised NoMethodError -> 500.
+    follow_redirect!
+    assert_response :success
+
+    form_action = directive(response.headers["Content-Security-Policy"], "form-action")
+    assert_includes form_action, "'self'", "form-action must keep its default 'self'"
+    assert_includes form_action, "https://app.example.com",
+      "form-action must include the OAuth client's redirect_uri host"
+  end
+
   private
 
   def directive(csp, name)
