@@ -2,17 +2,12 @@ module Admin
   class AccessChecksController < BaseController
     def new
       load_options
-    end
-
-    def create
-      load_options
       @user = User.find_by(id: params[:user_id])
       @application = Application.find_by(id: params[:application_id])
-      return render :new unless @user && @application
+      return unless @user && @application
 
       @allowed = @application.user_allowed?(@user)
       @via = @user.groups & @application.allowed_groups
-      render :new
     end
 
     private
