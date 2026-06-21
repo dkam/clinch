@@ -1,22 +1,63 @@
 name: Build and publish image
 
+# Publishes the multi-arch image (amd64 + arm64) to GitHub Packages
+# (ghcr.io/dkam/clinch) whenever config/initializers/version.rb changes on
+# main — a version bump IS the release. Each arch builds natively (no QEMU); a
+# merge job stitches them into one manifest tagged :vX.Y.Z (+ :latest for
+# non-pre-releases).
+#
+# To cut a release: edit Clinch::VERSION in config/initializers/version.rb,
+# commit, push. For a dev build: set a pre-release version (e.g. "1.1.0-dev") —
+# it publishes :v1.1.0-dev but does not move :latest. Or run this workflow
+# manually from the Actions tab.
+
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    paths:
+      - config/initializers/version.rb
+  workflow_dispatch:
 
-# Only one build per ref at a time; cancel superseded main builds.
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
-  build:
+  # Read the SemVer constant; decide whether this release moves :latest.
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      latest: ${{ steps.version.outputs.latest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Read version from config/initializers/version.rb
+        id: version
+        run: |
+          V=$(ruby -e "require './config/initializers/version'; puts Clinch::VERSION")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          # A pre-release (e.g. 1.1.0-dev) publishes its own tag but not :latest.
+          if [[ "$V" == *-* ]]; then latest=false; else latest=true; fi
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "Building v$V (move :latest = $latest)"
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
-      packages: write  # Required to push to GHCR
-
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -31,26 +72,62 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract image metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=edge,branch=main
-            type=sha,prefix=sha-,format=short,enable={{is_default_branch}}
-            type=semver,pattern=v{{version}}
-            type=semver,pattern=v{{major}}.{{minor}}
-          flavor: |
-            latest=auto
-
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push the multi-arch manifest
+        working-directory: /tmp/digests
+        run: |
+          tags="-t ${{ env.IMAGE }}:v${{ needs.prepare.outputs.version }}"
+          if [ "${{ needs.prepare.outputs.latest }}" = "true" ]; then
+            tags="$tags -t ${{ env.IMAGE }}:latest"
+          fi
+          docker buildx imagetools create $tags $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect result
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:latest
