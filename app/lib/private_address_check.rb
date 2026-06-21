@@ -35,7 +35,7 @@ module PrivateAddressCheck
     return [ip] if ip
 
     Resolv.getaddresses(host.to_s).filter_map { |a| parse_ip(a) }
-  rescue StandardError
+  rescue
     # Resolution failure: surface no addresses. Callers treat "can't resolve" as
     # not-provably-internal; the dial itself will then fail safely.
     []

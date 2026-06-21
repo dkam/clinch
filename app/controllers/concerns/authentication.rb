@@ -191,7 +191,7 @@ module Authentication
     token = SecureRandom.urlsafe_base64(32)
     Rails.cache.write(
       "forward_auth_token:#{token}",
-      { session_id: session_obj.id, host: bound_host },
+      {session_id: session_obj.id, host: bound_host},
       expires_in: 60.seconds
     )
 

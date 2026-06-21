@@ -17,7 +17,11 @@ module SessionTestHelper
   # written under the old "empty allowed_groups = public" rule keep working.
   # New tests should attach groups explicitly to model real access intent.
   def grant_everyone_access(app)
-    everyone = (groups(:everyone) rescue Group.find_by(auto_assign: true))
+    everyone = begin
+      groups(:everyone)
+    rescue
+      Group.find_by(auto_assign: true)
+    end
     app.allowed_groups << everyone unless app.allowed_groups.include?(everyone)
     app
   end

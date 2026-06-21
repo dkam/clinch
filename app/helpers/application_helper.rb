@@ -31,7 +31,7 @@ module ApplicationHelper
     end
     lines << "OIDC_DISCOVERY_URL=#{OidcJwtService.issuer_url}"
     lines << "OIDC_PROVIDER_NAME='Clinch'"
-    lines << "OIDC_REQUIRE_PKCE=#{application.requires_pkce? ? 'true' : 'false'}"
+    lines << "OIDC_REQUIRE_PKCE=#{application.requires_pkce? ? "true" : "false"}"
     lines
   end
 

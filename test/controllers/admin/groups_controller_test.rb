@@ -27,7 +27,7 @@ module Admin
       @group.applications = [applications(:kavita_app)]
 
       patch admin_group_path(@group), params: {
-        group: { name: @group.name }
+        group: {name: @group.name}
       }
 
       assert_redirected_to admin_group_path(@group)

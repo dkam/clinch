@@ -186,7 +186,7 @@ module Api
       # Under default-deny the user must be in at least one group to access the app.
       # This rewritten test verifies that when an app's headers_config disables the
       # groups header, no x-remote-groups is sent regardless of memberships.
-      app = grant_everyone_access Application.create!(
+      grant_everyone_access Application.create!(
         name: "Headers Hidden", slug: "headers-hidden", app_type: "forward_auth",
         domain_pattern: "hidden.example.com",
         active: true,
@@ -559,7 +559,7 @@ module Api
     end
 
     test "should track failed attempts and eventually rate limit" do
-      cache = Rails.application.config.forward_auth_cache
+      Rails.application.config.forward_auth_cache
 
       # Make 50 failed requests (no session = unauthorized)
       50.times do

@@ -156,7 +156,7 @@ module Api
     end
 
     def render_bearer_error(message)
-      render json: { error: message }, status: :unauthorized
+      render json: {error: message}, status: :unauthorized
     end
 
     def check_forward_auth_token
@@ -207,7 +207,7 @@ module Api
 
       session[:return_to_after_authenticating] = original_url
 
-      login_params = { rd: original_url, rm: request.method }
+      login_params = {rd: original_url, rm: request.method}
       login_url = "#{base_url}/signin?#{login_params.to_query}"
 
       redirect_to login_url, allow_other_host: true, status: :found
