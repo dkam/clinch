@@ -53,9 +53,10 @@ Rails.application.configure do
     # Child sources: Allow self for any future iframes
     policy.child_src :self
 
-    # Additional security headers for WebAuthn
-    # Required for WebAuthn to work properly
-    policy.require_trusted_types_for :none
+    # Do not enforce Trusted Types. The only valid value for
+    # require-trusted-types-for is 'script'; there is no 'none' token, so
+    # emitting it produces an invalid directive that browsers reject. To leave
+    # Trusted Types unenforced (needed for WebAuthn), omit the directive entirely.
 
     # CSP reporting using report_uri (supported method)
     policy.report_uri "/api/csp-violation-report"
