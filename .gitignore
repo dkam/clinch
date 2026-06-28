@@ -70,3 +70,6 @@ yarn-debug.log*
 
 # Ignore bootsnap cache
 /tmp/cache/bootsnap*
+
+# Local-only: do not publish the security findings tracker
+SECURITY_REVIEW_TODO.md
