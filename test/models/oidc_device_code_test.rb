@@ -39,12 +39,20 @@ class OidcDeviceCodeTest < ActiveSupport::TestCase
     assert_nil OidcDeviceCode.find_by_user_code("nope")
   end
 
-  test "user_code is unique" do
-    dc = OidcDeviceCode.create!(application: @application)
-    dup = OidcDeviceCode.new(application: @application, user_code: dc.user_code)
+  test "regenerates the user_code when generation collides with an existing code" do
+    existing = OidcDeviceCode.create!(application: @application)
+    taken = existing.user_code
+    fresh = "ABCDEFGH" # in-alphabet, effectively guaranteed != the random `taken`
 
-    assert_not dup.valid?
-    assert_includes dup.errors[:user_code], "has already been taken"
+    # First candidate collides with the existing code, the second is unique — the
+    # generator must retry rather than surface a uniqueness error.
+    candidates = [taken, fresh].each
+    dc = OidcDeviceCode.new(application: @application)
+    dc.define_singleton_method(:random_user_code) { candidates.next }
+    dc.save!
+
+    assert_equal fresh, dc.user_code
+    assert_not_equal taken, dc.user_code
   end
 
   test "starts pending and approve! attaches the user and auth context" do

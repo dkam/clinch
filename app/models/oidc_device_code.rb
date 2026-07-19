@@ -110,10 +110,29 @@ class OidcDeviceCode < ApplicationRecord
     self.device_code_hmac ||= self.class.compute_device_code_hmac(plaintext_device_code)
   end
 
+  # Number of fresh candidates to try before falling back to the DB unique index.
+  USER_CODE_MAX_ATTEMPTS = 10
+
   def generate_user_code
+    return if user_code.present?
+
+    # Regenerate on the (astronomically rare) collision with an existing code so a
+    # client never gets an error just because two codes happened to match. The DB
+    # unique index remains the final guard against a concurrent-insert race.
+    USER_CODE_MAX_ATTEMPTS.times do
+      candidate = random_user_code
+      unless self.class.exists?(user_code: candidate)
+        self.user_code = candidate
+        return
+      end
+    end
+    self.user_code = random_user_code
+  end
+
+  def random_user_code
     # The user_code is a security credential (typing it + Approve grants tokens),
     # so draw from a CSPRNG rather than Ruby's global Mersenne Twister PRNG.
-    self.user_code ||= USER_CODE_GROUPS.times.map do
+    USER_CODE_GROUPS.times.map do
       USER_CODE_GROUP_SIZE.times.map { USER_CODE_ALPHABET.sample(random: SecureRandom) }.join
     end.join
   end
