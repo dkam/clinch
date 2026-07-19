@@ -1,0 +1,43 @@
+<div class="mx-auto max-w-md">
+  <div class="bg-white dark:bg-gray-800 py-8 px-6 shadow rounded-lg sm:px-10 text-center">
+    <% case @state %>
+    <% when :approved %>
+      <svg class="mx-auto h-14 w-14 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+      <h2 class="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Device approved</h2>
+      <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        <strong><%= @application.name %></strong> now has access to your account. You can return to your
+        terminal — it will continue automatically. You may close this tab.
+      </p>
+
+    <% when :denied %>
+      <svg class="mx-auto h-14 w-14 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+      <h2 class="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Request denied</h2>
+      <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        No access was granted. You can close this tab.
+      </p>
+
+    <% when :not_allowed %>
+      <svg class="mx-auto h-14 w-14 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+      <h2 class="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Access not allowed</h2>
+      <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        Your account isn't a member of a group permitted to use <strong><%= @application.name %></strong>.
+        Contact an administrator if you think this is a mistake.
+      </p>
+
+    <% else %>
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <%= @state == :expired ? "Code expired" : (@state == :already_handled ? "Code already used" : "Code not found") %>
+      </h2>
+      <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        Start again from your tool to get a fresh code.
+      </p>
+      <%= link_to "Enter a different code", device_verification_path, class: "mt-6 inline-block text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400" %>
+    <% end %>
+  </div>
+</div>

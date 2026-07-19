@@ -103,6 +103,22 @@ class Application < ApplicationRecord
     app_type == "forward_auth"
   end
 
+  DCR_SETTING_KEY = "dynamic_client_registration".freeze
+
+  # OAuth 2.0 Dynamic Client Registration (RFC 7591) is opt-in: it lets anyone
+  # anonymously create an OIDC client, so it is disabled by default. An admin
+  # toggles it at runtime (open the window, let a client self-register, attach it
+  # to a group, close the window again). Newly registered clients are still
+  # default-deny (no allowed_groups) until an admin grants access.
+  #
+  # The persisted Setting is authoritative once set; until then we fall back to
+  # the CLINCH_DCR_ENABLED env var (bootstrap/headless default, off if unset).
+  def self.dynamic_registration_enabled?
+    stored = Setting.boolean(DCR_SETTING_KEY)
+    return stored unless stored.nil?
+    ActiveModel::Type::Boolean.new.cast(ENV["CLINCH_DCR_ENABLED"])
+  end
+
   # Client type checks (for OIDC)
   def public_client?
     client_secret_digest.blank?

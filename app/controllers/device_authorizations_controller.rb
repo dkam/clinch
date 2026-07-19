@@ -1,0 +1,88 @@
+# User-facing side of the OAuth 2.0 Device Authorization Grant (RFC 8628 §3.3).
+#
+# The CLI/agent sends the human here (GET /device) with the short user_code it
+# was issued. This controller is authenticated, so an unauthenticated visitor is
+# bounced through /signin (with their passkey) and returned here afterwards via
+# session[:return_to_after_authenticating]. On POST /device the signed-in user
+# approves or denies; approval attaches them to the device code and records
+# consent so the token endpoint can mint tokens.
+class DeviceAuthorizationsController < ApplicationController
+  # Browser form endpoint — keep CSRF protection on (do NOT skip it).
+
+  # GET /device?user_code=WDJB-MJHT
+  def show
+    @user_code = params[:user_code].to_s
+    @device_code = OidcDeviceCode.find_by_user_code(@user_code) if @user_code.present?
+
+    if @device_code.nil?
+      @state = @user_code.present? ? :not_found : :prompt
+    elsif @device_code.expired?
+      @state = :expired
+    elsif !@device_code.pending?
+      @state = :already_handled
+    else
+      @state = :confirm
+      @application = @device_code.application
+      @scopes = granted_scopes(@device_code)
+    end
+
+    render :show
+  end
+
+  # POST /device
+  def verify
+    @device_code = OidcDeviceCode.find_by_user_code(params[:user_code].to_s)
+
+    if @device_code.nil?
+      @state = :not_found
+      return render :result
+    end
+
+    if @device_code.expired?
+      @state = :expired
+      return render :result
+    end
+
+    unless @device_code.pending?
+      @state = :already_handled
+      return render :result
+    end
+
+    @application = @device_code.application
+
+    if params[:deny].present?
+      @device_code.deny!
+      @state = :denied
+      return render :result
+    end
+
+    # Enforce the same group-based access control as the OIDC authorize flow.
+    unless @application.user_allowed?(Current.user)
+      @state = :not_allowed
+      return render :result
+    end
+
+    record_consent(@device_code, Current.user)
+    @device_code.approve!(
+      user: Current.user,
+      acr: Current.session.acr,
+      auth_time: Current.session.created_at.to_i
+    )
+    @state = :approved
+    render :result
+  end
+
+  private
+
+  def granted_scopes(device_code)
+    device_code.scope.to_s.split & OidcController::SUPPORTED_SCOPES
+  end
+
+  def record_consent(device_code, user)
+    consent = OidcUserConsent.find_or_initialize_by(user: user, application: device_code.application)
+    consent.scopes_granted = granted_scopes(device_code).join(" ")
+    consent.claims_requests = {}
+    consent.granted_at = Time.current
+    consent.save!
+  end
+end

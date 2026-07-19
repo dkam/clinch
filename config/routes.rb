@@ -25,13 +25,24 @@ Rails.application.routes.draw do
 
   # OIDC (OpenID Connect) routes
   get "/.well-known/openid-configuration", to: "oidc#discovery"
+  # RFC 8414 OAuth 2.0 Authorization Server Metadata (alias of OIDC discovery;
+  # MCP clients look here). OIDC discovery is a superset of the RFC 8414 fields.
+  get "/.well-known/oauth-authorization-server", to: "oidc#discovery"
   get "/.well-known/jwks.json", to: "oidc#jwks"
+  # RFC 7591 Dynamic Client Registration
+  post "/oauth/register", to: "oidc_registration#create"
   match "/oauth/authorize", to: "oidc#authorize", via: [:get, :post]
   post "/oauth/authorize/consent", to: "oidc#consent", as: :oauth_consent
   post "/oauth/token", to: "oidc#token"
   post "/oauth/revoke", to: "oidc#revoke"
+  post "/oauth/introspect", to: "oidc#introspect"
   match "/oauth/userinfo", to: "oidc#userinfo", via: [:get, :post]
   get "/logout", to: "oidc#logout"
+
+  # OAuth 2.0 Device Authorization Grant (RFC 8628)
+  post "/oauth/device_authorization", to: "oidc#device_authorization"
+  get "/device", to: "device_authorizations#show", as: :device_verification
+  post "/device", to: "device_authorizations#verify"
 
   # ForwardAuth / Trusted Header SSO
   namespace :api do
@@ -96,6 +107,8 @@ Rails.application.routes.draw do
     end
     resources :groups
     get "access", to: "access_checks#new"
+    # Runtime toggle for the RFC 7591 dynamic client registration window.
+    resource :dynamic_client_registration, only: [:update], controller: "dynamic_client_registration"
   end
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)

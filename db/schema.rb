@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_11_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -161,6 +161,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_000001) do
     t.index ["user_id"], name: "index_oidc_authorization_codes_on_user_id"
   end
 
+  create_table "oidc_device_codes", force: :cascade do |t|
+    t.string "acr"
+    t.integer "application_id", null: false
+    t.integer "auth_time"
+    t.string "code_challenge"
+    t.string "code_challenge_method"
+    t.datetime "created_at", null: false
+    t.string "device_code_hmac", null: false
+    t.datetime "expires_at", null: false
+    t.integer "interval", default: 5, null: false
+    t.datetime "last_polled_at"
+    t.string "nonce"
+    t.string "scope"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_code", null: false
+    t.integer "user_id"
+    t.index ["application_id"], name: "index_oidc_device_codes_on_application_id"
+    t.index ["device_code_hmac"], name: "index_oidc_device_codes_on_device_code_hmac", unique: true
+    t.index ["expires_at"], name: "index_oidc_device_codes_on_expires_at"
+    t.index ["user_code"], name: "index_oidc_device_codes_on_user_code", unique: true
+    t.index ["user_id"], name: "index_oidc_device_codes_on_user_id"
+  end
+
   create_table "oidc_refresh_tokens", force: :cascade do |t|
     t.string "acr"
     t.integer "application_id", null: false
@@ -216,6 +240,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_000001) do
     t.index ["expires_at"], name: "index_sessions_on_expires_at"
     t.index ["last_activity_at"], name: "index_sessions_on_last_activity_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "settings", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "key", null: false
+    t.datetime "updated_at", null: false
+    t.string "value"
+    t.index ["key"], name: "index_settings_on_key", unique: true
   end
 
   create_table "user_groups", force: :cascade do |t|
@@ -286,6 +318,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_000001) do
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
+  add_foreign_key "oidc_device_codes", "applications"
+  add_foreign_key "oidc_device_codes", "users"
   add_foreign_key "oidc_refresh_tokens", "applications"
   add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
   add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes", on_delete: :nullify

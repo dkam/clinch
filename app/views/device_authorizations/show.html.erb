@@ -1,0 +1,88 @@
+<div class="mx-auto max-w-md">
+  <div class="bg-white dark:bg-gray-800 py-8 px-6 shadow rounded-lg sm:px-10">
+    <% case @state %>
+    <% when :confirm %>
+      <div class="mb-8 text-center">
+        <% if @application.icon.attached? %>
+          <div class="mx-auto h-20 w-20 mb-4">
+            <%= app_icon_picture @application, class: "mx-auto h-20 w-20 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 shadow-sm" %>
+          </div>
+        <% else %>
+          <div class="mx-auto mb-4">
+            <%= render "shared/app_monogram", name: @application.name, class: "h-20 w-20 rounded-xl shadow-sm" %>
+          </div>
+        <% end %>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Authorize device</h2>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <strong><%= @application.name %></strong> is requesting access to your account from a device or command line.
+        </p>
+      </div>
+
+      <div class="rounded-md bg-gray-50 dark:bg-gray-900/40 p-4 mb-6 text-center">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Code shown on your device</p>
+        <p class="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900 dark:text-gray-100"><%= @device_code.user_code %></p>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Only approve if this matches the code your tool is showing.</p>
+      </div>
+
+      <% if @scopes.any? %>
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">This will be able to:</h3>
+          <ul class="space-y-2">
+            <% scope_labels = { "openid" => "Verify your identity", "email" => "Access your email address (#{Current.user.email_address})", "profile" => "Access your profile information", "groups" => "Access your group memberships", "offline_access" => "Stay signed in (refresh access)" } %>
+            <% @scopes.each do |scope| %>
+              <li class="flex items-start">
+                <svg class="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-sm text-gray-700 dark:text-gray-300"><%= scope_labels[scope] || scope %></span>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <%= form_with url: device_verification_path, method: :post, class: "space-y-3", data: { turbo: false }, local: true do |form| %>
+        <%= form.hidden_field :user_code, value: @device_code.user_code %>
+        <%= form.submit "Approve",
+            class: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 focus:ring-blue-500" %>
+        <%= button_tag "Deny",
+            type: :submit,
+            name: :deny,
+            value: "1",
+            class: "w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 focus:ring-blue-500" %>
+      <% end %>
+
+    <% when :prompt %>
+      <div class="mb-6 text-center">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Enter device code</h2>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Type the code shown by your tool or command line.</p>
+      </div>
+      <%= form_with url: device_verification_path, method: :get, class: "space-y-4", data: { turbo: false }, local: true do |form| %>
+        <%= form.text_field :user_code,
+            autofocus: true,
+            autocomplete: "off",
+            placeholder: "WDJB-MJHT",
+            class: "block w-full text-center font-mono text-xl tracking-widest uppercase rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500" %>
+        <%= form.submit "Continue",
+            class: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 focus:ring-blue-500" %>
+      <% end %>
+
+    <% else %>
+      <div class="text-center">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <%= @state == :expired ? "Code expired" : (@state == :already_handled ? "Code already used" : "Code not found") %>
+        </h2>
+        <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+          <% if @state == :expired %>
+            This device code has expired. Start again from your tool to get a fresh code.
+          <% elsif @state == :already_handled %>
+            This device code has already been approved or denied. Start again from your tool if you need a new one.
+          <% else %>
+            We couldn't find that code. Check the code your tool is showing and try again.
+          <% end %>
+        </p>
+        <%= link_to "Enter a different code", device_verification_path, class: "mt-6 inline-block text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400" %>
+      </div>
+    <% end %>
+  </div>
+</div>
