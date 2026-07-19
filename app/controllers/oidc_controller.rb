@@ -1,6 +1,18 @@
 class OidcController < ApplicationController
   SUPPORTED_SCOPES = %w[openid profile email groups offline_access].freeze
 
+  # Grant types this authorization server supports. Single source of truth:
+  # advertised in discovery (grant_types_supported), accepted at dynamic client
+  # registration, and dispatched by the token endpoint. clinch offers all of these
+  # to every OIDC client — they are all user-context grants gated by consent and
+  # Application#user_allowed?, so there is no per-client grant restriction to
+  # enforce. Keep this in sync with the `case grant_type` dispatch in #token.
+  SUPPORTED_GRANT_TYPES = [
+    "authorization_code",
+    "refresh_token",
+    "urn:ietf:params:oauth:grant-type:device_code"
+  ].freeze
+
   # Discovery and JWKS endpoints are public
   # authorize is also unauthenticated to handle prompt=none and prompt=login specially
   allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :introspect, :userinfo, :logout, :authorize, :device_authorization]
@@ -54,7 +66,7 @@ class OidcController < ApplicationController
       end_session_endpoint: "#{base_url}/logout",
       response_types_supported: ["code"],
       response_modes_supported: ["query"],
-      grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
+      grant_types_supported: SUPPORTED_GRANT_TYPES,
       subject_types_supported: ["pairwise"],
       id_token_signing_alg_values_supported: ["RS256"],
       scopes_supported: SUPPORTED_SCOPES,

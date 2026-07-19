@@ -16,8 +16,14 @@ class OidcRegistrationController < ApplicationController
   }
 
   AUTH_METHODS = %w[none client_secret_basic client_secret_post].freeze
-  SUPPORTED_GRANT_TYPES = %w[authorization_code refresh_token].freeze
   SUPPORTED_RESPONSE_TYPES = %w[code].freeze
+
+  # Accept exactly the grant types the authorization server advertises in
+  # discovery (single source of truth), so a client cannot be rejected for
+  # requesting a grant the server actually supports (e.g. the device_code grant).
+  def supported_grant_types
+    OidcController::SUPPORTED_GRANT_TYPES
+  end
 
   # POST /oauth/register
   def create
@@ -37,8 +43,8 @@ class OidcRegistrationController < ApplicationController
     end
 
     grant_types = Array(metadata["grant_types"].presence || ["authorization_code"])
-    if (grant_types - SUPPORTED_GRANT_TYPES).any?
-      return register_error("invalid_client_metadata", "Unsupported grant_types; only #{SUPPORTED_GRANT_TYPES.join(", ")} are allowed")
+    if (grant_types - supported_grant_types).any?
+      return register_error("invalid_client_metadata", "Unsupported grant_types; only #{supported_grant_types.join(", ")} are allowed")
     end
 
     response_types = Array(metadata["response_types"].presence || ["code"])

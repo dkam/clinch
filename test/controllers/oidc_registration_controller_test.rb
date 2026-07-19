@@ -89,6 +89,25 @@ class OidcRegistrationControllerTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_client_metadata", JSON.parse(@response.body)["error"]
   end
 
+  test "registers a client requesting the device_code grant advertised in discovery" do
+    enable_dcr
+    register(
+      redirect_uris: ["https://client.example.com/cb"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"]
+    )
+    assert_response :created
+    assert_includes JSON.parse(@response.body)["grant_types"], "urn:ietf:params:oauth:grant-type:device_code"
+  end
+
+  test "registration accepts exactly the grant types discovery advertises" do
+    get "/.well-known/openid-configuration"
+    advertised = JSON.parse(@response.body)["grant_types_supported"]
+    # Single source of truth: what we advertise is what registration accepts.
+    assert_equal OidcController::SUPPORTED_GRANT_TYPES, advertised
+    assert_includes advertised, "urn:ietf:params:oauth:grant-type:device_code"
+  end
+
   test "rejects a non-JSON body" do
     enable_dcr
     post "/oauth/register", params: "not json", headers: JSON_HEADERS
