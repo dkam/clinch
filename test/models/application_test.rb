@@ -81,4 +81,14 @@ class ApplicationTest < ActiveSupport::TestCase
 
     assert app.valid?, app.errors.full_messages.to_sentence
   end
+
+  test "destroying an application with a pending device code succeeds (regression for FK 500)" do
+    app = applications(:kavita_app)
+    device_code = app.oidc_device_codes.create!
+
+    assert_difference("OidcDeviceCode.count", -1) do
+      assert_nothing_raised { app.destroy }
+    end
+    refute OidcDeviceCode.exists?(device_code.id)
+  end
 end

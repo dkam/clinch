@@ -36,6 +36,7 @@ class Application < ApplicationRecord
   has_many :allowed_groups, through: :application_groups, source: :group
   has_many :application_user_claims, dependent: :destroy
   has_many :oidc_authorization_codes, dependent: :destroy
+  has_many :oidc_device_codes, dependent: :destroy
   has_many :oidc_access_tokens, dependent: :destroy
   has_many :oidc_refresh_tokens, dependent: :destroy
   has_many :oidc_user_consents, dependent: :destroy

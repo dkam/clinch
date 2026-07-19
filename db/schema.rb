@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_000006) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -329,7 +329,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000005) do
   add_foreign_key "oidc_access_tokens", "users"
   add_foreign_key "oidc_authorization_codes", "applications"
   add_foreign_key "oidc_authorization_codes", "users"
-  add_foreign_key "oidc_device_codes", "applications"
+  add_foreign_key "oidc_device_codes", "applications", on_delete: :cascade
   add_foreign_key "oidc_device_codes", "users"
   add_foreign_key "oidc_refresh_tokens", "applications"
   add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
