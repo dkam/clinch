@@ -87,14 +87,14 @@ class DeviceAuthorizationsController < ApplicationController
   end
 
   def record_consent(device_code, user)
-    consent = OidcUserConsent.find_or_initialize_by(user: user, application: device_code.application)
-    # Merge into any existing consent instead of overwriting it. The consent
-    # record is shared with the browser flow (unique on user+application) and
-    # scopes_granted is treated as a granted superset, so a narrower device
-    # request must not shrink previously granted scopes or wipe stored claims.
-    consent.scopes = consent.scopes_granted.to_s.split | granted_scopes(device_code)
-    consent.claims_requests = {} if consent.new_record?
-    consent.granted_at = Time.current
-    consent.save!
+    # merge: true — the consent record is shared with the browser flow, so a
+    # narrower device request must not shrink previously granted scopes or wipe
+    # stored claims.
+    OidcUserConsent.record!(
+      user: user,
+      application: device_code.application,
+      scopes: granted_scopes(device_code),
+      merge: true
+    )
   end
 end

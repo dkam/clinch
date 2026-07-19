@@ -206,6 +206,45 @@ class OidcUserConsentTest < ActiveSupport::TestCase
     assert consent.covers_scopes?(["openid", "email", "profile"])
   end
 
+  # --- .record! upsert semantics --------------------------------------------
+
+  test "record! creates a new consent with the given scopes and claims" do
+    user = users(:alice)
+    app = applications(:another_app)
+    OidcUserConsent.where(user: user, application: app).delete_all
+
+    consent = OidcUserConsent.record!(user: user, application: app,
+      scopes: %w[openid email], claims_requests: {"userinfo" => {"email" => nil}})
+
+    assert_equal %w[openid email], consent.scopes
+    assert_equal({"userinfo" => {"email" => nil}}, consent.parsed_claims_requests)
+  end
+
+  test "record! without merge overwrites scopes (browser flow)" do
+    user = users(:alice)
+    app = applications(:another_app)
+    OidcUserConsent.create!(user: user, application: app,
+      scopes_granted: "openid email profile", granted_at: 1.day.ago)
+
+    consent = OidcUserConsent.record!(user: user, application: app, scopes: %w[openid],
+      claims_requests: {})
+
+    assert_equal %w[openid], consent.scopes, "browser flow records exactly what was consented"
+  end
+
+  test "record! with merge unions scopes and preserves stored claims (device flow)" do
+    user = users(:alice)
+    app = applications(:another_app)
+    OidcUserConsent.create!(user: user, application: app,
+      scopes_granted: "openid email profile", claims_requests: {"userinfo" => {"email" => nil}},
+      granted_at: 1.day.ago)
+
+    consent = OidcUserConsent.record!(user: user, application: app, scopes: %w[openid], merge: true)
+
+    assert_equal %w[openid email profile].sort, consent.scopes.sort, "merge must not shrink a prior grant"
+    assert_equal({"userinfo" => {"email" => nil}}, consent.parsed_claims_requests, "merge must not wipe claims")
+  end
+
   test "should validate scope coverage logic with real OIDC scenarios" do
     # Typical OIDC consent scenario
     @consent.scopes_granted = "openid profile email"

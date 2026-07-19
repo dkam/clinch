@@ -8,9 +8,29 @@ class OidcUserConsent < ApplicationRecord
   before_validation :set_granted_at, on: :create
   before_validation :set_sid, on: :create
 
-  # Parse scopes_granted into an array
+  # Upsert a user's consent for an application. The record is unique on
+  # user+application and shared across the browser and device flows.
+  #
+  # merge: false (the browser consent screen) records exactly the scopes the user
+  # just approved. merge: true (device approval) unions the scopes into any
+  # existing grant and leaves stored claims untouched, so a narrower device
+  # request can never shrink a prior grant or wipe its claims. claims_requests is
+  # written only when supplied (nil = keep whatever is stored, defaulting to {}
+  # for a brand-new record).
+  def self.record!(user:, application:, scopes:, claims_requests: nil, merge: false)
+    consent = find_or_initialize_by(user: user, application: application)
+    incoming = Array(scopes)
+    consent.scopes = merge ? (consent.scopes | incoming) : incoming
+    consent.claims_requests = claims_requests unless claims_requests.nil?
+    consent.claims_requests ||= {}
+    consent.granted_at = Time.current
+    consent.save!
+    consent
+  end
+
+  # Parse scopes_granted into an array (nil-safe for not-yet-saved records).
   def scopes
-    scopes_granted.split(" ")
+    scopes_granted.to_s.split(" ")
   end
 
   # Set scopes from an array
