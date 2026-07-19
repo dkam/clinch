@@ -1,5 +1,4 @@
 class OidcController < ApplicationController
-  SUPPORTED_SCOPES = %w[openid profile email groups offline_access].freeze
 
   # Grant types this authorization server supports. Single source of truth:
   # advertised in discovery (grant_types_supported), accepted at dynamic client
@@ -69,7 +68,7 @@ class OidcController < ApplicationController
       grant_types_supported: SUPPORTED_GRANT_TYPES,
       subject_types_supported: ["pairwise"],
       id_token_signing_alg_values_supported: ["RS256"],
-      scopes_supported: SUPPORTED_SCOPES,
+      scopes_supported: OidcScopes::SUPPORTED,
       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
       claims_supported: [
         "sub",              # Always included
@@ -127,7 +126,7 @@ class OidcController < ApplicationController
     end
 
     # Only accept scopes we support (mirrors the authorize endpoint).
-    requested_scope = (params[:scope].to_s.split & SUPPORTED_SCOPES).join(" ")
+    requested_scope = (params[:scope].to_s.split & OidcScopes::SUPPORTED).join(" ")
     requested_scope = "openid" if requested_scope.blank?
 
     # PKCE is optional but recommended for device flow (RFC 8628 §5.5). If the
@@ -240,7 +239,7 @@ class OidcController < ApplicationController
     # Normalize requested scopes to the set we support. Needed here so claims
     # validation below can check claim→scope coverage against what will actually
     # be granted.
-    requested_scopes = scope.split(" ") & SUPPORTED_SCOPES
+    requested_scopes = scope.split(" ") & OidcScopes::SUPPORTED
     scope = requested_scopes.join(" ")
 
     # Parse claims parameter (JSON string) for OIDC claims request
@@ -490,7 +489,7 @@ class OidcController < ApplicationController
 
     user = Current.session.user
 
-    requested_scopes = oauth_params["scope"].split(" ") & SUPPORTED_SCOPES
+    requested_scopes = oauth_params["scope"].split(" ") & OidcScopes::SUPPORTED
     parsed_claims = begin
       JSON.parse(oauth_params["claims_requests"])
     rescue

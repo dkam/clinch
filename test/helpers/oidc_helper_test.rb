@@ -12,7 +12,7 @@ class OidcHelperTest < ActionView::TestCase
 
   test "scope_description covers every SUPPORTED_SCOPE (so the consent screens can't silently drop one)" do
     user = User.new(email_address: "person@example.com")
-    OidcController::SUPPORTED_SCOPES.each do |scope|
+    OidcScopes::SUPPORTED.each do |scope|
       assert_not_equal scope, scope_description(scope, user: user),
         "#{scope} has no description and would render as its raw name"
     end

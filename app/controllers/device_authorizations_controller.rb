@@ -80,7 +80,7 @@ class DeviceAuthorizationsController < ApplicationController
   end
 
   def granted_scopes(device_code)
-    device_code.scope.to_s.split & OidcController::SUPPORTED_SCOPES
+    device_code.scope.to_s.split & OidcScopes::SUPPORTED
   end
 
   def record_consent(device_code, user)
