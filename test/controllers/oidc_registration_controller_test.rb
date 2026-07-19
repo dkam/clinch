@@ -82,6 +82,18 @@ class OidcRegistrationControllerTest < ActionDispatch::IntegrationTest
     assert_response :created
   end
 
+  test "allows http redirect_uris for IPv6 loopback (RFC 8252)" do
+    enable_dcr
+    register(redirect_uris: ["http://[::1]:49152/callback"], token_endpoint_auth_method: "none")
+    assert_response :created
+  end
+
+  test "allows http redirect_uris for IPv4 loopback" do
+    enable_dcr
+    register(redirect_uris: ["http://127.0.0.1:49152/callback"], token_endpoint_auth_method: "none")
+    assert_response :created
+  end
+
   test "rejects unsupported grant types" do
     enable_dcr
     register(redirect_uris: ["https://client.example.com/cb"], grant_types: ["client_credentials"])

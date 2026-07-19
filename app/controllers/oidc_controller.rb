@@ -203,30 +203,21 @@ class OidcController < ApplicationController
     # return request_not_supported error
     if params[:request].present? || params[:request_uri].present?
       Rails.logger.error "OAuth: Request object not supported"
-      error_uri = "#{redirect_uri}?error=request_not_supported"
-      error_uri += "&error_description=#{CGI.escape("Request objects are not supported")}"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "request_not_supported", description: "Request objects are not supported", state: state)
       return
     end
 
     # Validate response_type (now we can safely redirect with error)
     unless response_type == "code"
       Rails.logger.error "OAuth: Invalid response_type: #{response_type}"
-      error_uri = "#{redirect_uri}?error=unsupported_response_type"
-      error_uri += "&error_description=#{CGI.escape("Only 'code' response_type is supported")}"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "unsupported_response_type", description: "Only 'code' response_type is supported", state: state)
       return
     end
 
     # RFC 8707 §2: if a resource indicator is supplied it must be a valid target,
     # otherwise the request is rejected with error=invalid_target.
     if resource.present? && !valid_resource_indicator?(resource)
-      error_uri = "#{redirect_uri}?error=invalid_target"
-      error_uri += "&error_description=#{CGI.escape("resource must be an absolute URI without a fragment")}"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "invalid_target", description: "resource must be an absolute URI without a fragment", state: state)
       return
     end
 
@@ -234,20 +225,14 @@ class OidcController < ApplicationController
     if code_challenge.present?
       unless code_challenge_method == "S256"
         Rails.logger.error "OAuth: Invalid code_challenge_method: #{code_challenge_method}"
-        error_uri = "#{redirect_uri}?error=invalid_request"
-        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge_method: only 'S256' is supported")}"
-        error_uri += "&state=#{CGI.escape(state)}" if state.present?
-        redirect_to error_uri, allow_other_host: true
+        redirect_authorize_error(redirect_uri, "invalid_request", description: "Invalid code_challenge_method: only 'S256' is supported", state: state)
         return
       end
 
       # Validate code challenge format (base64url-encoded, 43-128 characters)
       unless code_challenge.match?(/\A[A-Za-z0-9\-_]{43,128}\z/)
         Rails.logger.error "OAuth: Invalid code_challenge format"
-        error_uri = "#{redirect_uri}?error=invalid_request"
-        error_uri += "&error_description=#{CGI.escape("Invalid code_challenge format: must be 43-128 characters of base64url encoding")}"
-        error_uri += "&state=#{CGI.escape(state)}" if state.present?
-        redirect_to error_uri, allow_other_host: true
+        redirect_authorize_error(redirect_uri, "invalid_request", description: "Invalid code_challenge format: must be 43-128 characters of base64url encoding", state: state)
         return
       end
     end
@@ -267,10 +252,7 @@ class OidcController < ApplicationController
     # Validate claims parameter format if present
     if claims_parameter.present? && parsed_claims.nil?
       Rails.logger.error "OAuth: Invalid claims parameter format"
-      error_uri = "#{redirect_uri}?error=invalid_request"
-      error_uri += "&error_description=#{CGI.escape("Invalid claims parameter: must be valid JSON")}"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "invalid_request", description: "Invalid claims parameter: must be valid JSON", state: state)
       return
     end
 
@@ -279,10 +261,7 @@ class OidcController < ApplicationController
       validation_result = validate_claims_against_scopes(parsed_claims, requested_scopes)
       unless validation_result[:valid]
         Rails.logger.error "OAuth: Claims parameter requests claims not covered by scopes: #{validation_result[:errors]}"
-        error_uri = "#{redirect_uri}?error=invalid_scope"
-        error_uri += "&error_description=#{CGI.escape("Claims parameter requests claims not covered by granted scopes")}"
-        error_uri += "&state=#{CGI.escape(state)}" if state.present?
-        redirect_to error_uri, allow_other_host: true
+        redirect_authorize_error(redirect_uri, "invalid_scope", description: "Claims parameter requests claims not covered by granted scopes", state: state)
         return
       end
     end
@@ -290,9 +269,7 @@ class OidcController < ApplicationController
     # Check if application is active (now we can safely redirect with error)
     unless @application.active?
       Rails.logger.error "OAuth: Application is not active: #{@application.name}"
-      error_uri = "#{redirect_uri}?error=unauthorized_client&error_description=Application+is+not+active"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "unauthorized_client", description: "Application is not active", state: state)
       return
     end
 
@@ -302,9 +279,7 @@ class OidcController < ApplicationController
       # Per OIDC Core spec §3.1.2.6: If prompt=none and user not authenticated,
       # return login_required error without showing any UI
       if params[:prompt] == "none"
-        error_uri = "#{redirect_uri}?error=login_required"
-        error_uri += "&state=#{CGI.escape(state)}" if state.present?
-        redirect_to error_uri, allow_other_host: true
+        redirect_authorize_error(redirect_uri, "login_required", state: state)
         return
       end
 
@@ -383,9 +358,7 @@ class OidcController < ApplicationController
     end
 
     unless requested_scopes.include?("openid")
-      error_uri = "#{redirect_uri}?error=invalid_scope&error_description=#{CGI.escape("The 'openid' scope is required")}"
-      error_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(redirect_uri, "invalid_scope", description: "The 'openid' scope is required", state: state)
       return
     end
 
@@ -499,9 +472,7 @@ class OidcController < ApplicationController
     # User denied consent
     if params[:deny].present?
       session.delete(:oauth_params)
-      error_uri = "#{oauth_params["redirect_uri"]}?error=access_denied"
-      error_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"]
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(oauth_params["redirect_uri"], "access_denied", state: oauth_params["state"])
       return
     end
 
@@ -513,9 +484,7 @@ class OidcController < ApplicationController
     unless application&.active?
       Rails.logger.error "OAuth: Application is not active: #{application&.name || client_id}"
       session.delete(:oauth_params)
-      error_uri = "#{oauth_params["redirect_uri"]}?error=unauthorized_client&error_description=Application+is+not+active"
-      error_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"].present?
-      redirect_to error_uri, allow_other_host: true
+      redirect_authorize_error(oauth_params["redirect_uri"], "unauthorized_client", description: "Application is not active", state: oauth_params["state"])
       return
     end
 
@@ -1381,6 +1350,19 @@ class OidcController < ApplicationController
   end
 
   private
+
+  # Redirect back to the client's redirect_uri with an OAuth 2.0 authorization
+  # error (RFC 6749 §4.1.2.1). Extracted because the authorize / consent flows
+  # report errors this same way ~a dozen times. Composes the query safely so a
+  # redirect_uri that already carries a query string gets "&error=..." rather than
+  # a second "?", and CGI-escapes the description and state.
+  def redirect_authorize_error(redirect_uri, error, description: nil, state: nil)
+    query = {error: error}
+    query[:error_description] = description if description
+    query[:state] = state if state.present?
+    separator = redirect_uri.include?("?") ? "&" : "?"
+    redirect_to "#{redirect_uri}#{separator}#{query.to_query}", allow_other_host: true
+  end
 
   # Look up @application from client_id. RFC 6749 §4.1.2.1 requires that an
   # invalid client_id be reported on-page, not via redirect.

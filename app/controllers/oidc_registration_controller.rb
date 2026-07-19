@@ -120,7 +120,9 @@ class OidcRegistrationController < ApplicationController
     parsed = URI.parse(uri)
     return false unless parsed.is_a?(URI::HTTP) # covers HTTP and HTTPS
     return true if parsed.scheme == "https"
-    %w[localhost 127.0.0.1 ::1].include?(parsed.host)
+    # #hostname (not #host) returns the unbracketed form for IPv6 literals, so the
+    # RFC 8252 IPv6 loopback http://[::1]:PORT/... compares as "::1", not "[::1]".
+    %w[localhost 127.0.0.1 ::1].include?(parsed.hostname)
   rescue URI::InvalidURIError
     false
   end

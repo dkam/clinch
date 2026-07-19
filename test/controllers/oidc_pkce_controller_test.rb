@@ -97,6 +97,27 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_match(/error_description=.*code_challenge_method/, @response.location)
   end
 
+  test "authorize error redirect preserves an existing query string in redirect_uri" do
+    redirect_with_query = "http://localhost:4000/callback?tenant=acme"
+    app = Application.create!(
+      name: "Query RU App", slug: "query-ru-app", app_type: "oidc",
+      redirect_uris: [redirect_with_query].to_json, active: true
+    )
+    grant_everyone_access(app)
+
+    get "/oauth/authorize", params: {
+      response_type: "token", # unsupported → triggers an error redirect
+      client_id: app.client_id,
+      redirect_uri: redirect_with_query,
+      scope: "openid"
+    }
+
+    assert_response :redirect
+    # The error is appended with "&" onto the existing query, not a second "?".
+    assert_equal 1, @response.location.count("?"), "must not introduce a second question mark"
+    assert_match(%r{\Ahttp://localhost:4000/callback\?tenant=acme&error=unsupported_response_type}, @response.location)
+  end
+
   test "authorization endpoint rejects invalid code_challenge format" do
     # Contains + character which is not base64url
     auth_params = {
