@@ -669,55 +669,21 @@ class OidcController < ApplicationController
         end
       end
 
-      granted_scope = device_code.scope
-
-      access_token_record = OidcAccessToken.create!(
-        application: application,
-        user: user,
-        scope: granted_scope,
-        oidc_device_code: device_code,
-        resource: device_code.resource
-      )
-
-      refresh_token_record = OidcRefreshToken.create!(
-        application: application,
-        user: user,
-        oidc_access_token: access_token_record,
-        oidc_device_code: device_code,
-        scope: granted_scope,
-        auth_time: device_code.auth_time,
-        acr: device_code.acr,
-        resource: device_code.resource
-      )
-
-      id_token = OidcJwtService.generate_id_token(
-        user,
-        application,
-        consent: consent,
-        nonce: device_code.nonce,
-        access_token: access_token_record.plaintext_token,
-        auth_time: device_code.auth_time,
-        acr: device_code.acr,
-        scopes: granted_scope,
-        claims_requests: {}
-      )
-
       # Single-use: mark the code redeemed (don't destroy it) so a replay is
       # detected as reuse — see the redeemed? check at the top of this block. The
       # cleanup job reaps redeemed codes after they expire.
       device_code.update!(redeemed_at: Time.current)
 
-      response.headers["Cache-Control"] = "no-store"
-      response.headers["Pragma"] = "no-cache"
-
-      render json: {
-        access_token: access_token_record.plaintext_token,
-        token_type: "Bearer",
-        expires_in: application.access_token_ttl || 3600,
-        id_token: id_token,
-        refresh_token: refresh_token_record.token,
-        scope: granted_scope
-      }
+      # Device flow never carries an OIDC claims request, so there are no claims
+      # to filter into the id_token.
+      mint_and_render_tokens(
+        application: application,
+        user: user,
+        grant: device_code,
+        grant_association: {oidc_device_code: device_code},
+        consent: consent,
+        claims_requests: {}
+      )
     end
   end
 
@@ -826,28 +792,8 @@ class OidcController < ApplicationController
           return
         end
 
-        # Generate access token record (opaque token with BCrypt hashing)
-        access_token_record = OidcAccessToken.create!(
-          application: application,
-          user: user,
-          scope: auth_code.scope,
-          oidc_authorization_code: auth_code,
-          resource: auth_code.resource
-        )
-
-        # Generate refresh token (opaque, with hashing)
-        refresh_token_record = OidcRefreshToken.create!(
-          application: application,
-          user: user,
-          oidc_access_token: access_token_record,
-          oidc_authorization_code: auth_code,
-          scope: auth_code.scope,
-          auth_time: auth_code.auth_time,
-          acr: auth_code.acr,
-          resource: auth_code.resource
-        )
-
-        # Find user consent for this application
+        # Find user consent for this application before minting, so a missing
+        # consent record can't leave orphaned tokens committed in this transaction.
         consent = OidcUserConsent.find_by(user: user, application: application)
 
         unless consent
@@ -856,35 +802,16 @@ class OidcController < ApplicationController
           return
         end
 
-        # Generate ID token (JWT) with pairwise SID, at_hash, auth_time, and acr
-        # auth_time and acr come from the authorization code (captured at /authorize time)
-        # scopes determine which claims are included (per OIDC Core spec)
-        # claims_requests parameter filters which claims are included
-        id_token = OidcJwtService.generate_id_token(
-          user,
-          application,
+        # auth_time, acr, and nonce come from the authorization code (captured at
+        # /authorize time); the claims request filters which id_token claims appear.
+        mint_and_render_tokens(
+          application: application,
+          user: user,
+          grant: auth_code,
+          grant_association: {oidc_authorization_code: auth_code},
           consent: consent,
-          nonce: auth_code.nonce,
-          access_token: access_token_record.plaintext_token,
-          auth_time: auth_code.auth_time,
-          acr: auth_code.acr,
-          scopes: auth_code.scope,
           claims_requests: auth_code.parsed_claims_requests
         )
-
-        # RFC6749-5.1: Token endpoint MUST return Cache-Control: no-store
-        response.headers["Cache-Control"] = "no-store"
-        response.headers["Pragma"] = "no-cache"
-
-        # Return tokens
-        render json: {
-          access_token: access_token_record.plaintext_token,  # Opaque token
-          token_type: "Bearer",
-          expires_in: application.access_token_ttl || 3600,
-          id_token: id_token,  # JWT
-          refresh_token: refresh_token_record.token,  # Opaque token
-          scope: auth_code.scope
-        }
       end
     rescue ActiveRecord::RecordNotFound
       render json: {error: "invalid_grant"}, status: :bad_request
@@ -1355,6 +1282,58 @@ class OidcController < ApplicationController
   # report errors this same way ~a dozen times. Composes the query safely so a
   # redirect_uri that already carries a query string gets "&error=..." rather than
   # a second "?", and CGI-escapes the description and state.
+  # Mints the access + refresh + id-token triple and renders the RFC 6749 §5.1
+  # token response. Shared by the authorization-code and device-code grants: both
+  # redeem a `grant` (the auth code / device code) exposing scope/resource/nonce/
+  # auth_time/acr, and both tie the tokens back to it via `grant_association` (the
+  # belongs_to used for replay revocation). The caller marks the grant consumed
+  # before calling this, and both callers run inside the grant's locked transaction.
+  def mint_and_render_tokens(application:, user:, grant:, grant_association:, consent:, claims_requests:)
+    access_token_record = OidcAccessToken.create!(
+      application: application,
+      user: user,
+      scope: grant.scope,
+      resource: grant.resource,
+      **grant_association
+    )
+
+    refresh_token_record = OidcRefreshToken.create!(
+      application: application,
+      user: user,
+      oidc_access_token: access_token_record,
+      scope: grant.scope,
+      auth_time: grant.auth_time,
+      acr: grant.acr,
+      resource: grant.resource,
+      **grant_association
+    )
+
+    id_token = OidcJwtService.generate_id_token(
+      user,
+      application,
+      consent: consent,
+      nonce: grant.nonce,
+      access_token: access_token_record.plaintext_token,
+      auth_time: grant.auth_time,
+      acr: grant.acr,
+      scopes: grant.scope,
+      claims_requests: claims_requests
+    )
+
+    # RFC 6749 §5.1: the token response MUST NOT be cached.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+
+    render json: {
+      access_token: access_token_record.plaintext_token,
+      token_type: "Bearer",
+      expires_in: application.access_token_ttl || 3600,
+      id_token: id_token,
+      refresh_token: refresh_token_record.token,
+      scope: grant.scope
+    }
+  end
+
   def redirect_authorize_error(redirect_uri, error, description: nil, state: nil)
     query = {error: error}
     query[:error_description] = description if description
