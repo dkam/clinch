@@ -80,12 +80,23 @@ class OidcController < ApplicationController
   # Public (PKCE) client presents its client_id and gets back a device_code the
   # client polls with, plus a short user_code the human types on the /device page.
   def device_authorization
-    client_id, _client_secret = extract_client_credentials
+    client_id, client_secret = extract_client_credentials
     application = Application.find_by(client_id: client_id, app_type: "oidc")
 
     unless application&.active?
       render json: {error: "invalid_client", error_description: "Unknown or inactive client"}, status: :unauthorized
       return
+    end
+
+    # RFC 8628 §3.1: the device authorization request must authenticate the client
+    # per its type. Public (PKCE) clients present only their client_id; a
+    # confidential client must also prove possession of its secret, otherwise an
+    # attacker knowing the public client_id could initiate a request in its name.
+    if application.confidential_client?
+      unless client_secret.present? && application.authenticate_client_secret(client_secret)
+        render json: {error: "invalid_client", error_description: "Invalid client credentials"}, status: :unauthorized
+        return
+      end
     end
 
     # Only accept scopes we support (mirrors the authorize endpoint).
@@ -96,6 +107,14 @@ class OidcController < ApplicationController
     # client sends a challenge here it must send the verifier at the token endpoint.
     code_challenge = params[:code_challenge].presence
     code_challenge_method = params[:code_challenge_method].presence
+
+    # Public clients have no secret, so PKCE is their only proof-of-possession.
+    # Require the code_challenge up front — otherwise an intercepted device_code
+    # plus the well-known public client_id would be enough to redeem tokens.
+    if application.requires_pkce? && code_challenge.blank?
+      render json: {error: "invalid_request", error_description: "code_challenge is required for this client"}, status: :bad_request
+      return
+    end
 
     if code_challenge_method.present? && code_challenge_method != "S256"
       render json: {error: "invalid_request", error_description: "Only S256 code_challenge_method is supported"}, status: :bad_request
@@ -605,6 +624,16 @@ class OidcController < ApplicationController
 
       # Approved: mint tokens via the same path as the authorization code grant.
       user = device_code.user
+
+      # Re-check authorization at mint time. Approval may have happened minutes ago;
+      # an admin could have deactivated the user or removed them from the allowed
+      # group in the meantime. user_allowed? covers app active, user active, and
+      # group membership, so a now-unauthorized user is refused their tokens.
+      unless user && application.user_allowed?(user)
+        render json: {error: "access_denied", error_description: "User is no longer permitted to access this application"}, status: :bad_request
+        return
+      end
+
       consent = OidcUserConsent.find_by(user: user, application: application)
       unless consent
         Rails.logger.error "OIDC Security: Device token requested without consent record (user: #{user&.id}, app: #{application.id})"
@@ -612,8 +641,15 @@ class OidcController < ApplicationController
         return
       end
 
-      # PKCE is optional for device flow: only enforced when the device
-      # authorization request supplied a code_challenge.
+      # PKCE is enforced whenever the device authorization request supplied a
+      # code_challenge. Clients that require PKCE (all public clients) are also
+      # guaranteed to have one by the device_authorization endpoint; re-check here
+      # so a device_code minted without a challenge can never redeem tokens.
+      if application.requires_pkce? && !device_code.uses_pkce?
+        render json: {error: "invalid_grant", error_description: "PKCE is required for this client"}, status: :bad_request
+        return
+      end
+
       if device_code.uses_pkce?
         pkce_result = validate_pkce(application, device_code, params[:code_verifier])
         unless pkce_result[:valid]
@@ -768,6 +804,13 @@ class OidcController < ApplicationController
         # Get the user
         user = auth_code.user
 
+        # Re-check authorization at mint time: the user may have been deactivated or
+        # removed from the allowed group between /authorize and this token request.
+        unless user && application.user_allowed?(user)
+          render json: {error: "access_denied", error_description: "User is no longer permitted to access this application"}, status: :bad_request
+          return
+        end
+
         # Generate access token record (opaque token with BCrypt hashing)
         access_token_record = OidcAccessToken.create!(
           application: application,
@@ -903,6 +946,15 @@ class OidcController < ApplicationController
 
     # Get the user
     user = refresh_token_record.user
+
+    # Re-check authorization at mint time. Refresh tokens are long-lived (up to
+    # 30 days), so re-evaluate every refresh: a user deactivated or removed from
+    # the allowed group must not be able to keep minting access tokens. Checked
+    # before rotation so a denied refresh has no side effects.
+    unless user && application.user_allowed?(user)
+      render json: {error: "access_denied", error_description: "User is no longer permitted to access this application"}, status: :bad_request
+      return
+    end
 
     # Revoke the old refresh token (token rotation)
     refresh_token_record.revoke!
@@ -1119,11 +1171,24 @@ class OidcController < ApplicationController
       return
     end
 
+    # RFC 7662 §4: a token must only be disclosed to a resource server authorized
+    # to introspect it. Otherwise any confidential client could harvest every
+    # user's identity by introspecting tokens issued to other clients. A caller is
+    # authorized only for tokens issued to itself, or tokens whose bound audience
+    # (RFC 8707 resource) it is registered to serve. Unauthorized callers get the
+    # same inactive response as an unknown token, disclosing nothing.
+    unless caller_may_introspect?(caller, access_token)
+      Rails.logger.warn "OAuth: Client #{caller.client_id} not authorized to introspect token for resource #{access_token.resource.inspect}"
+      render json: {active: false}
+      return
+    end
+
     user = access_token.user
     application = access_token.application
     consent = OidcUserConsent.find_by(user: user, application: application)
+    scopes = access_token.scope.to_s.split
 
-    render json: {
+    body = {
       active: true,
       scope: access_token.scope,
       client_id: application.client_id,
@@ -1133,10 +1198,25 @@ class OidcController < ApplicationController
       sub: consent&.sid || user.id.to_s,
       # RFC 8707: the resource the token was bound to (falls back to the client
       # when no resource indicator was used at authorization time).
-      aud: access_token.resource.presence || application.client_id,
-      username: user.email_address,
-      groups: user.groups.pluck(:name)
+      aud: access_token.resource.presence || application.client_id
     }
+
+    # Disclose identity claims only when the token actually carries the scope that
+    # grants them (mirrors the userinfo endpoint) — a token without `email`/`groups`
+    # scope must not leak the user's email or group memberships.
+    body[:username] = user.email_address if scopes.include?("email")
+    body[:groups] = user.groups.pluck(:name) if scopes.include?("groups")
+
+    render json: body
+  end
+
+  # A caller may introspect a token issued to itself, or a token bound (RFC 8707)
+  # to a resource the caller is registered to serve.
+  def caller_may_introspect?(caller, access_token)
+    return true if access_token.application_id == caller.id
+
+    resource = access_token.resource.presence
+    resource.present? && caller.serves_resource?(resource)
   end
 
   # POST /oauth/revoke

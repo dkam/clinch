@@ -322,6 +322,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       require_pkce: false
     )
     legacy_app.generate_new_client_secret!
+    grant_everyone_access(legacy_app)
 
     # Create consent for token endpoint
     OidcUserConsent.create!(
@@ -379,6 +380,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       active: true,
       is_public_client: true
     )
+    grant_everyone_access(public_app)
 
     assert public_app.public_client?
     assert public_app.requires_pkce?
@@ -442,6 +444,7 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
       active: true,
       is_public_client: true
     )
+    grant_everyone_access(public_app)
 
     assert public_app.public_client?
     assert public_app.requires_pkce?

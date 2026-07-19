@@ -34,18 +34,27 @@ end
 
 # Confidential client that resource servers (e.g. c2a2) use to authenticate to
 # the introspection endpoint. The secret is only shown once, on creation.
+#
+# resource_identifiers declares the RFC 8707 resource URI(s) this server answers
+# for. Introspection is authorized against it: c2a2 may only introspect tokens
+# whose bound audience is one of these. The CLI/agent must therefore request its
+# token with resource=<C2A2_RESOURCE>. Set C2A2_RESOURCE to c2a2's real URL.
 unless Application.exists?(client_id: "c2a2-introspection")
   secret = SecureRandom.urlsafe_base64(48)
+  c2a2_resource = ENV["C2A2_RESOURCE"].presence || "https://c2a2.example.com"
   Application.create!(
     name: "c2a2 (introspection caller)",
     slug: "c2a2-introspection",
     client_id: "c2a2-introspection",
     client_secret: secret,
     app_type: "oidc",
-    active: true
+    active: true,
+    resource_identifiers: [c2a2_resource].to_json
   )
   puts "Seeded 'c2a2-introspection' confidential client:"
-  puts "  client_id:     c2a2-introspection"
-  puts "  client_secret: #{secret}"
-  puts "  Store these in c2a2 now — the secret is hashed and cannot be recovered."
+  puts "  client_id:           c2a2-introspection"
+  puts "  client_secret:       #{secret}"
+  puts "  resource_identifier: #{c2a2_resource}"
+  puts "  Store the secret in c2a2 now — it is hashed and cannot be recovered."
+  puts "  The CLI must request tokens with resource=#{c2a2_resource} for c2a2 to introspect them."
 end

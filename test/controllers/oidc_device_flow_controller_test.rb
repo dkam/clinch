@@ -52,7 +52,10 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
   # --- Device authorization endpoint -----------------------------------------
 
   test "device_authorization issues a device_code and user_code" do
-    post "/oauth/device_authorization", params: {client_id: @cli.client_id, scope: "openid groups"}
+    post "/oauth/device_authorization", params: {
+      client_id: @cli.client_id, scope: "openid groups",
+      code_challenge: code_challenge_for(CODE_VERIFIER)
+    }
     assert_response :success
     body = JSON.parse(@response.body)
 
@@ -64,10 +67,39 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert body["expires_in"].positive?
   end
 
+  test "device_authorization requires PKCE for a public client" do
+    post "/oauth/device_authorization", params: {client_id: @cli.client_id, scope: "openid"}
+    assert_response :bad_request
+    assert_equal "invalid_request", JSON.parse(@response.body)["error"]
+    assert_equal 0, OidcDeviceCode.where(application: @cli).count
+  end
+
   test "device_authorization rejects an unknown client" do
     post "/oauth/device_authorization", params: {client_id: "does-not-exist"}
     assert_response :unauthorized
     assert_equal "invalid_client", JSON.parse(@response.body)["error"]
+  end
+
+  test "device_authorization rejects a confidential client with no secret" do
+    post "/oauth/device_authorization", params: {client_id: @resource.client_id, scope: "openid"}
+    assert_response :unauthorized
+    assert_equal "invalid_client", JSON.parse(@response.body)["error"]
+  end
+
+  test "device_authorization rejects a confidential client with a wrong secret" do
+    post "/oauth/device_authorization",
+      params: {client_id: @resource.client_id, client_secret: "wrong-secret", scope: "openid"}
+    assert_response :unauthorized
+    assert_equal "invalid_client", JSON.parse(@response.body)["error"]
+  end
+
+  test "device_authorization accepts a confidential client with a valid secret" do
+    post "/oauth/device_authorization", params: {
+      client_id: @resource.client_id, client_secret: @resource_secret, scope: "openid",
+      code_challenge: code_challenge_for(CODE_VERIFIER), code_challenge_method: "S256"
+    }
+    assert_response :success
+    assert JSON.parse(@response.body)["device_code"].present?
   end
 
   # --- Token endpoint device_code grant --------------------------------------
@@ -104,10 +136,13 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
 
   test "token endpoint issues tokens once approved, then the code is single-use" do
     OidcUserConsent.create!(user: @user, application: @cli, scopes_granted: "openid groups", granted_at: Time.current)
-    dc = OidcDeviceCode.create!(application: @cli, scope: "openid groups")
+    dc = OidcDeviceCode.create!(
+      application: @cli, scope: "openid groups",
+      code_challenge: code_challenge_for(CODE_VERIFIER), code_challenge_method: "S256"
+    )
     dc.approve!(user: @user, acr: "1", auth_time: Time.current.to_i)
 
-    poll(dc)
+    poll(dc, code_verifier: CODE_VERIFIER)
     assert_response :success
     body = JSON.parse(@response.body)
     assert body["access_token"].present?
@@ -117,6 +152,18 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert_equal "openid groups", body["scope"]
 
     # Replaying the (now consumed) device_code fails.
+    poll(dc, code_verifier: CODE_VERIFIER)
+    assert_response :bad_request
+    assert_equal "invalid_grant", JSON.parse(@response.body)["error"]
+  end
+
+  test "token endpoint refuses a PKCE-required client whose device_code lacks a challenge" do
+    OidcUserConsent.create!(user: @user, application: @cli, scopes_granted: "openid", granted_at: Time.current)
+    # A device_code minted without PKCE (e.g. slipped past the front door) must
+    # never redeem tokens for a public client.
+    dc = OidcDeviceCode.create!(application: @cli, scope: "openid")
+    dc.approve!(user: @user, acr: "1", auth_time: Time.current.to_i)
+
     poll(dc)
     assert_response :bad_request
     assert_equal "invalid_grant", JSON.parse(@response.body)["error"]
@@ -148,6 +195,28 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert OidcUserConsent.exists?(user: @user, application: @cli)
   end
 
+  test "approving a narrower device request merges into existing consent" do
+    # User already consented to a broader scope set (with stored claims) via the
+    # browser flow.
+    existing = OidcUserConsent.create!(
+      user: @user, application: @cli,
+      scopes_granted: "openid email profile groups",
+      claims_requests: {"userinfo" => {"email" => nil}},
+      granted_at: 1.day.ago
+    )
+
+    sign_in_as(@user)
+    dc = OidcDeviceCode.create!(application: @cli, scope: "openid")
+    post "/device", params: {user_code: dc.user_code}
+    assert_response :success
+
+    existing.reload
+    # Prior scopes are preserved (union), not shrunk to the device request's "openid".
+    assert_equal %w[openid email profile groups].sort, existing.scopes.sort
+    # Stored claims are not wiped.
+    assert_equal({"userinfo" => {"email" => nil}}, existing.parsed_claims_requests)
+  end
+
   test "denying marks the device code denied" do
     sign_in_as(@user)
     dc = OidcDeviceCode.create!(application: @cli, scope: "openid")
@@ -176,56 +245,24 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to signin_path
   end
 
-  # --- Introspection ---------------------------------------------------------
-
-  test "introspection reports an active token with groups" do
-    token = OidcAccessToken.create!(application: @cli, user: @user, scope: "openid groups")
-
-    post "/oauth/introspect", params: {
-      token: token.plaintext_token,
-      client_id: @resource.client_id,
-      client_secret: @resource_secret
-    }
-    assert_response :success
-    body = JSON.parse(@response.body)
-
-    assert_equal true, body["active"]
-    assert_equal @cli.client_id, body["client_id"]
-    assert_includes body["groups"], @group.name
-    assert body["sub"].present?
-  end
-
-  test "introspection reports inactive for a revoked token" do
-    token = OidcAccessToken.create!(application: @cli, user: @user, scope: "openid")
-    token.revoke!
-
-    post "/oauth/introspect", params: {
-      token: token.plaintext_token,
-      client_id: @resource.client_id,
-      client_secret: @resource_secret
-    }
-    assert_response :success
-    assert_equal false, JSON.parse(@response.body)["active"]
-  end
-
-  test "introspection requires valid caller credentials" do
-    token = OidcAccessToken.create!(application: @cli, user: @user, scope: "openid")
-
-    post "/oauth/introspect", params: {
-      token: token.plaintext_token,
-      client_id: @resource.client_id,
-      client_secret: "wrong-secret"
-    }
-    assert_response :unauthorized
-  end
+  # Introspection is covered in depth in oidc_introspection_test.rb.
 
   private
 
-  def poll(device_code)
-    post "/oauth/token", params: {
+  # A valid PKCE verifier (48 chars, RFC 7636 charset) and its S256 challenge.
+  CODE_VERIFIER = "device_flow_pkce_code_verifier_0123456789_abcdef".freeze
+
+  def code_challenge_for(verifier)
+    Base64.urlsafe_encode64(Digest::SHA256.digest(verifier), padding: false)
+  end
+
+  def poll(device_code, code_verifier: nil)
+    params = {
       grant_type: DEVICE_GRANT,
       device_code: device_code.plaintext_device_code,
       client_id: @cli.client_id
     }
+    params[:code_verifier] = code_verifier if code_verifier
+    post "/oauth/token", params: params
   end
 end

@@ -155,6 +155,19 @@ class Application < ApplicationRecord
     redirect_uris.split("\n").map(&:strip).reject(&:blank?)
   end
 
+  # RFC 8707 resource identifier(s) this application serves as a resource server.
+  # Used to authorize token introspection (see OidcController#caller_may_introspect?).
+  def parsed_resource_identifiers
+    return [] unless resource_identifiers.present?
+    JSON.parse(resource_identifiers)
+  rescue JSON::ParserError
+    resource_identifiers.split("\n").map(&:strip).reject(&:blank?)
+  end
+
+  def serves_resource?(uri)
+    parsed_resource_identifiers.include?(uri)
+  end
+
   def parsed_metadata
     return {} unless metadata.present?
     JSON.parse(metadata)

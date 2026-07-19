@@ -24,8 +24,10 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
     @web.allowed_groups << @group
 
     @resource_secret = "resource-server-secret-value-abcdefghij"
+    # The resource server is registered to serve RESOURCE, so it is authorized to
+    # introspect tokens bound to it (see OidcController#caller_may_introspect?).
     @resource = Application.create!(name: "Resource RS", slug: "resource-rs2", app_type: "oidc",
-      client_secret: @resource_secret, active: true)
+      client_secret: @resource_secret, active: true, resource_identifiers: [RESOURCE].to_json)
   end
 
   def teardown
@@ -84,7 +86,10 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
   # --- Device flow -----------------------------------------------------------
 
   test "device flow binds the resource to the issued token" do
-    post "/oauth/device_authorization", params: {client_id: @cli.client_id, scope: "openid", resource: RESOURCE}
+    post "/oauth/device_authorization", params: {
+      client_id: @cli.client_id, scope: "openid", resource: RESOURCE,
+      code_challenge: PKCE_CHALLENGE, code_challenge_method: "S256"
+    }
     assert_response :success
     auth = JSON.parse(@response.body)
 
@@ -94,7 +99,7 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
     OidcUserConsent.create!(user: @user, application: @cli, scopes_granted: "openid", granted_at: Time.current)
     dc.approve!(user: @user, acr: "1", auth_time: Time.current.to_i)
 
-    post "/oauth/token", params: {grant_type: DEVICE_GRANT, device_code: auth["device_code"], client_id: @cli.client_id}
+    post "/oauth/token", params: {grant_type: DEVICE_GRANT, device_code: auth["device_code"], client_id: @cli.client_id, code_verifier: PKCE_VERIFIER}
     assert_response :success
     access = JSON.parse(@response.body)["access_token"]
 
@@ -102,7 +107,10 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
   end
 
   test "device_authorization rejects an invalid resource" do
-    post "/oauth/device_authorization", params: {client_id: @cli.client_id, resource: "not-an-absolute-uri"}
+    post "/oauth/device_authorization", params: {
+      client_id: @cli.client_id, resource: "not-an-absolute-uri",
+      code_challenge: PKCE_CHALLENGE, code_challenge_method: "S256"
+    }
     assert_response :bad_request
     assert_equal "invalid_target", JSON.parse(@response.body)["error"]
   end
@@ -110,8 +118,10 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
   # --- Fallback --------------------------------------------------------------
 
   test "introspection aud falls back to the client when no resource was bound" do
-    token = OidcAccessToken.create!(application: @cli, user: @user, scope: "openid")
-    assert_equal @cli.client_id, introspect(token.plaintext_token)["aud"]
+    # A confidential client introspecting its own unbound token (no RFC 8707
+    # resource) sees aud fall back to the client_id.
+    token = OidcAccessToken.create!(application: @resource, user: @user, scope: "openid")
+    assert_equal @resource.client_id, introspect(token.plaintext_token)["aud"]
   end
 
   private

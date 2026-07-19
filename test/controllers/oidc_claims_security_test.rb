@@ -16,6 +16,10 @@ class OidcClaimsSecurityTest < ActionDispatch::IntegrationTest
     @application.generate_new_client_secret!
     @plain_client_secret = @application.client_secret
     @application.save!
+
+    # The user must be allowed on the app for tokens to be minted (mint-time
+    # authorization re-check); these tests create codes/tokens directly.
+    grant_everyone_access(@application)
   end
 
   def teardown
