@@ -48,4 +48,35 @@ class OidcTokenCleanupJobTest < ActiveJob::TestCase
     user&.destroy
     application&.destroy
   end
+
+  # Device codes (RFC 8628) are created by anonymous callers and would grow the
+  # table without bound; the cleanup job must purge expired ones (pending, denied,
+  # or abandoned) while leaving live codes alone.
+  test "deletes expired device codes and keeps live ones" do
+    application = Application.create!(
+      name: "Device Cleanup App",
+      slug: "device-cleanup-app",
+      app_type: "oidc",
+      is_public_client: true,
+      active: true
+    )
+
+    expired_pending = nil
+    expired_denied = nil
+    travel_to(2.hours.ago) do
+      expired_pending = OidcDeviceCode.create!(application: application, scope: "openid")
+      expired_denied = OidcDeviceCode.create!(application: application, scope: "openid")
+      expired_denied.deny!
+    end
+    live = OidcDeviceCode.create!(application: application, scope: "openid")
+
+    OidcTokenCleanupJob.new.perform
+
+    assert_not OidcDeviceCode.exists?(expired_pending.id), "expired pending code should be deleted"
+    assert_not OidcDeviceCode.exists?(expired_denied.id), "expired denied code should be deleted"
+    assert OidcDeviceCode.exists?(live.id), "live code should be kept"
+  ensure
+    OidcDeviceCode.where(application: application).delete_all if application
+    application&.destroy
+  end
 end

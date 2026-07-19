@@ -611,9 +611,12 @@ class OidcController < ApplicationController
 
       if device_code.pending?
         # Enforce the polling interval; too-frequent polls get slow_down, and the
-        # client is expected to add 5s to its interval (RFC 8628 §3.5).
+        # client is expected to add 5s to its interval (RFC 8628 §3.5). The bump is
+        # capped at MAX_INTERVAL so a persistently fast poller can't grow it without
+        # bound and starve a legitimate client before the code expires.
         if device_code.last_polled_at && (Time.current - device_code.last_polled_at) < device_code.interval
-          device_code.update!(interval: device_code.interval + 5, last_polled_at: Time.current)
+          bumped_interval = [device_code.interval + OidcDeviceCode::INTERVAL_INCREMENT, OidcDeviceCode::MAX_INTERVAL].min
+          device_code.update!(interval: bumped_interval, last_polled_at: Time.current)
           render json: {error: "slow_down"}, status: :bad_request
         else
           device_code.update!(last_polled_at: Time.current)

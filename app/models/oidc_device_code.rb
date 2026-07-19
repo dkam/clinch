@@ -17,6 +17,14 @@ class OidcDeviceCode < ApplicationRecord
 
   STATUSES = %w[pending approved denied].freeze
 
+  # Polling interval, in seconds. The token endpoint bumps the persisted interval
+  # by INTERVAL_INCREMENT on each too-fast poll (RFC 8628 §3.5 slow_down), but
+  # clamps it to MAX_INTERVAL so a client polling slightly fast — or an attacker
+  # spamming a known device_code — can't balloon it past the expiry window and
+  # starve a well-behaved client of its token.
+  INTERVAL_INCREMENT = 5
+  MAX_INTERVAL = 30
+
   attr_accessor :plaintext_device_code
 
   before_validation :generate_device_code, on: :create

@@ -119,6 +119,14 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert_equal "slow_down", JSON.parse(@response.body)["error"]
   end
 
+  test "slow_down interval is capped and does not grow without bound" do
+    dc = OidcDeviceCode.create!(application: @cli, scope: "openid")
+    # Hammer the code far more times than it would take to exceed the cap if the
+    # interval grew by 5 unbounded (20 * 5 = 100s >> MAX_INTERVAL).
+    20.times { poll(dc) }
+    assert_operator dc.reload.interval, :<=, OidcDeviceCode::MAX_INTERVAL
+  end
+
   test "token endpoint returns expired_token for an expired code" do
     dc = OidcDeviceCode.create!(application: @cli, scope: "openid", expires_at: 1.minute.ago)
     poll(dc)

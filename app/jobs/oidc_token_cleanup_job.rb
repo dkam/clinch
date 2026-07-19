@@ -25,5 +25,15 @@ class OidcTokenCleanupJob < ApplicationJob
     old_auth_codes = OidcAuthorizationCode.where("created_at < ?", 7.days.ago)
     deleted_count = old_auth_codes.delete_all
     Rails.logger.info "OIDC Token Cleanup: Deleted #{deleted_count} old authorization codes"
+
+    # Delete expired device codes (RFC 8628). They have a ~10 minute TTL and no
+    # audit value; a redeemed code is already destroyed at token issuance. Once
+    # expired a code can never be redeemed, so this single expiry sweep clears the
+    # expired, denied, and abandoned rows that would otherwise accumulate forever
+    # (anonymous callers can create them via /oauth/device_authorization). The
+    # short grace keeps this clear of any in-flight redemption near expiry.
+    expired_device_codes = OidcDeviceCode.where("expires_at < ?", 1.hour.ago)
+    deleted_count = expired_device_codes.delete_all
+    Rails.logger.info "OIDC Token Cleanup: Deleted #{deleted_count} expired device codes"
   end
 end
