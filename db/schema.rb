@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_000003) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -123,6 +123,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.integer "oidc_authorization_code_id"
+    t.string "resource"
     t.datetime "revoked_at"
     t.string "scope"
     t.string "token_hmac"
@@ -149,6 +150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
     t.datetime "expires_at", null: false
     t.string "nonce"
     t.string "redirect_uri", null: false
+    t.string "resource"
     t.string "scope"
     t.datetime "updated_at", null: false
     t.boolean "used", default: false, null: false
@@ -173,6 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
     t.integer "interval", default: 5, null: false
     t.datetime "last_polled_at"
     t.string "nonce"
+    t.string "resource"
     t.string "scope"
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
@@ -193,6 +196,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000002) do
     t.datetime "expires_at", null: false
     t.integer "oidc_access_token_id", null: false
     t.integer "oidc_authorization_code_id"
+    t.string "resource"
     t.datetime "revoked_at"
     t.string "scope"
     t.integer "token_family_id"

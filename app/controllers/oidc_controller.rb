@@ -102,10 +102,18 @@ class OidcController < ApplicationController
       return
     end
 
+    # RFC 8707 Resource Indicator (optional): bind the eventual token to a target.
+    resource = params[:resource].presence
+    if resource && !valid_resource_indicator?(resource)
+      render json: {error: "invalid_target", error_description: "resource must be an absolute URI without a fragment"}, status: :bad_request
+      return
+    end
+
     device_code = OidcDeviceCode.create!(
       application: application,
       scope: requested_scope,
       nonce: params[:nonce].presence,
+      resource: resource,
       code_challenge: code_challenge,
       code_challenge_method: code_challenge.present? ? (code_challenge_method || "S256") : nil
     )
@@ -136,6 +144,7 @@ class OidcController < ApplicationController
     response_type = params[:response_type]
     code_challenge = params[:code_challenge]
     code_challenge_method = params[:code_challenge_method] || "S256"
+    resource = params[:resource] # RFC 8707 Resource Indicator (target audience)
 
     # ============================================================================
     # client_id and redirect_uri are already validated (see before_actions).
@@ -160,6 +169,16 @@ class OidcController < ApplicationController
       Rails.logger.error "OAuth: Invalid response_type: #{response_type}"
       error_uri = "#{redirect_uri}?error=unsupported_response_type"
       error_uri += "&error_description=#{CGI.escape("Only 'code' response_type is supported")}"
+      error_uri += "&state=#{CGI.escape(state)}" if state.present?
+      redirect_to error_uri, allow_other_host: true
+      return
+    end
+
+    # RFC 8707 §2: if a resource indicator is supplied it must be a valid target,
+    # otherwise the request is rejected with error=invalid_target.
+    if resource.present? && !valid_resource_indicator?(resource)
+      error_uri = "#{redirect_uri}?error=invalid_target"
+      error_uri += "&error_description=#{CGI.escape("resource must be an absolute URI without a fragment")}"
       error_uri += "&state=#{CGI.escape(state)}" if state.present?
       redirect_to error_uri, allow_other_host: true
       return
@@ -252,6 +271,7 @@ class OidcController < ApplicationController
         scope: scope,
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method,
+        resource: resource,
         claims_requests: parsed_claims&.to_json
       }
       # Store the current URL (with all OAuth params) for redirect after authentication
@@ -342,6 +362,7 @@ class OidcController < ApplicationController
         nonce: nonce,
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method,
+        resource: resource,
         claims_requests: parsed_claims || {},
         auth_time: Current.session.created_at.to_i,
         acr: Current.session.acr,
@@ -367,6 +388,7 @@ class OidcController < ApplicationController
         nonce: nonce,
         code_challenge: code_challenge,
         code_challenge_method: code_challenge_method,
+        resource: resource,
         claims_requests: parsed_claims || {},
         auth_time: Current.session.created_at.to_i,
         acr: Current.session.acr,
@@ -389,6 +411,7 @@ class OidcController < ApplicationController
       scope: scope,
       code_challenge: code_challenge,
       code_challenge_method: code_challenge_method,
+      resource: resource,
       claims_requests: parsed_claims&.to_json
     }
 
@@ -474,6 +497,7 @@ class OidcController < ApplicationController
       nonce: oauth_params["nonce"],
       code_challenge: oauth_params["code_challenge"],
       code_challenge_method: oauth_params["code_challenge_method"],
+      resource: oauth_params["resource"],
       claims_requests: parsed_claims,
       auth_time: Current.session.created_at.to_i,
       acr: Current.session.acr,
@@ -603,7 +627,8 @@ class OidcController < ApplicationController
       access_token_record = OidcAccessToken.create!(
         application: application,
         user: user,
-        scope: granted_scope
+        scope: granted_scope,
+        resource: device_code.resource
       )
 
       refresh_token_record = OidcRefreshToken.create!(
@@ -612,7 +637,8 @@ class OidcController < ApplicationController
         oidc_access_token: access_token_record,
         scope: granted_scope,
         auth_time: device_code.auth_time,
-        acr: device_code.acr
+        acr: device_code.acr,
+        resource: device_code.resource
       )
 
       id_token = OidcJwtService.generate_id_token(
@@ -747,7 +773,8 @@ class OidcController < ApplicationController
           application: application,
           user: user,
           scope: auth_code.scope,
-          oidc_authorization_code: auth_code
+          oidc_authorization_code: auth_code,
+          resource: auth_code.resource
         )
 
         # Generate refresh token (opaque, with hashing)
@@ -758,7 +785,8 @@ class OidcController < ApplicationController
           oidc_authorization_code: auth_code,
           scope: auth_code.scope,
           auth_time: auth_code.auth_time,
-          acr: auth_code.acr
+          acr: auth_code.acr,
+          resource: auth_code.resource
         )
 
         # Find user consent for this application
@@ -888,7 +916,8 @@ class OidcController < ApplicationController
       application: application,
       user: user,
       scope: refresh_token_record.scope,
-      oidc_authorization_code: issuing_auth_code
+      oidc_authorization_code: issuing_auth_code,
+      resource: refresh_token_record.resource
     )
 
     # Generate new refresh token (token rotation)
@@ -900,7 +929,8 @@ class OidcController < ApplicationController
       scope: refresh_token_record.scope,
       token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
       auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
-      acr: refresh_token_record.acr  # Carry over original acr
+      acr: refresh_token_record.acr,  # Carry over original acr
+      resource: refresh_token_record.resource  # Carry the bound audience across rotation
     )
 
     # Find user consent for this application
@@ -1101,7 +1131,9 @@ class OidcController < ApplicationController
       exp: access_token.expires_at.to_i,
       iat: access_token.created_at.to_i,
       sub: consent&.sid || user.id.to_s,
-      aud: application.client_id,
+      # RFC 8707: the resource the token was bound to (falls back to the client
+      # when no resource indicator was used at authorization time).
+      aud: access_token.resource.presence || application.client_id,
       username: user.email_address,
       groups: user.groups.pluck(:name)
     }
@@ -1331,6 +1363,17 @@ class OidcController < ApplicationController
     end
 
     {valid: true}
+  end
+
+  # RFC 8707 §2: a resource indicator must be an absolute URI and MUST NOT
+  # include a fragment component. We validate syntax only (pass-through) — the
+  # resource server enforces the audience when it introspects the token.
+  def valid_resource_indicator?(value)
+    return false if value.blank?
+    uri = URI.parse(value)
+    uri.absolute? && uri.fragment.nil?
+  rescue URI::InvalidURIError
+    false
   end
 
   def extract_client_credentials
