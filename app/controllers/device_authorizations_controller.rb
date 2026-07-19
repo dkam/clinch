@@ -20,15 +20,14 @@ class DeviceAuthorizationsController < ApplicationController
   # GET /device?user_code=WDJB-MJHT
   def show
     @user_code = params[:user_code].to_s
-    @device_code = OidcDeviceCode.find_by_user_code(@user_code) if @user_code.present?
+    if @user_code.blank?
+      @state = :prompt
+      return render :show
+    end
 
-    if @device_code.nil?
-      @state = @user_code.present? ? :not_found : :prompt
-    elsif @device_code.expired?
-      @state = :expired
-    elsif !@device_code.pending?
-      @state = :already_handled
-    else
+    @device_code = OidcDeviceCode.find_by_user_code(@user_code)
+    @state = device_code_state(@device_code)
+    if @state == :ok
       @state = :confirm
       @application = @device_code.application
       @scopes = granted_scopes(@device_code)
@@ -40,21 +39,8 @@ class DeviceAuthorizationsController < ApplicationController
   # POST /device
   def verify
     @device_code = OidcDeviceCode.find_by_user_code(params[:user_code].to_s)
-
-    if @device_code.nil?
-      @state = :not_found
-      return render :result
-    end
-
-    if @device_code.expired?
-      @state = :expired
-      return render :result
-    end
-
-    unless @device_code.pending?
-      @state = :already_handled
-      return render :result
-    end
+    @state = device_code_state(@device_code)
+    return render :result unless @state == :ok
 
     @application = @device_code.application
 
@@ -81,6 +67,17 @@ class DeviceAuthorizationsController < ApplicationController
   end
 
   private
+
+  # Single resolver for the shared terminal-state cascade. Returns :not_found,
+  # :expired, :already_handled, or :ok (the code is live and actionable). Both
+  # show and verify branch on this so the cascade lives in one place, and the
+  # terminal states render through the shared _terminal_state partial.
+  def device_code_state(device_code)
+    return :not_found if device_code.nil?
+    return :expired if device_code.expired?
+    return :already_handled unless device_code.pending?
+    :ok
+  end
 
   def granted_scopes(device_code)
     device_code.scope.to_s.split & OidcController::SUPPORTED_SCOPES

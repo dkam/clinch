@@ -280,6 +280,39 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to signin_path
   end
 
+  # --- Terminal-state rendering (shared resolver + partial) ------------------
+
+  test "show prompts for a code when none is given" do
+    sign_in_as(@user)
+    get "/device"
+    assert_response :success
+    assert_match(/Enter device code/i, @response.body)
+  end
+
+  test "show renders the not-found terminal state for an unknown code" do
+    sign_in_as(@user)
+    get "/device", params: {user_code: "ZZZZ9999"}
+    assert_response :success
+    assert_match(/Code not found/i, @response.body)
+  end
+
+  test "show renders the expired terminal state" do
+    sign_in_as(@user)
+    dc = OidcDeviceCode.create!(application: @cli, scope: "openid", expires_at: 1.minute.ago)
+    get "/device", params: {user_code: dc.user_code}
+    assert_response :success
+    assert_match(/Code expired/i, @response.body)
+  end
+
+  test "verify renders the terminal state for an already-handled code" do
+    sign_in_as(@user)
+    dc = OidcDeviceCode.create!(application: @cli, scope: "openid")
+    dc.deny!
+    post "/device", params: {user_code: dc.user_code}
+    assert_response :success
+    assert_match(/Code already used/i, @response.body)
+  end
+
   # Introspection is covered in depth in oidc_introspection_test.rb.
 
   private

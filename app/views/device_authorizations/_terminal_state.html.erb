@@ -1,0 +1,19 @@
+<%#
+  Terminal device-authorization states, shared by the /device prompt (show) and
+  the result page. Pass `state:` as one of :expired, :already_handled, :not_found.
+%>
+<% headings = {
+     expired: "Code expired",
+     already_handled: "Code already used",
+     not_found: "Code not found"
+   } %>
+<% messages = {
+     expired: "This device code has expired. Start again from your tool to get a fresh code.",
+     already_handled: "This device code has already been approved or denied. Start again from your tool if you need a new one.",
+     not_found: "We couldn't find that code. Check the code your tool is showing and try again."
+   } %>
+<div class="text-center">
+  <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100"><%= headings[state] %></h2>
+  <p class="mt-3 text-sm text-gray-600 dark:text-gray-400"><%= messages[state] %></p>
+  <%= link_to "Enter a different code", device_verification_path, class: "mt-6 inline-block text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400" %>
+</div>

@@ -31,13 +31,7 @@
       </p>
 
     <% else %>
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-        <%= @state == :expired ? "Code expired" : (@state == :already_handled ? "Code already used" : "Code not found") %>
-      </h2>
-      <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
-        Start again from your tool to get a fresh code.
-      </p>
-      <%= link_to "Enter a different code", device_verification_path, class: "mt-6 inline-block text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400" %>
+      <%= render "terminal_state", state: @state %>
     <% end %>
   </div>
 </div>
