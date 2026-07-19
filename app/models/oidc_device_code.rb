@@ -9,6 +9,11 @@ class OidcDeviceCode < ApplicationRecord
   belongs_to :application
   belongs_to :user, optional: true # nil until the request is approved
 
+  # Tokens minted from this code, so a replayed (already-redeemed) code can revoke
+  # every token descended from it — mirrors OidcAuthorizationCode.
+  has_many :oidc_access_tokens, dependent: :nullify
+  has_many :oidc_refresh_tokens, dependent: :nullify
+
   # Alphabet for the user_code: uppercase letters + digits, minus visually
   # ambiguous characters (0/O, 1/I, etc.) so it is easy to read and type.
   USER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".chars.freeze
@@ -83,6 +88,12 @@ class OidcDeviceCode < ApplicationRecord
     code_challenge.present?
   end
 
+  # True once the approved code has been exchanged for tokens. The row is kept
+  # (not destroyed) so a replay is detectable and its tokens can be revoked.
+  def redeemed?
+    redeemed_at.present?
+  end
+
   # Grant the request: attach the approving user and capture their auth context.
   def approve!(user:, acr:, auth_time:)
     update!(status: "approved", user: user, acr: acr, auth_time: auth_time)
@@ -100,8 +111,10 @@ class OidcDeviceCode < ApplicationRecord
   end
 
   def generate_user_code
+    # The user_code is a security credential (typing it + Approve grants tokens),
+    # so draw from a CSPRNG rather than Ruby's global Mersenne Twister PRNG.
     self.user_code ||= USER_CODE_GROUPS.times.map do
-      USER_CODE_GROUP_SIZE.times.map { USER_CODE_ALPHABET.sample }.join
+      USER_CODE_GROUP_SIZE.times.map { USER_CODE_ALPHABET.sample(random: SecureRandom) }.join
     end.join
   end
 

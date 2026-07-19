@@ -9,6 +9,14 @@
 class DeviceAuthorizationsController < ApplicationController
   # Browser form endpoint — keep CSRF protection on (do NOT skip it).
 
+  # RFC 8628 §5.1: rate-limit user_code entry so a signed-in user cannot brute
+  # force the short code space to deny or hijack another user's pending
+  # authorization during its ~10 minute window. Covers both the lookup (show) and
+  # the state-changing submit (verify).
+  rate_limit to: 10, within: 1.minute, only: [:show, :verify], with: -> {
+    render plain: "Too many attempts. Try again later.", status: :too_many_requests
+  }
+
   # GET /device?user_code=WDJB-MJHT
   def show
     @user_code = params[:user_code].to_s

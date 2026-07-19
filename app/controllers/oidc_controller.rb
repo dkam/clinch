@@ -15,11 +15,26 @@ class OidcController < ApplicationController
   before_action :set_application, only: :authorize
   before_action :validate_redirect_uri, only: :authorize
 
-  # Rate limiting to prevent brute force and abuse
-  rate_limit to: 60, within: 1.minute, only: [:token, :revoke, :introspect, :device_authorization], with: -> {
+  # Rate limiting to prevent brute force and abuse.
+  #
+  # Each rate_limit MUST pass a distinct name: — without it actionpack derives the
+  # same cache key for every call on the controller, collapsing these into one
+  # shared counter. That let high-frequency RFC 8628 device polling (on the token
+  # endpoint) exhaust the budget and 429 unrelated token/refresh/revoke/introspect
+  # requests, including the poll that completes a just-approved login.
+  #
+  # The token endpoint also carries device-code polling, which is legitimately
+  # frequent and can come from several devices behind one NAT, so its bucket has
+  # generous headroom. Per-device poll abuse is separately bounded by the slow_down
+  # interval, and none of these endpoints exposes a brute-forceable secret (tokens,
+  # codes, and client secrets are opaque high-entropy values), so the limit is a
+  # DoS guard rather than a credential guard.
+  rate_limit to: 120, within: 1.minute, name: "oidc_token", only: [:token, :revoke, :introspect, :device_authorization], with: -> {
     render json: {error: "too_many_requests", error_description: "Rate limit exceeded. Try again later."}, status: :too_many_requests
   }
-  rate_limit to: 30, within: 1.minute, only: [:authorize, :consent], with: -> {
+  # Browser-facing authorization flow — kept on its own counter so token-endpoint
+  # traffic can never consume the interactive login budget (or vice versa).
+  rate_limit to: 30, within: 1.minute, name: "oidc_authorize", only: [:authorize, :consent], with: -> {
     render plain: "Too many authorization attempts. Try again later.", status: :too_many_requests
   }
 
@@ -599,6 +614,19 @@ class OidcController < ApplicationController
       # Lock so concurrent polls / a poll racing with approval can't double-issue.
       device_code.lock!
 
+      # Replay: an already-redeemed code must never mint tokens again. Mirror the
+      # authorization-code reuse semantics (RFC 6749 §4.1.2) — revoke every token
+      # descended from it and report the reuse distinguishably, rather than the
+      # generic "Invalid device_code" returned for an unknown code.
+      if device_code.redeemed?
+        Rails.logger.warn "OIDC Security: Device code reuse detected for code #{device_code.id}"
+        now = Time.current
+        device_code.oidc_access_tokens.where(revoked_at: nil).update_all(revoked_at: now)
+        device_code.oidc_refresh_tokens.where(revoked_at: nil).update_all(revoked_at: now)
+        render json: {error: "invalid_grant", error_description: "Device code has already been used"}, status: :bad_request
+        return
+      end
+
       if device_code.expired?
         render json: {error: "expired_token", error_description: "The device_code has expired"}, status: :bad_request
         return
@@ -667,6 +695,7 @@ class OidcController < ApplicationController
         application: application,
         user: user,
         scope: granted_scope,
+        oidc_device_code: device_code,
         resource: device_code.resource
       )
 
@@ -674,6 +703,7 @@ class OidcController < ApplicationController
         application: application,
         user: user,
         oidc_access_token: access_token_record,
+        oidc_device_code: device_code,
         scope: granted_scope,
         auth_time: device_code.auth_time,
         acr: device_code.acr,
@@ -692,8 +722,10 @@ class OidcController < ApplicationController
         claims_requests: {}
       )
 
-      # Single-use: destroy the code so an approved device_code can't be replayed.
-      device_code.destroy!
+      # Single-use: mark the code redeemed (don't destroy it) so a replay is
+      # detected as reuse — see the redeemed? check at the top of this block. The
+      # cleanup job reaps redeemed codes after they expire.
+      device_code.update!(redeemed_at: Time.current)
 
       response.headers["Cache-Control"] = "no-store"
       response.headers["Pragma"] = "no-cache"
@@ -963,15 +995,18 @@ class OidcController < ApplicationController
     refresh_token_record.revoke!
 
     # Generate new access token record (opaque token with BCrypt hashing)
-    # Carry the authorization-code FK forward across rotations so replay
-    # revocation reaches every descendant token in the chain.
+    # Carry the issuing-code FK forward across rotations so replay revocation
+    # reaches every descendant token in the chain — for both the authorization-code
+    # and device-code grants (a token descends from exactly one of them).
     issuing_auth_code = refresh_token_record.oidc_authorization_code
+    issuing_device_code = refresh_token_record.oidc_device_code
 
     new_access_token = OidcAccessToken.create!(
       application: application,
       user: user,
       scope: refresh_token_record.scope,
       oidc_authorization_code: issuing_auth_code,
+      oidc_device_code: issuing_device_code,
       resource: refresh_token_record.resource
     )
 
@@ -981,6 +1016,7 @@ class OidcController < ApplicationController
       user: user,
       oidc_access_token: new_access_token,
       oidc_authorization_code: issuing_auth_code,
+      oidc_device_code: issuing_device_code,
       scope: refresh_token_record.scope,
       token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
       auth_time: refresh_token_record.auth_time,  # Carry over original auth_time

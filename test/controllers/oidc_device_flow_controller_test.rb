@@ -159,10 +159,37 @@ class OidcDeviceFlowControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Bearer", body["token_type"]
     assert_equal "openid groups", body["scope"]
 
-    # Replaying the (now consumed) device_code fails.
+    # Replaying the (now consumed) device_code fails, and is reported as reuse —
+    # distinguishable from the generic "Invalid device_code" for an unknown code.
     poll(dc, code_verifier: CODE_VERIFIER)
     assert_response :bad_request
-    assert_equal "invalid_grant", JSON.parse(@response.body)["error"]
+    replay = JSON.parse(@response.body)
+    assert_equal "invalid_grant", replay["error"]
+    assert_match(/already been used/i, replay["error_description"])
+  end
+
+  test "replaying a redeemed device_code revokes the tokens it issued" do
+    OidcUserConsent.create!(user: @user, application: @cli, scopes_granted: "openid", granted_at: Time.current)
+    dc = OidcDeviceCode.create!(
+      application: @cli, scope: "openid",
+      code_challenge: code_challenge_for(CODE_VERIFIER), code_challenge_method: "S256"
+    )
+    dc.approve!(user: @user, acr: "1", auth_time: Time.current.to_i)
+
+    poll(dc, code_verifier: CODE_VERIFIER)
+    assert_response :success
+    access = OidcAccessToken.find_by_token(JSON.parse(@response.body)["access_token"])
+    refresh = OidcRefreshToken.where(oidc_device_code: dc).first
+    assert access.active?, "token should be live before the replay"
+
+    # The code is kept (not destroyed) so the replay is detectable...
+    assert dc.reload.redeemed?
+    poll(dc, code_verifier: CODE_VERIFIER)
+    assert_response :bad_request
+
+    # ...and every token descended from the replayed code is revoked.
+    assert access.reload.revoked?
+    assert refresh.reload.revoked?
   end
 
   test "token endpoint refuses a PKCE-required client whose device_code lacks a challenge" do

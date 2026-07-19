@@ -3,6 +3,7 @@ class OidcRefreshToken < ApplicationRecord
   belongs_to :user
   belongs_to :oidc_access_token
   belongs_to :oidc_authorization_code, optional: true
+  belongs_to :oidc_device_code, optional: true
 
   before_validation :generate_token, on: :create
   before_validation :set_expiry, on: :create
