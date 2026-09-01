@@ -50,4 +50,15 @@ class ApplicationHelperTest < ActionView::TestCase
     refute_match(/dark:hidden/, html)
     refute_match(/hidden dark:block/, html)
   end
+
+  test "oidc_env_lines advertises the issuer under OIDC_ISSUER as a bare origin" do
+    app = applications(:kavita_app)
+
+    lines = oidc_env_lines(app)
+
+    assert_includes lines, "OIDC_ISSUER=#{OidcJwtService.issuer_url}"
+    assert_empty lines.grep(/\AOIDC_DISCOVERY_URL=/), "the discovery-URL name was replaced by OIDC_ISSUER"
+    issuer = lines.grep(/\AOIDC_ISSUER=/).first.split("=", 2).last
+    assert_match %r{\Ahttps?://[^/]+\z}, issuer, "issuer must be a bare origin: no path, no trailing slash"
+  end
 end
