@@ -114,4 +114,3 @@ class JwtAccessTokenTest < ActiveSupport::TestCase
     assert_nil OidcAccessToken.find_by_presented_token(nil)
   end
 end
-

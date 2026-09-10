@@ -57,7 +57,7 @@ class OidcMintAuthorizationTest < ActionDispatch::IntegrationTest
       redirect_uri: "https://app.example.com/cb", scope: "openid", auth_time: Time.current.to_i, acr: "1")
     revoke_group!
     post "/oauth/token", params: {grant_type: "authorization_code", code: code.plaintext_code,
-      redirect_uri: "https://app.example.com/cb", client_id: @application.client_id, client_secret: @secret}
+                                  redirect_uri: "https://app.example.com/cb", client_id: @application.client_id, client_secret: @secret}
     assert_access_denied
   end
 
@@ -120,12 +120,12 @@ class OidcMintAuthorizationTest < ActionDispatch::IntegrationTest
 
   def poll(dc)
     post "/oauth/token", params: {grant_type: DEVICE_GRANT, device_code: dc.plaintext_device_code,
-      client_id: @application.client_id, client_secret: @secret}
+                                  client_id: @application.client_id, client_secret: @secret}
   end
 
   def refresh_with(refresh)
     post "/oauth/token", params: {grant_type: "refresh_token", refresh_token: refresh.token,
-      client_id: @application.client_id, client_secret: @secret}
+                                  client_id: @application.client_id, client_secret: @secret}
   end
 
   def assert_access_denied

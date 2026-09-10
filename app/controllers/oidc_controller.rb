@@ -1,5 +1,4 @@
 class OidcController < ApplicationController
-
   # Grant types this authorization server supports. Single source of truth:
   # advertised in discovery (grant_types_supported), accepted at dynamic client
   # registration, and dispatched by the token endpoint. clinch offers all of these
