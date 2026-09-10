@@ -98,19 +98,18 @@ module Authentication
     nil
   end
 
-  # The CSP host-source for a redirect URI: scheme, host and — when it isn't the
-  # scheme's default — port. Dropping the scheme and port would produce a source
-  # matching neither, which blocks the redirect this is meant to permit: RFC 8252
-  # loopback redirects (http://127.0.0.1:PORT/…) are accepted at registration,
-  # and https on a non-default port is equally valid. Non-HTTP schemes (native
-  # app callbacks) have no host and are skipped, as they were before.
+  # The CSP host-source for a redirect URI. URI::HTTP#origin gives scheme, host
+  # and — only when it isn't the scheme's default — port, which is exactly the
+  # host-source grammar. Keeping the scheme and port matters: RFC 8252 loopback
+  # redirects (http://127.0.0.1:PORT/…) are accepted at registration, and https
+  # on a non-default port is equally valid, so a bare "https://#{host}" would
+  # match neither and block the redirect this exists to permit. Non-HTTP schemes
+  # (native app callbacks) have no host and are skipped, as they were before.
   def form_action_origin(uri)
     return nil unless uri.is_a?(URI::HTTP)
     return nil if uri.host.blank?
 
-    origin = "#{uri.scheme}://#{uri.host}"
-    origin += ":#{uri.port}" unless uri.port == uri.default_port
-    origin
+    uri.origin
   end
 
   def start_new_session_for(user, acr: "1", remember_me: false)
