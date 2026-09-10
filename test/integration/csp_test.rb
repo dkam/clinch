@@ -92,6 +92,76 @@ class CspTest < ActionDispatch::IntegrationTest
       "form-action must include the OAuth client's redirect_uri host"
   end
 
+  test "the redirect_uri host does not leak into other requests' form-action" do
+    # `request.content_security_policy` returns the application-wide policy
+    # object, shared by every request this process serves. Appending to it in
+    # place pins the host into every later response — so one unauthenticated
+    # visit to /oauth/authorize would widen form-action on every other user's
+    # sign-in page, for the life of the worker, growing with each new host seen.
+    # With Dynamic Client Registration enabled the host is attacker-chosen.
+    User.create!(email_address: "csp_leak@example.com", password: "password123")
+
+    app = Application.create!(
+      name: "CSP Leak App",
+      slug: "csp-leak-app",
+      app_type: "oidc",
+      redirect_uris: ["https://leaky.example.com/callback"].to_json,
+      active: true,
+      require_pkce: false
+    )
+
+    get "/oauth/authorize", params: {
+      client_id: app.client_id,
+      redirect_uri: "https://leaky.example.com/callback",
+      response_type: "code",
+      scope: "openid"
+    }
+    assert_redirected_to signin_path
+    follow_redirect!
+    assert_includes directive(response.headers["Content-Security-Policy"], "form-action"),
+      "https://leaky.example.com", "guard precondition: the host is allowed for this request"
+
+    # An unrelated visitor, on an unrelated page, must not inherit it.
+    reset!
+    get signin_path
+    assert_response :success
+
+    form_action = directive(response.headers["Content-Security-Policy"], "form-action")
+    assert_includes form_action, "'self'"
+    refute_includes form_action, "https://leaky.example.com",
+      "a redirect_uri host must not persist into unrelated later responses"
+  end
+
+  test "form-action keeps the redirect_uri's scheme and port" do
+    # RFC 8252 loopback redirects are accepted at registration, and https on a
+    # non-default port is equally valid. Rebuilding the source as "https://host"
+    # drops both, yielding a directive that matches neither — which blocks the
+    # very redirect this is meant to permit.
+    User.create!(email_address: "csp_port@example.com", password: "password123")
+
+    app = Application.create!(
+      name: "CSP Loopback App",
+      slug: "csp-loopback-app",
+      app_type: "oidc",
+      redirect_uris: ["http://127.0.0.1:8123/callback"].to_json,
+      active: true,
+      require_pkce: false
+    )
+
+    get "/oauth/authorize", params: {
+      client_id: app.client_id,
+      redirect_uri: "http://127.0.0.1:8123/callback",
+      response_type: "code",
+      scope: "openid"
+    }
+    assert_redirected_to signin_path
+    follow_redirect!
+
+    form_action = directive(response.headers["Content-Security-Policy"], "form-action")
+    assert_includes form_action, "http://127.0.0.1:8123",
+      "form-action must carry the redirect_uri's real origin, scheme and port included"
+  end
+
   private
 
   def directive(csp, name)

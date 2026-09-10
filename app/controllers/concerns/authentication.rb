@@ -63,27 +63,54 @@ module Authentication
     nil
   end
 
-  # Append the origin of `redirect_uri` to this response's form-action directive.
+  # Append the origin of `redirect_uri` to *this response's* form-action directive.
   #
   # NOTE: `csp.form_action` (no args) is destructive — it deletes the directive
   # and returns its old value, so reading it twice yields nil, and appending to
   # that nil raises. Mutate the underlying `directives` hash (a public reader of
   # the real values) instead. Getting this wrong drops form-action from the
   # response entirely, which is the opposite of what the caller intended.
+  #
+  # NOTE: `request.content_security_policy` hands back the *application-wide*
+  # policy object, shared by every request this process serves. Appending to it
+  # in place would pin the host into every later response — one visit to
+  # /oauth/authorize widening form-action on every other user's sign-in page for
+  # the life of the worker, accumulating a new entry per distinct host seen. The
+  # authorize endpoint is reachable unauthenticated and, with Dynamic Client
+  # Registration enabled, the host is attacker-chosen. So swap in a per-request
+  # copy first: ContentSecurityPolicy#initialize_copy deep-dups the directives,
+  # making the copy independent of the global.
   def allow_form_action_for_redirect_uri(redirect_uri)
     return if redirect_uri.blank?
 
-    redirect_host = URI.parse(redirect_uri).host
-    return if redirect_host.blank?
+    origin = form_action_origin(URI.parse(redirect_uri))
+    return if origin.blank?
 
     csp = request.content_security_policy
     return unless csp
 
+    csp = csp.dup
+    request.content_security_policy = csp
+
     form_action = (csp.directives["form-action"] ||= ["'self'"])
-    host = "https://#{redirect_host}"
-    form_action << host unless form_action.include?(host)
+    form_action << origin unless form_action.include?(origin)
   rescue URI::InvalidURIError
     nil
+  end
+
+  # The CSP host-source for a redirect URI: scheme, host and — when it isn't the
+  # scheme's default — port. Dropping the scheme and port would produce a source
+  # matching neither, which blocks the redirect this is meant to permit: RFC 8252
+  # loopback redirects (http://127.0.0.1:PORT/…) are accepted at registration,
+  # and https on a non-default port is equally valid. Non-HTTP schemes (native
+  # app callbacks) have no host and are skipped, as they were before.
+  def form_action_origin(uri)
+    return nil unless uri.is_a?(URI::HTTP)
+    return nil if uri.host.blank?
+
+    origin = "#{uri.scheme}://#{uri.host}"
+    origin += ":#{uri.port}" unless uri.port == uri.default_port
+    origin
   end
 
   def start_new_session_for(user, acr: "1", remember_me: false)
