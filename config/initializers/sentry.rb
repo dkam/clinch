@@ -9,8 +9,27 @@ Sentry.init do |config|
   # Environment label (defaults to Rails.env)
   config.environment = ENV["SENTRY_ENVIRONMENT"] || Rails.env
 
-  # Release version from an env var or the current Git SHA
-  config.release = ENV["SENTRY_RELEASE"] || `git rev-parse HEAD 2>/dev/null`.strip.presence
+  # Both numbers, because a release wants a name and a build wants a proof:
+  # Clinch::VERSION says which release this is, config.x.revision says which
+  # commit it was built from (see config/initializers/revision.rb).
+  #
+  # This used to shell out to `git rev-parse HEAD`, which always came back empty
+  # in a deployed container — .dockerignore excludes /.git/ — so `.presence` made
+  # it nil and every event arrived with no release at all. Nothing in Splat could
+  # be filtered or grouped by version, which is the one question a release string
+  # exists to answer.
+  config.release = ENV["SENTRY_RELEASE"].presence ||
+    "#{Clinch::VERSION}+#{Rails.application.config.x.revision}"
+
+  # Bridge-networked containers get a random container ID as their hostname, so
+  # server_name would otherwise report that rather than the host.
+  config.server_name = ENV["SENTRY_SERVER_NAME"] if ENV["SENTRY_SERVER_NAME"].present?
+
+  # Release health — crash-free session rates — is a Sentry feature Splat does
+  # not implement. Left on, the session flusher ships one envelope per process
+  # per minute carrying only aggregate counters, which Splat receives, finds no
+  # event_id in, and drops. Pure waste on both ends.
+  config.auto_session_tracking = false
 
   # Only report from production unless explicitly enabled elsewhere.
   config.enabled_environments =
@@ -81,5 +100,18 @@ Sentry.init do |config|
     end
 
     breadcrumb
+  end
+end
+
+# Promote host and release to searchable tags. Both are already sent as
+# top-level event attributes (server_name / release), but only tags are
+# filterable in Splat's issue and tag views — so without this, "show me
+# everything from 0.18.0-dev" has no way to be asked.
+if Sentry.initialized?
+  Sentry.configure_scope do |scope|
+    scope.set_tags(
+      host: Sentry.configuration.server_name,
+      release: Sentry.configuration.release
+    )
   end
 end

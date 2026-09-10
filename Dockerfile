@@ -49,6 +49,12 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+# Stamp the commit this image was built from. .dockerignore excludes /.git/, so
+# the app cannot ask git at runtime — config/initializers/revision.rb reads this
+# file instead, and it is what makes config.release identify a specific build.
+ARG GIT_SHA=unknown
+RUN echo "${GIT_SHA}" > VERSION
+
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/

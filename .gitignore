@@ -73,3 +73,7 @@ yarn-debug.log*
 
 # Local-only: do not publish the security findings tracker
 SECURITY_REVIEW_TODO.md
+
+# Build stamp written into the image by the Dockerfile (see revision.rb).
+# Never committed: a stale local copy would make the app report the wrong build.
+/VERSION

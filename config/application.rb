@@ -1,4 +1,8 @@
 require_relative "boot"
+# Loaded here rather than as an initializer so Clinch::VERSION exists before
+# config/initializers/* run — sentry.rb needs it, and initializers load
+# alphabetically, so "version" would otherwise arrive too late.
+require_relative "version"
 
 require "rails/all"
 
