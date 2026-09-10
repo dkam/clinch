@@ -66,8 +66,15 @@ class WebauthnController < ApplicationController
       # Pass the credential hash directly to WebAuthn gem
       webauthn_credential = WebAuthn::Credential.from_create(credential_data.to_h)
 
-      # Verify the credential against the challenge
-      webauthn_credential.verify(challenge)
+      # Verify the credential against the challenge.
+      #
+      # user_verification: true is what actually enforces CLN-02 step 2. The
+      # `userVerification: "required"` in the creation options is only a request
+      # to the client, and the gem checks the UV flag solely when told to here
+      # (AuthenticatorResponse#verify runs verify_item(:user_verified) under
+      # `if user_verification`). Without this argument an authenticator that
+      # ignores the request enrolls a PIN-less key that then signs in as acr "2".
+      webauthn_credential.verify(challenge, user_verification: true)
 
       # Extract credential metadata from the hash
       response = credential_data.to_h

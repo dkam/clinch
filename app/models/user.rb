@@ -275,7 +275,14 @@ class User < ApplicationRecord
     # Pending grants have not been exchanged for tokens yet; delete them so a
     # code issued moments before deactivation cannot still be redeemed.
     oidc_authorization_codes.where(used: false).delete_all
-    oidc_device_codes.where(status: "pending").delete_all
+
+    # Device codes are deliberately not touched here. A *pending* code has no
+    # user_id yet (OidcDeviceCode: `belongs_to :user, optional: true`), so it is
+    # not reachable through this association at all; an *approved* one is, but
+    # deleting it would only duplicate the check the device grant already makes
+    # at redemption — oidc_controller#device_code_grant re-runs
+    # `application.user_allowed?(user)`, which covers user.active?, so a code
+    # approved before deactivation cannot be exchanged for tokens afterwards.
   end
 
   def no_reserved_claim_names

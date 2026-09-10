@@ -1,4 +1,5 @@
 require "test_helper"
+require "webauthn/fake_client"
 
 # CLN-02 (September 2026 review), staged:
 #   1. record the UV flag on the credential so we can see what authenticators
@@ -20,6 +21,49 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
     options = JSON.parse(response.body)
     assert_equal "required", options.dig("authenticatorSelection", "userVerification"),
       "a new key must not be enrollable without a PIN or biometric"
+  end
+
+  test "registration rejects an attestation that did not perform user verification" do
+    # Asking for userVerification: "required" in the creation options is a
+    # request to the client, not a guarantee: the gem only checks the UV flag
+    # when `verify` is told to. An authenticator that ignores the request — or a
+    # caller that never asked — would otherwise enroll a PIN-less key that then
+    # signs in as acr "2". The options assertion above cannot catch this; only
+    # verifying a real UV-less attestation can.
+    user = users(:alice)
+    sign_in_as(user)
+
+    post "/webauthn/challenge"
+    assert_response :success
+    challenge = JSON.parse(response.body)["challenge"]
+
+    client = WebAuthn::FakeClient.new("http://localhost")
+    credential = client.create(challenge: challenge, user_verified: false)
+
+    assert_no_difference -> { user.webauthn_credentials.count } do
+      post "/webauthn/create", params: {credential: credential, nickname: "PIN-less key"}, as: :json
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "registration accepts an attestation that did perform user verification" do
+    user = users(:alice)
+    sign_in_as(user)
+
+    post "/webauthn/challenge"
+    assert_response :success
+    challenge = JSON.parse(response.body)["challenge"]
+
+    client = WebAuthn::FakeClient.new("http://localhost")
+    credential = client.create(challenge: challenge, user_verified: true)
+
+    assert_difference -> { user.webauthn_credentials.count }, 1 do
+      post "/webauthn/create", params: {credential: credential, nickname: "PIN key"}, as: :json
+    end
+
+    assert_response :success
+    assert_equal true, user.webauthn_credentials.find_by(nickname: "PIN key").user_verified
   end
 
   test "credentials record whether user verification was performed" do
