@@ -955,11 +955,14 @@ class OidcController < ApplicationController
     # auth_time and acr come from the original refresh token (carried over from initial auth)
     # scopes determine which claims are included (per OIDC Core spec)
     # claims_requests parameter filters which claims are included (from original consent)
+    # As in mint_and_render_tokens: hash what the client is actually given.
+    access_token_value = new_access_token.wire_value(consent: consent)
+
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
-      access_token: new_access_token.plaintext_token,
+      access_token: access_token_value,
       auth_time: refresh_token_record.auth_time,
       acr: refresh_token_record.acr,
       scopes: refresh_token_record.scope,
@@ -972,7 +975,7 @@ class OidcController < ApplicationController
 
     # Return new tokens
     render json: {
-      access_token: new_access_token.plaintext_token,  # Opaque token
+      access_token: access_token_value,  # Opaque handle, or an RFC 9068 JWT (ADR 0007)
       token_type: "Bearer",
       expires_in: application.access_token_ttl || 3600,
       id_token: id_token,  # JWT
@@ -1002,7 +1005,7 @@ class OidcController < ApplicationController
     end
 
     # Find and validate access token (opaque token with BCrypt hashing)
-    access_token = OidcAccessToken.find_by_token(token)
+    access_token = OidcAccessToken.find_by_presented_token(token)
     unless access_token&.active?
       head :unauthorized
       return
@@ -1123,7 +1126,7 @@ class OidcController < ApplicationController
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"
 
-    access_token = OidcAccessToken.find_by_token(token_value)
+    access_token = OidcAccessToken.find_by_presented_token(token_value)
 
     # Inactive/unknown/expired/revoked tokens (or those for a disabled app) are
     # reported as simply inactive per RFC 7662 §2.2 — never an error.
@@ -1253,7 +1256,7 @@ class OidcController < ApplicationController
 
     if !revoked && (token_type_hint == "access_token" || token_type_hint.nil?)
       # Try to find as access token
-      access_token_record = OidcAccessToken.find_by_token(token)
+      access_token_record = OidcAccessToken.find_by_presented_token(token)
 
       if access_token_record && owned_by_caller.call(access_token_record)
         access_token_record.revoke!
@@ -1341,12 +1344,18 @@ class OidcController < ApplicationController
       **grant_association
     )
 
+    # The value the client actually receives — opaque handle or RFC 9068 JWT
+    # (ADR 0007). Computed once: at_hash must cover the token *as delivered*
+    # (OIDC Core §3.1.3.6), so hashing the internal handle would break any
+    # client that validates it.
+    access_token_value = access_token_record.wire_value(consent: consent)
+
     id_token = OidcJwtService.generate_id_token(
       user,
       application,
       consent: consent,
       nonce: grant.nonce,
-      access_token: access_token_record.plaintext_token,
+      access_token: access_token_value,
       auth_time: grant.auth_time,
       acr: grant.acr,
       scopes: grant.scope,
@@ -1358,7 +1367,7 @@ class OidcController < ApplicationController
     response.headers["Pragma"] = "no-cache"
 
     render json: {
-      access_token: access_token_record.plaintext_token,
+      access_token: access_token_value,
       token_type: "Bearer",
       expires_in: application.access_token_ttl || 3600,
       id_token: id_token,

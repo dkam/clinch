@@ -17,6 +17,21 @@ class OidcAccessToken < ApplicationRecord
 
   attr_accessor :plaintext_token  # Store plaintext temporarily for returning to client
 
+  # Resolve whatever the client actually presented — an opaque handle or an
+  # RFC 9068 JWT (ADR 0007) — to its record. Every endpoint that accepts an
+  # access token goes through here, so a client that opted into JWTs can still
+  # introspect and revoke exactly like an opaque one.
+  #
+  # A JWT is verified (signature, typ, issuer, expiry) *before* its jti is used
+  # for lookup, so an attacker cannot probe for records with a forged token.
+  def self.find_by_presented_token(presented)
+    return nil if presented.blank?
+    return find_by_token(presented) unless presented.count(".") == 2
+
+    payload = OidcJwtService.decode_access_token(presented) or return nil
+    find_by(token_hmac: payload["jti"])
+  end
+
   # Find access token by plaintext token using HMAC verification
   def self.find_by_token(plaintext_token)
     return nil if plaintext_token.blank?
@@ -46,6 +61,16 @@ class OidcAccessToken < ApplicationRecord
     update!(revoked_at: Time.current)
     # Also revoke associated refresh tokens
     oidc_refresh_tokens.each(&:revoke!)
+  end
+
+  # What actually goes over the wire as `access_token` in the token response:
+  # the opaque handle, or an RFC 9068 JWT when the client opted into that
+  # format (ADR 0007). Only meaningful on a freshly created record, since the
+  # opaque plaintext exists nowhere but in memory.
+  def wire_value(consent: nil)
+    return plaintext_token unless application.jwt_access_tokens?
+
+    OidcJwtService.generate_access_token(self, consent: consent)
   end
 
   private

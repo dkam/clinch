@@ -5,6 +5,15 @@ class Application < ApplicationRecord
   # When true, no client_secret will be generated (public client)
   attr_accessor :is_public_client
 
+  # How this client's access tokens are formatted on the wire (ADR 0007).
+  # "opaque" is a reference token the resource server introspects — instant
+  # revocation, one callback per request. "jwt" is an RFC 9068 signed token the
+  # resource server verifies offline against the JWKS — no callback at all, at
+  # the cost of revocation not taking effect until the token expires. Choose jwt
+  # for high-request-rate APIs that can tolerate a revocation lag of one
+  # access_token_ttl; keep opaque (the default) everywhere else.
+  ACCESS_TOKEN_FORMATS = %w[opaque jwt].freeze
+
   # Virtual setters for TTL fields - accept human-friendly durations
   # e.g., "1h", "30m", "1d", or plain numbers "3600"
   def access_token_ttl=(value)
@@ -47,6 +56,10 @@ class Application < ApplicationRecord
     format: {with: /\A[a-z0-9-]+\z/, message: "only lowercase letters, numbers, and hyphens"}
   validates :app_type, presence: true,
     inclusion: {in: %w[oidc forward_auth]}
+  validates :access_token_format, inclusion: {
+    in: ACCESS_TOKEN_FORMATS,
+    message: "%{value} is not a supported access token format"
+  }
   validates :client_id, uniqueness: {allow_nil: true}
   validates :client_secret, presence: true, on: :create, if: -> { oidc? && confidential_client? }
   validates :domain_pattern, presence: true, uniqueness: {case_sensitive: false}, if: :forward_auth?
@@ -127,6 +140,12 @@ class Application < ApplicationRecord
 
   def confidential_client?
     !public_client?
+  end
+
+  # True when this client's access tokens are RFC 9068 JWTs rather than opaque
+  # handles. See ACCESS_TOKEN_FORMATS for the trade-off.
+  def jwt_access_tokens?
+    access_token_format == "jwt"
   end
 
   # PKCE requirement check

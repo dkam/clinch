@@ -12,3 +12,5 @@ Each file is one decision. Newest decisions get the next number.
 | [0003](0003-dynamic-client-registration.md) | Dynamic Client Registration (RFC 7591), runtime-gated + default-deny |
 | [0004](0004-resource-indicators.md) | Resource Indicators (RFC 8707) bind token audience; pass-through validation |
 | [0005](0005-introspection-authorization.md) | Introspection restricted to authorized callers + claim scope-gating |
+| [0006](0006-no-client-credentials-grant.md) | No `client_credentials` grant; machine access is user-delegated via device flow |
+| [0007](0007-jwt-access-tokens.md) | Per-client access token format; RFC 9068 JWTs as an opt-in for high-throughput APIs |

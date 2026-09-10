@@ -130,6 +130,62 @@ class OidcJwtService
       JWT.decode(token, public_key, true, {algorithm: "RS256"})
     end
 
+    # RFC 9068 — JWT Profile for OAuth 2.0 Access Tokens.
+    #
+    # Issued instead of an opaque handle when the client sets
+    # access_token_format: "jwt" (ADR 0007). The resource server verifies this
+    # offline against /.well-known/jwks.json — no introspection call, so its
+    # request path does not depend on clinch being reachable.
+    #
+    # The token still has a row in oidc_access_tokens: `jti` is that row's
+    # token_hmac, so a JWT presented back to /oauth/introspect or /oauth/revoke
+    # resolves to the same record an opaque token would. The HMAC is a one-way
+    # digest of a random string, so naming it here discloses nothing the holder
+    # doesn't already have.
+    #
+    # Identity claims are gated on scope exactly as introspection and userinfo
+    # gate them (ADR 0005) — with the sharper edge that a JWT is readable by
+    # anyone holding it, so an over-broad scope leaks further here.
+    def generate_access_token(access_token, consent: nil)
+      user = access_token.user
+      application = access_token.application
+      scopes = access_token.scope.to_s.split
+
+      payload = {
+        iss: issuer_url,
+        sub: consent&.sid || user.id.to_s,
+        # RFC 8707: the resource the token was bound to. Falls back to the
+        # client_id when no resource indicator was used, mirroring introspection.
+        aud: access_token.resource.presence || application.client_id,
+        exp: access_token.expires_at.to_i,
+        iat: access_token.created_at.to_i,
+        jti: access_token.token_hmac,
+        client_id: application.client_id,
+        scope: access_token.scope.to_s
+      }
+
+      payload[:email] = user.email_address if scopes.include?("email")
+      payload[:groups] = user.groups.pluck(:name) if scopes.include?("groups")
+
+      # RFC 9068 §2.1: the typ header MUST be at+jwt, so a resource server can
+      # refuse an ID token presented as an access token (and vice versa).
+      JWT.encode(payload, private_key, "RS256", {kid: key_id, typ: "at+jwt"})
+    end
+
+    # Verify a presented RFC 9068 access token and return its payload, or nil if
+    # it is not one of ours: bad signature, wrong typ, expired, or simply not a
+    # JWT. Never raises — every failure is an anonymous nil, because callers
+    # turn it into the same opaque 401.
+    def decode_access_token(token)
+      payload, header = JWT.decode(token, public_key, true, {algorithm: "RS256", verify_expiration: true})
+      return nil unless header["typ"] == "at+jwt"
+      return nil unless payload["iss"] == issuer_url
+
+      payload
+    rescue JWT::DecodeError
+      nil
+    end
+
     # Get the public key in JWK format for the JWKS endpoint
     def jwks
       {
@@ -158,6 +214,12 @@ class OidcJwtService
         protocol = Rails.env.production? ? "https" : "http"
         "#{protocol}://#{host}"
       end
+    end
+
+    # The RSA public key — public by definition; it is published at
+    # /.well-known/jwks.json.
+    def public_key
+      @public_key ||= private_key.public_key
     end
 
     private
@@ -202,10 +264,6 @@ class OidcJwtService
     end
 
     # Get the corresponding public key
-    def public_key
-      @public_key ||= private_key.public_key
-    end
-
     # Key identifier (fingerprint of the public key)
     def key_id
       @key_id ||= Digest::SHA256.hexdigest(public_key.to_pem)[0..15]
