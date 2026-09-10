@@ -58,15 +58,27 @@ module Authentication
     redirect_uri = Rack::Utils.parse_query(uri.query.to_s)["redirect_uri"]
     return if redirect_uri.blank?
 
+    allow_form_action_for_redirect_uri(redirect_uri)
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  # Append the origin of `redirect_uri` to this response's form-action directive.
+  #
+  # NOTE: `csp.form_action` (no args) is destructive — it deletes the directive
+  # and returns its old value, so reading it twice yields nil, and appending to
+  # that nil raises. Mutate the underlying `directives` hash (a public reader of
+  # the real values) instead. Getting this wrong drops form-action from the
+  # response entirely, which is the opposite of what the caller intended.
+  def allow_form_action_for_redirect_uri(redirect_uri)
+    return if redirect_uri.blank?
+
     redirect_host = URI.parse(redirect_uri).host
     return if redirect_host.blank?
 
     csp = request.content_security_policy
     return unless csp
 
-    # NOTE: `csp.form_action` (no args) is destructive — it deletes the directive
-    # and returns its old value, so reading it twice yields nil. Mutate the
-    # underlying `directives` hash (a public reader of the real values) instead.
     form_action = (csp.directives["form-action"] ||= ["'self'"])
     host = "https://#{redirect_host}"
     form_action << host unless form_action.include?(host)

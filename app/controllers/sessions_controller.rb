@@ -305,11 +305,24 @@ class SessionsController < ApplicationController
         return
       end
 
+      # CLN-02 step 1: record whether the authenticator actually verified the
+      # user (PIN or biometric) rather than merely being touched. The session is
+      # still stamped acr "2" either way for now; this is the data that decides
+      # when requiring user verification at login (step 3) is safe to switch on.
+      user_verified = webauthn_credential.response.authenticator_data.user_verified?
+
+      unless user_verified
+        Rails.logger.warn "WebAuthn: passkey sign-in WITHOUT user verification " \
+          "(user: #{user.id}, credential: #{stored_credential.id}, " \
+          "nickname: #{stored_credential.display_name.inspect}) - counted as acr 2"
+      end
+
       # Update credential usage
       stored_credential.update_usage!(
         sign_count: webauthn_credential.sign_count,
         ip_address: request.remote_ip,
-        user_agent: request.user_agent
+        user_agent: request.user_agent,
+        user_verified: user_verified
       )
 
       # Clean up session
@@ -329,7 +342,9 @@ class SessionsController < ApplicationController
       }
     rescue WebAuthn::Error => e
       Rails.logger.error "WebAuthn verification error: #{e.message}"
-      render json: {error: "Authentication failed: #{e.message}"}, status: :unprocessable_entity
+      # The exception text carries origin, RP ID and counter detail; log it, but
+      # return a fixed string so the client learns nothing about the ceremony.
+      render json: {error: "Passkey authentication failed."}, status: :unprocessable_entity
     rescue JSON::ParserError => e
       Rails.logger.error "WebAuthn JSON parsing error: #{e.message}"
       render json: {error: "Invalid credential format"}, status: :unprocessable_entity

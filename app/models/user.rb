@@ -10,6 +10,10 @@ class User < ApplicationRecord
   has_many :oidc_user_consents, dependent: :destroy
   has_many :webauthn_credentials, dependent: :destroy
   has_many :api_keys, dependent: :destroy
+  has_many :oidc_access_tokens
+  has_many :oidc_refresh_tokens
+  has_many :oidc_authorization_codes
+  has_many :oidc_device_codes
 
   # Token generation for passwordless flows
   generates_token_for :invitation_login, expires_in: 24.hours do
@@ -251,11 +255,27 @@ class User < ApplicationRecord
     Group.auto_assign.each { |g| groups << g }
   end
 
+  # Disabling an account is the admin's emergency lever, so it must cut off every
+  # credential the account holds — not just browser sessions. OIDC access and
+  # refresh tokens are checked against the user at use time (userinfo,
+  # introspection), but revoking them here means relying parties that cache
+  # nothing still see the cutoff immediately, and it closes the window for any
+  # future consumer that forgets the check.
   def revoke_sessions_when_deactivated
     return unless saved_change_to_status?
     return if active?
 
+    now = Time.current
+
     sessions.destroy_all
+    oidc_access_tokens.where(revoked_at: nil).update_all(revoked_at: now)
+    oidc_refresh_tokens.where(revoked_at: nil).update_all(revoked_at: now)
+    api_keys.where(revoked_at: nil).update_all(revoked_at: now)
+
+    # Pending grants have not been exchanged for tokens yet; delete them so a
+    # code issued moments before deactivation cannot still be redeemed.
+    oidc_authorization_codes.where(used: false).delete_all
+    oidc_device_codes.where(status: "pending").delete_all
   end
 
   def no_reserved_claim_names

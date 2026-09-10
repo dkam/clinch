@@ -19,13 +19,19 @@ class WebauthnCredential < ApplicationRecord
   scope :never_used, -> { where(last_used_at: nil) }
 
   # Update last used timestamp and sign count after successful authentication
-  def update_usage!(sign_count:, ip_address: nil, user_agent: nil)
-    update!(
+  # `user_verified` records whether the authenticator actually performed user
+  # verification (PIN or biometric) in this ceremony, as opposed to a bare touch
+  # that proves possession only. Passed as nil by callers that cannot observe it,
+  # in which case the stored value is left alone.
+  def update_usage!(sign_count:, ip_address: nil, user_agent: nil, user_verified: nil)
+    attrs = {
       last_used_at: Time.current,
       last_used_ip: ip_address,
       sign_count: sign_count,
       user_agent: user_agent
-    )
+    }
+    attrs[:user_verified] = user_verified unless user_verified.nil?
+    update!(attrs)
   end
 
   # Check if this is a platform authenticator (built-in device)

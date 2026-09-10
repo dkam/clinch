@@ -437,24 +437,10 @@ class OidcController < ApplicationController
     @redirect_uri = redirect_uri
     @scopes = requested_scopes
 
-    # Add the redirect URI to CSP form-action for this specific request
-    # This allows the OAuth redirect to work while maintaining security
-    # CSP must allow the OAuth client's redirect_uri as a form submission target
-    if redirect_uri.present?
-      begin
-        redirect_host = URI.parse(redirect_uri).host
-        csp = request.content_security_policy
-        if csp && redirect_host
-          # Only modify if form_action is available and mutable
-          if csp.respond_to?(:form_action) && csp.form_action.respond_to?(:<<)
-            csp.form_action << "https://#{redirect_host}"
-          end
-        end
-      rescue => e
-        # Log CSP modification errors but don't fail the request
-        Rails.logger.warn "OAuth: Could not modify CSP for redirect_uri #{redirect_uri}: #{e.message}"
-      end
-    end
+    # Add the redirect URI to CSP form-action for this specific request.
+    # This allows the OAuth redirect to work while maintaining security:
+    # CSP must allow the OAuth client's redirect_uri as a form submission target.
+    allow_form_action_for_redirect_uri(redirect_uri)
 
     render :consent
   end
@@ -898,45 +884,70 @@ class OidcController < ApplicationController
       return
     end
 
-    # Revoke the old refresh token (token rotation)
-    refresh_token_record.revoke!
+    # Find user consent for this application. Checked *before* rotation: a refresh
+    # refused for want of consent must have no side effects, or it leaves the
+    # presented token revoked and a freshly minted, unreachable token pair behind.
+    consent = OidcUserConsent.find_by(user: user, application: application)
 
-    # Generate new access token record (opaque token with BCrypt hashing)
+    unless consent
+      Rails.logger.error "OIDC Security: Refresh token used without consent record (user: #{user.id}, app: #{application.id})"
+      render json: {error: "invalid_grant", error_description: "Authorization consent not found"}, status: :bad_request
+      return
+    end
+
     # Carry the issuing-code FK forward across rotations so replay revocation
     # reaches every descendant token in the chain — for both the authorization-code
     # and device-code grants (a token descends from exactly one of them).
     issuing_auth_code = refresh_token_record.oidc_authorization_code
     issuing_device_code = refresh_token_record.oidc_device_code
 
-    new_access_token = OidcAccessToken.create!(
-      application: application,
-      user: user,
-      scope: refresh_token_record.scope,
-      oidc_authorization_code: issuing_auth_code,
-      oidc_device_code: issuing_device_code,
-      resource: refresh_token_record.resource
-    )
+    new_access_token = nil
+    new_refresh_token = nil
+    lost_rotation_race = false
 
-    # Generate new refresh token (token rotation)
-    new_refresh_token = OidcRefreshToken.create!(
-      application: application,
-      user: user,
-      oidc_access_token: new_access_token,
-      oidc_authorization_code: issuing_auth_code,
-      oidc_device_code: issuing_device_code,
-      scope: refresh_token_record.scope,
-      token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
-      auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
-      acr: refresh_token_record.acr,  # Carry over original acr
-      resource: refresh_token_record.resource  # Carry the bound audience across rotation
-    )
+    # Rotate under a row lock, as the authorization-code and device-code grants
+    # already do. Without it two concurrent requests presenting the same refresh
+    # token both pass the `revoked?` check above and both mint a token pair,
+    # which silently defeats rotation reuse detection.
+    OidcRefreshToken.transaction do
+      refresh_token_record.lock!
 
-    # Find user consent for this application
-    consent = OidcUserConsent.find_by(user: user, application: application)
+      if refresh_token_record.revoked?
+        # A concurrent request rotated this token between our check and the lock.
+        lost_rotation_race = true
+      else
+        refresh_token_record.revoke!
 
-    unless consent
-      Rails.logger.error "OIDC Security: Refresh token used without consent record (user: #{user.id}, app: #{application.id})"
-      render json: {error: "invalid_grant", error_description: "Authorization consent not found"}, status: :bad_request
+        new_access_token = OidcAccessToken.create!(
+          application: application,
+          user: user,
+          scope: refresh_token_record.scope,
+          oidc_authorization_code: issuing_auth_code,
+          oidc_device_code: issuing_device_code,
+          resource: refresh_token_record.resource
+        )
+
+        new_refresh_token = OidcRefreshToken.create!(
+          application: application,
+          user: user,
+          oidc_access_token: new_access_token,
+          oidc_authorization_code: issuing_auth_code,
+          oidc_device_code: issuing_device_code,
+          scope: refresh_token_record.scope,
+          token_family_id: refresh_token_record.token_family_id,  # Keep same family for rotation tracking
+          auth_time: refresh_token_record.auth_time,  # Carry over original auth_time
+          acr: refresh_token_record.acr,  # Carry over original acr
+          resource: refresh_token_record.resource  # Carry the bound audience across rotation
+        )
+      end
+    end
+
+    if lost_rotation_race
+      # Two presentations of one token is the signature of a leaked refresh token,
+      # so treat it exactly as the pre-lock reuse check does: burn the family.
+      Rails.logger.warn "OAuth Security: Concurrent refresh token reuse detected for token family #{refresh_token_record.token_family_id}"
+      refresh_token_record.revoke_family!
+      render json: {error: "invalid_grant", error_description: "Refresh token has been revoked"}, status: :bad_request
       return
     end
 
@@ -975,12 +986,14 @@ class OidcController < ApplicationController
   # GET/POST /oauth/userinfo
   # OIDC Core spec: UserInfo endpoint MUST support GET, SHOULD support POST
   def userinfo
-    # Extract access token from Authorization header or POST body
-    # RFC 6750: Bearer token can be in Authorization header, request body, or query string
+    # Extract access token from the Authorization header or a form-encoded body.
+    # RFC 6750 §2.3 discourages the URI query parameter form: it puts bearer
+    # tokens into proxy logs, browser history and Referer headers, so it is not
+    # accepted here even though the RFC describes it.
     token = if request.headers["Authorization"]&.start_with?("Bearer ")
       request.headers["Authorization"].sub("Bearer ", "")
-    elsif request.params["access_token"].present?
-      request.params["access_token"]
+    elsif request.request_parameters["access_token"].present?
+      request.request_parameters["access_token"]
     end
 
     unless token
@@ -1003,8 +1016,10 @@ class OidcController < ApplicationController
     end
 
     # Get the user (with fresh data from database)
+    # The token's user must still be active: disabling an account has to cut off
+    # its tokens immediately, not at token expiry (up to 24h away).
     user = access_token.user
-    unless user
+    unless user&.active?
       head :unauthorized
       return
     end
@@ -1112,7 +1127,7 @@ class OidcController < ApplicationController
 
     # Inactive/unknown/expired/revoked tokens (or those for a disabled app) are
     # reported as simply inactive per RFC 7662 §2.2 — never an error.
-    unless access_token&.active? && access_token.application&.active? && access_token.user
+    unless access_token&.active? && access_token.application&.active? && access_token.user&.active?
       render json: {active: false}
       return
     end
@@ -1171,7 +1186,7 @@ class OidcController < ApplicationController
     # Get client credentials
     client_id, client_secret = extract_client_credentials
 
-    unless client_id && client_secret
+    unless client_id
       # RFC 7009 says we should return 200 OK even for invalid client
       # But log the attempt for security monitoring
       Rails.logger.warn "OAuth: Token revocation attempted with invalid client credentials"
@@ -1181,7 +1196,16 @@ class OidcController < ApplicationController
 
     # Find and validate the application
     application = Application.find_by(client_id: client_id)
-    unless application&.authenticate_client_secret(client_secret)
+    unless application
+      Rails.logger.warn "OAuth: Token revocation attempted for invalid application: #{client_id}"
+      head :ok
+      return
+    end
+
+    # RFC 7009 §2.1: a public client authenticates with client_id alone — requiring
+    # a secret locked public clients out of revoking their own tokens entirely.
+    # Confidential clients must still present their secret.
+    if application.confidential_client? && !application.authenticate_client_secret(client_secret)
       Rails.logger.warn "OAuth: Token revocation attempted for invalid application: #{client_id}"
       head :ok
       return
@@ -1208,14 +1232,22 @@ class OidcController < ApplicationController
     # Check token type hint first for efficiency, otherwise try both
     revoked = false
 
+    # RFC 7009 §2.1: "the authorization server ... validates whether the token was
+    # issued to the client making the revocation request". Without this any
+    # registered client could revoke any other client's tokens — a denial of
+    # service against every relying party behind this IdP.
+    owned_by_caller = ->(record) { record.application_id == application.id }
+
     if token_type_hint == "refresh_token" || token_type_hint.nil?
       # Try to find as refresh token
       refresh_token_record = OidcRefreshToken.find_by_token(token)
 
-      if refresh_token_record
+      if refresh_token_record && owned_by_caller.call(refresh_token_record)
         refresh_token_record.revoke!
         Rails.logger.info "OAuth: Refresh token revoked for application #{application.name}"
         revoked = true
+      elsif refresh_token_record
+        Rails.logger.warn "OAuth: Client #{application.client_id} attempted to revoke a refresh token issued to another client"
       end
     end
 
@@ -1223,10 +1255,11 @@ class OidcController < ApplicationController
       # Try to find as access token
       access_token_record = OidcAccessToken.find_by_token(token)
 
-      if access_token_record
+      if access_token_record && owned_by_caller.call(access_token_record)
         access_token_record.revoke!
         Rails.logger.info "OAuth: Access token revoked for application #{application.name}"
-        true
+      elsif access_token_record
+        Rails.logger.warn "OAuth: Client #{application.client_id} attempted to revoke an access token issued to another client"
       end
     end
 

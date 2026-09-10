@@ -26,7 +26,13 @@ class WebauthnController < ApplicationController
       },
       exclude: user.webauthn_credentials.pluck(:external_id),
       authenticator_selection: {
-        userVerification: "preferred",
+        # CLN-02 step 2: require user verification when *enrolling* a key, so no
+        # new PIN-less authenticator can be added. "preferred" is satisfied by a
+        # touch alone, which proves possession only — yet a passkey sign-in is
+        # stamped acr "2" and treated as multi-factor by relying parties and the
+        # forward-auth policy. Login still accepts "preferred" so existing keys
+        # keep working; see test/integration/webauthn_user_verification_test.rb.
+        userVerification: "required",
         residentKey: "preferred",
         authenticatorAttachment: "platform" # Prefer platform authenticators first
       }
@@ -88,7 +94,8 @@ class WebauthnController < ApplicationController
         nickname: nickname,
         authenticator_type: authenticator_type,
         backup_eligible: backup_eligible,
-        backup_state: backup_state
+        backup_state: backup_state,
+        user_verified: webauthn_credential.response.authenticator_data.user_verified?
       )
 
       SecurityMailer.passkey_added(user, nickname: @webauthn_credential.nickname, **security_event_context).deliver_later
@@ -100,7 +107,8 @@ class WebauthnController < ApplicationController
       }
     rescue WebAuthn::Error => e
       Rails.logger.error "WebAuthn registration error: #{e.message}"
-      render json: {error: "Failed to register passkey: #{e.message}"}, status: :unprocessable_entity
+      # Log the library message; return a fixed string (see sessions#webauthn_verify).
+      render json: {error: "Failed to register passkey."}, status: :unprocessable_entity
     rescue => e
       Rails.logger.error "Unexpected WebAuthn registration error: #{e.class} - #{e.message}"
       render json: {error: "An unexpected error occurred"}, status: :internal_server_error

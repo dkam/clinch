@@ -1,5 +1,7 @@
 require "active_support/core_ext/integer/time"
 
+require_relative "../../lib/clinch/internal_host_patterns"
+
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
@@ -137,14 +139,10 @@ Rails.application.configure do
     allowed_hosts << ENV["CLINCH_DOCKER_SERVICE_NAME"]
   end
 
-  # Allow internal IP access for cross-compose or host networking
+  # Allow internal IP access for cross-compose or host networking.
+  # Patterns are anchored and octet-range-checked — see Clinch::InternalHostPatterns.
   if ENV["CLINCH_ALLOW_INTERNAL_IPS"] == "true"
-    # Private IP ranges for internal network access
-    allowed_hosts += [
-      /192\.168\.\d+\.\d+/,    # 192.168.0.0/16 private network
-      /10\.\d+\.\d+\.\d+/,     # 10.0.0.0/8 private network
-      /172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+/  # 172.16.0.0/12 private network
-    ]
+    allowed_hosts += Clinch::InternalHostPatterns.all
   end
 
   # Local development fallbacks

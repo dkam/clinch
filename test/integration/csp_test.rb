@@ -68,6 +68,30 @@ class CspTest < ActionDispatch::IntegrationTest
       "form-action must include the OAuth client's redirect_uri host"
   end
 
+  test "consent page adds the OAuth redirect_uri host to form-action" do
+    # The consent page is where the authorization code is about to be handed
+    # over, so form-action is exactly the header that must not go missing.
+    # Regression: the authorize action called the destructive `csp.form_action`
+    # getter twice, deleting the directive and then raising, so the page shipped
+    # with no form-action restriction at all.
+    bob = users(:bob)
+    app = applications(:kavita_app)
+    sign_in_as(bob)
+
+    get "/oauth/authorize", params: {
+      client_id: app.client_id,
+      redirect_uri: "https://kavita.example.com/signin-oidc",
+      response_type: "code",
+      scope: "openid"
+    }
+    assert_response :success
+
+    form_action = directive(response.headers["Content-Security-Policy"], "form-action")
+    assert_includes form_action, "'self'", "form-action must keep its default 'self'"
+    assert_includes form_action, "https://kavita.example.com",
+      "form-action must include the OAuth client's redirect_uri host"
+  end
+
   private
 
   def directive(csp, name)

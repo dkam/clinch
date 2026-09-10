@@ -87,8 +87,26 @@ module Api
       assert_equal "API key not valid for this domain", json["error"]
     end
 
+    # Deactivation revokes the user's API keys (see
+    # User#revoke_sessions_when_deactivated), so the key is rejected as revoked
+    # before the active-user check is reached.
     test "bearer token for inactive user returns 401 JSON" do
       @user.update!(status: :disabled)
+
+      get "/api/verify", headers: {
+        "Authorization" => "Bearer #{@token}",
+        "X-Forwarded-Host" => "webdav.example.com"
+      }
+
+      assert_response :unauthorized
+      json = JSON.parse(response.body)
+      assert_equal "Invalid or expired API key", json["error"]
+    end
+
+    # Defence in depth: a user deactivated by a path that skips the model callback
+    # must still be refused by the controller's own active-user check.
+    test "bearer token for inactive user whose key was not revoked returns 401 JSON" do
+      @user.update_column(:status, User.statuses[:disabled])
 
       get "/api/verify", headers: {
         "Authorization" => "Bearer #{@token}",

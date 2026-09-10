@@ -16,7 +16,13 @@ class ProfilesController < ApplicationController
 
       if @user.update(password_params)
         SecurityMailer.password_changed(@user, **security_event_context).deliver_later
-        redirect_to profile_path, notice: "Password updated successfully."
+        # Changing a password is what a user does after noticing something
+        # suspicious, so it must cut off any session they do not control.
+        # Password reset by email already does this; keep the two consistent.
+        # The current session survives so the user is not signed out of the page
+        # they are standing on.
+        @user.sessions.where.not(id: Current.session.id).destroy_all
+        redirect_to profile_path, notice: "Password updated successfully. Other devices have been signed out."
       else
         render :show, status: :unprocessable_entity
       end

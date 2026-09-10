@@ -63,9 +63,30 @@ class OidcMintAuthorizationTest < ActionDispatch::IntegrationTest
 
   # --- Refresh grant ---------------------------------------------------------
 
+  # Deactivation now revokes the user's refresh tokens outright (see
+  # User#revoke_sessions_when_deactivated), so the grant is refused as a revoked
+  # token before the mint-time user_allowed? check is ever reached. That is the
+  # stronger guarantee — the token is dead, not merely unusable at this client.
+  # The group-removal test below still exercises the user_allowed? path.
   test "refresh_token grant refuses a deactivated user" do
     refresh = issue_refresh_token
     @user.disabled!
+
+    assert refresh.reload.revoked?, "deactivation should revoke outstanding refresh tokens"
+
+    refresh_with(refresh)
+    assert_response :bad_request
+    assert_equal "invalid_grant", JSON.parse(@response.body)["error"]
+  end
+
+  # Defence in depth: if a user is deactivated by a path that skips the model
+  # callback, the mint-time user_allowed? check must still refuse the refresh.
+  test "refresh_token grant refuses a deactivated user whose tokens were not revoked" do
+    refresh = issue_refresh_token
+    @user.update_column(:status, User.statuses[:disabled])
+
+    assert_not refresh.reload.revoked?, "guard precondition: token still live"
+
     refresh_with(refresh)
     assert_access_denied
   end

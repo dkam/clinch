@@ -14,7 +14,11 @@ module Clinch
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
-    config.autoload_lib(ignore: %w[assets tasks])
+    # `clinch` is excluded from autoloading because config/environments/*.rb needs
+    # it at boot, before Zeitwerk is set up, so those files require it directly.
+    # Leaving it autoloadable too would let a development reload unload the
+    # constant that `require` will not re-establish.
+    config.autoload_lib(ignore: %w[assets tasks clinch])
 
     # Configuration for the application, engines, and railties goes here.
     #

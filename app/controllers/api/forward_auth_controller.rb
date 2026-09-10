@@ -130,7 +130,15 @@ module Api
       forwarded_host = request.headers["X-Forwarded-Host"] || request.headers["Host"]
       app = api_key.application
 
-      if forwarded_host.present? && !app.matches_domain?(forwarded_host)
+      # Fail closed, as the cookie path above already does. Checking the domain
+      # only "if present" meant a proxy misconfiguration that dropped the header
+      # still produced identity headers, with the per-domain binding skipped.
+      if forwarded_host.blank?
+        Rails.logger.info "ForwardAuth: API key '#{api_key.name}' denied - no host header present"
+        return render_bearer_error("No host header present")
+      end
+
+      unless app.matches_domain?(forwarded_host)
         return render_bearer_error("API key not valid for this domain")
       end
 

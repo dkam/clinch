@@ -8,8 +8,11 @@ module ApplicationCable
 
     private
 
+    # Use the same scoped lookup as the HTTP path (see Authentication concern):
+    # an expired session, or one whose user has since been disabled, must not
+    # establish a cable connection either.
     def set_current_user
-      if (session = Session.find_by(id: cookies.signed[:session_id]))
+      if (session = Session.active.for_active_user.find_by(id: cookies.signed[:session_id]))
         self.current_user = session.user
       end
     end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_221913) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -307,6 +307,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000006) do
     t.datetime "updated_at", null: false
     t.string "user_agent"
     t.integer "user_id", null: false
+    t.boolean "user_verified"
     t.index ["authenticator_type"], name: "index_webauthn_credentials_on_authenticator_type"
     t.index ["external_id"], name: "index_webauthn_credentials_on_external_id", unique: true
     t.index ["last_used_at"], name: "index_webauthn_credentials_on_last_used_at"
