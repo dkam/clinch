@@ -6,8 +6,19 @@ export default class extends Controller {
   static targets = ["icon"]
 
   connect() {
+    // The layout's inline script paints the first frame; from here on this
+    // controller owns the OS preference, so that following it live can stay
+    // conditional on still being in system mode.
+    this.media = window.matchMedia("(prefers-color-scheme: dark)")
+    this.applySystemPreference = () => this.applyTheme()
+    this.media.addEventListener("change", this.applySystemPreference)
+
     this.applyTheme()
     this.updateIcon()
+  }
+
+  disconnect() {
+    this.media.removeEventListener("change", this.applySystemPreference)
   }
 
   toggle() {
@@ -25,7 +36,7 @@ export default class extends Controller {
 
   applyTheme() {
     const mode = this.currentMode()
-    const dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    const dark = mode === "dark" || (mode === "system" && this.media.matches)
     document.documentElement.classList.toggle("dark", dark)
   }
 

@@ -10,15 +10,14 @@
     <%= csp_meta_tag %>
 
     <script nonce="<%= content_security_policy_nonce %>">
+      // Paints the first frame only, to avoid a flash of the wrong theme. The
+      // dark_mode controller takes over once Stimulus loads, including
+      // following the OS preference while it changes.
       (function() {
         var theme = localStorage.getItem('theme') || 'system';
-        var root = document.documentElement;
-        if (theme === 'light') return;
-        if (theme === 'dark') { root.classList.add('dark'); return; }
-        var mq = window.matchMedia('(prefers-color-scheme: dark)');
-        var apply = function() { root.classList.toggle('dark', mq.matches); };
-        apply();
-        if (typeof mq.addListener === 'function') { mq.addListener(apply); }
+        var dark = theme === 'dark' ||
+          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
       })();
     </script>
 
@@ -76,8 +75,8 @@
           </svg>
           <!-- Half-filled circle (system mode) -->
           <svg data-dark-mode-target="icon" data-mode="system" class="hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path fill="currentColor" d="M12 3.5A8.5 8.5 0 0 1 12 20.5z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5A8.5 8.5 0 1 1 12 3.5z" />
+            <path fill="currentColor" d="M12 3.75a8.25 8.25 0 0 1 0 16.5z" />
+            <circle cx="12" cy="12" r="8.25" />
           </svg>
         </button>
       </div>
