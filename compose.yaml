@@ -1,0 +1,57 @@
+# Clinch — default single-container deployment.
+#
+# Clinch runs as one container: Puma serves the web app and runs the job queue
+# in-process, with SQLite for the database, cache and queue. Everything
+# persistent lives in ./storage, so that's the only volume you need.
+#
+# Copy .env.example to .env, fill in the required values, then:
+#
+#   docker compose up -d
+#
+# See README.md for reverse proxy examples (Caddy, Traefik, Nginx).
+
+services:
+  clinch:
+    image: ghcr.io/dkam/clinch:latest
+    restart: unless-stopped
+    ports:
+      # Bind to localhost only — a reverse proxy on the same host terminates TLS.
+      # Use "3000:3000" if your proxy is in another Docker network or on another host.
+      - "127.0.0.1:3000:3000"
+    environment:
+      # --- Required ---
+      RAILS_ENV: production
+      # Generate with: openssl rand -hex 64
+      # Do NOT change after deployment — see .env.example for why.
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env}
+      # Full external URL, e.g. https://auth.example.com
+      CLINCH_HOST: ${CLINCH_HOST:?set CLINCH_HOST in .env}
+
+      # --- Email (needed for invitations and password resets) ---
+      CLINCH_FROM_EMAIL: ${CLINCH_FROM_EMAIL:-noreply@example.com}
+      SMTP_ADDRESS: ${SMTP_ADDRESS:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_DOMAIN: ${SMTP_DOMAIN:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
+      SMTP_ENABLE_STARTTLS: ${SMTP_ENABLE_STARTTLS:-true}
+
+      # --- Passkeys / WebAuthn (requires HTTPS) ---
+      # CLINCH_RP_ID is the domain that owns the passkeys. Use the parent domain
+      # (example.com) to share passkeys across subdomains.
+      CLINCH_RP_ID: ${CLINCH_RP_ID:-}
+      CLINCH_RP_NAME: ${CLINCH_RP_NAME:-Clinch Identity Provider}
+
+      # --- OIDC ---
+      # Optional: a temporary key is generated if unset, but it changes on every
+      # restart and invalidates existing sessions. Generate a persistent one with:
+      #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+      OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY:-}
+
+      # --- Optional ---
+      # Only enable if nothing in front of Clinch is terminating TLS.
+      FORCE_SSL: ${FORCE_SSL:-false}
+    volumes:
+      # SQLite database, Active Storage files, and generated keys.
+      - ./storage:/rails/storage

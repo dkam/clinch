@@ -343,7 +343,8 @@ bin/dev
 
 ### Docker Compose (Recommended)
 
-Create a `docker-compose.yml` file:
+The repo ships a `compose.yaml` you can use as-is — a single container, a single
+volume. Copy it next to a `.env` file, or start from this:
 
 ```yaml
 services:
