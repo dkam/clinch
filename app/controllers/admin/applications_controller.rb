@@ -28,6 +28,12 @@ module Admin
         .distinct
         .includes(:groups)
         .order(:email_address)
+
+      # Only forward auth apps can have keys (ApiKey validates as much), so this
+      # stays nil for OIDC apps and the panel does not render.
+      if @application.forward_auth?
+        @api_keys = @application.api_keys.includes(:user).order(created_at: :desc)
+      end
     end
 
     def new
