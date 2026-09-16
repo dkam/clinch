@@ -101,6 +101,41 @@ class SecurityMailerTest < ActionMailer::TestCase
     assert_bodies_match email, /reset emails for the account/
   end
 
+  test "admin_access_changed tells the promoted user what they can now do" do
+    email = SecurityMailer.admin_access_changed(
+      @user, recipient: @user.email_address, granted: true,
+      group_name: "Administrators", actor_email: "boss@example.com", **CONTEXT
+    )
+
+    assert_equal [@user.email_address], email.to
+    assert_match(/administrator access was granted/i, email.subject)
+    assert_bodies_contain email, "Administrators"
+    assert_bodies_contain email, "boss@example.com"
+    assert_bodies_match email, /manage every user, group and application/i
+  end
+
+  test "admin_access_changed reads as a revocation when access was removed" do
+    email = SecurityMailer.admin_access_changed(
+      @user, recipient: @user.email_address, granted: false,
+      group_name: "Administrators", actor_email: "boss@example.com", **CONTEXT
+    )
+
+    assert_match(/administrator access was revoked/i, email.subject)
+    assert_bodies_match email, /revoked from your Clinch account/i
+  end
+
+  test "admin_access_changed addressed to another admin reports on the subject" do
+    email = SecurityMailer.admin_access_changed(
+      @user, recipient: "other-admin@example.com", granted: true,
+      group_name: "Administrators", actor_email: "boss@example.com", **CONTEXT
+    )
+
+    assert_equal ["other-admin@example.com"], email.to
+    assert_bodies_contain email, @user.email_address
+    assert_bodies_match email, /because you are an administrator/i
+    assert_bodies_match email, /review the administrator group membership/i
+  end
+
   private
 
   def assert_bodies_contain(email, fragment)

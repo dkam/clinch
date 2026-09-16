@@ -66,5 +66,37 @@ module Admin
       # Destroy was aborted by the before_destroy guard
       assert Group.exists?(admins.id), "admin group should not have been deleted"
     end
+
+    # Promotion is reachable from the group form as well as the user form:
+    # flipping a plain group's `admin` flag promotes everyone already in it, in
+    # one request. A notification that only fired on the user form would be
+    # bypassable from here.
+
+    test "flipping a group's admin flag notifies everyone it promotes" do
+      plain = groups(:editor_group)
+      plain.users = [users(:bob)]
+
+      assert_enqueued_emails 2 do
+        patch admin_group_path(plain), params: {
+          group: {name: plain.name, admin: "1", user_ids: [users(:bob).id]}
+        }
+      end
+
+      assert users(:bob).reload.admin?, "bob should have been promoted"
+    end
+
+    test "deleting an admin group notifies the members who lose access" do
+      doomed = Group.create!(name: "Temp Admins", admin: true)
+      doomed.users = [users(:bob)]
+      assert users(:bob).reload.admin?
+
+      # bob (demoted) plus alice (the other remaining admin); @admin is the
+      # actor and is deliberately not told.
+      assert_enqueued_emails 2 do
+        delete admin_group_path(doomed)
+      end
+
+      assert_not users(:bob).reload.admin?
+    end
   end
 end

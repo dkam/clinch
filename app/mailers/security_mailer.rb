@@ -54,6 +54,22 @@ class SecurityMailer < ApplicationMailer
     mail subject: "#{SUBJECT_PREFIX}Your account email address was changed", to: recipient
   end
 
+  # Administrator access was granted or revoked for an account. Unlike every
+  # other event here, this one is not addressed only to the affected user: a
+  # change to the admin set is the one mutation every other administrator has a
+  # standing interest in, so they are told too. `recipient` decides which of the
+  # two readings the body takes.
+  def admin_access_changed(user, recipient:, granted:, group_name:, actor_email:, ip:, user_agent:, occurred_at:)
+    assign_context(user, ip, user_agent, occurred_at)
+    @recipient = recipient
+    @granted = granted
+    @group_name = group_name
+    @actor_email = actor_email
+
+    verb = granted ? "granted" : "revoked"
+    mail subject: "#{SUBJECT_PREFIX}Administrator access was #{verb}", to: recipient
+  end
+
   private
 
   def assign_context(user, ip, user_agent, occurred_at)

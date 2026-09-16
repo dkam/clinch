@@ -65,5 +65,101 @@ module Admin
       created = User.find_by(email_address: "newbie@example.com")
       assert_includes created.groups, groups(:everyone)
     end
+
+    # --- Admin-initiated security events -------------------------------------
+    # A user changing their own email is notified (profiles_controller); an admin
+    # changing it for them must be too, or the highest-blast-radius mutation in
+    # the product is the one that leaves no trace.
+
+    test "admin changing a user's email notifies both the old and new address" do
+      target = users(:bob)
+      old_email = target.email_address
+
+      assert_enqueued_emails 2 do
+        patch admin_user_path(target), params: {
+          user: {email_address: "bob-new@example.com"}
+        }
+      end
+
+      assert_redirected_to admin_users_path
+      assert_equal "bob-new@example.com", target.reload.email_address
+
+      recipients = enqueued_security_mail_recipients
+      assert_includes recipients, old_email
+      assert_includes recipients, "bob-new@example.com"
+    end
+
+    test "admin update that leaves the email alone sends no email notification" do
+      target = users(:bob)
+
+      assert_no_enqueued_emails do
+        patch admin_user_path(target), params: {
+          user: {email_address: target.email_address, name: "Bobby"}
+        }
+      end
+
+      assert_equal "Bobby", target.reload.name
+    end
+
+    test "granting admin group membership notifies the user and the other admins" do
+      target = users(:bob)
+      admin_group = groups(:admin_group)
+
+      # alice and @admin (two) are already in admin_group via fixtures. The actor
+      # is @admin, so the expected recipients are bob plus alice.
+      assert_enqueued_emails 2 do
+        patch admin_user_path(target), params: {
+          user: {email_address: target.email_address, group_ids: [admin_group.id]}
+        }
+      end
+
+      assert target.reload.admin?
+      recipients = enqueued_security_mail_recipients
+      assert_includes recipients, target.email_address
+      assert_includes recipients, users(:alice).email_address
+      assert_not_includes recipients, @admin.email_address, "the actor does not need telling"
+    end
+
+    test "revoking admin group membership notifies the user and the other admins" do
+      target = users(:alice) # in admin_group via fixtures
+      assert target.admin?
+
+      assert_enqueued_emails 1 do
+        patch admin_user_path(target), params: {
+          user: {email_address: target.email_address, group_ids: [groups(:one).id]}
+        }
+      end
+
+      assert_not target.reload.admin?
+      assert_includes enqueued_security_mail_recipients, target.email_address
+    end
+
+    test "a non-admin group change sends no privilege notification" do
+      target = users(:bob)
+
+      assert_no_enqueued_emails do
+        patch admin_user_path(target), params: {
+          user: {email_address: target.email_address, group_ids: [groups(:editor_group).id]}
+        }
+      end
+
+      assert_equal [groups(:editor_group)], target.reload.groups
+    end
+
+    private
+
+    # Recipients of every SecurityMailer job sitting in the queue.
+    def enqueued_security_mail_recipients
+      enqueued_jobs.filter_map do |job|
+        args = job[:args] || job["args"]
+        next unless args.is_a?(Array)
+        mailer, _method = args[0], args[1]
+        next unless mailer == "SecurityMailer"
+        params = args.find { |a| a.is_a?(Hash) && a.key?("args") }
+        Array(params && params["args"]).filter_map { |a|
+          a["recipient"] if a.is_a?(Hash)
+        }
+      end.flatten
+    end
   end
 end

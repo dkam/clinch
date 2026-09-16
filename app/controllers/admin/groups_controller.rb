@@ -39,6 +39,7 @@ module Admin
       end
 
       @group = Group.new(create_params)
+      admin_before = admin_user_ids
 
       if @group.save
         # Handle user assignments
@@ -53,6 +54,8 @@ module Admin
           @group.applications = Application.where(id: application_ids)
         end
 
+        notify_admin_access_delta(admin_before, fallback_group: @group)
+        log_admin_action("created group", @group, admin: @group.admin?)
         redirect_to admin_group_path(@group), notice: "Group created successfully."
       else
         @available_users = User.order(:email_address)
@@ -68,6 +71,7 @@ module Admin
 
     def update
       update_params = group_params
+      admin_before = admin_user_ids
 
       # Parse custom_claims JSON if provided
       if update_params[:custom_claims].present?
@@ -102,6 +106,8 @@ module Admin
           @group.applications = []
         end
 
+        notify_admin_access_delta(admin_before, fallback_group: @group)
+        log_admin_action("updated group", @group, admin: @group.admin?)
         redirect_to admin_group_path(@group), notice: "Group updated successfully."
       else
         @available_users = User.order(:email_address)
@@ -111,7 +117,10 @@ module Admin
     end
 
     def destroy
+      admin_before = admin_user_ids
       @group.destroy
+      notify_admin_access_delta(admin_before, fallback_group: @group)
+      log_admin_action("deleted group", @group, admin: @group.admin?)
       redirect_to admin_groups_path, notice: "Group deleted successfully."
     end
 

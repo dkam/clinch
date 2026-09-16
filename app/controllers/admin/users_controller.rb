@@ -29,6 +29,7 @@ module Admin
       if @user.save
         assign_groups_from_params(@user)
         InvitationsMailer.invite_user(@user).deliver_later
+        log_admin_action("created user", @user)
         redirect_to admin_users_path, notice: "User created successfully. Invitation email sent to #{@user.email_address}."
       else
         @available_groups = Group.order(:name)
@@ -43,6 +44,7 @@ module Admin
 
     def update
       update_params = user_params
+      old_email = @user.email_address
 
       # Only update password if provided
       update_params.delete(:password) if update_params[:password].blank?
@@ -70,6 +72,8 @@ module Admin
           render :edit, status: :unprocessable_entity
           return
         end
+        notify_email_change(@user, old_email)
+        log_admin_action("updated user", @user)
         redirect_to admin_users_path, notice: "User updated successfully."
       else
         @applications = Application.active.order(:name)
@@ -96,6 +100,7 @@ module Admin
       end
 
       @user.destroy
+      log_admin_action("deleted user", @user)
       redirect_to admin_users_path, notice: "User deleted successfully."
     end
 
@@ -161,8 +166,29 @@ module Admin
         end
       end
 
+      admin_before = admin_user_ids
+      left_behind = user.groups.find(&:admin?)
       user.groups = new_groups
+      notify_admin_access_delta(admin_before, fallback_group: left_behind)
       true
+    end
+
+    # An admin can rewrite the address a user is identified by. That address is
+    # what password resets go to and what ForwardAuth apps downstream key on, so
+    # changing it for someone is an account takeover if it is not theirs. The
+    # user doing it to themselves is notified (ProfilesController); doing it on
+    # their behalf has to notify as well, or the most consequential mutation in
+    # the product is the only silent one.
+    def notify_email_change(user, old_email)
+      new_email = user.email_address
+      return if old_email == new_email
+
+      context = security_event_context
+      [old_email, new_email].uniq.each do |recipient|
+        SecurityMailer.email_address_changed(
+          user, recipient: recipient, old_email: old_email, new_email: new_email, **context
+        ).deliver_later
+      end
     end
   end
 end

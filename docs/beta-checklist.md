@@ -1,6 +1,8 @@
 # Beta Release Readiness Checklist
 
-This checklist ensures Clinch meets security, quality, and documentation standards before moving from "experimental" to "Beta" status.
+This checklist recorded what Clinch had to meet before moving from "experimental" to "Beta".
+**That transition happened in 0.18.0** — the README now says beta. What follows is kept as
+the standing record of what was and was not done, and what the bar is for 1.0.
 
 > **Security Implementation Status:** See [security-todo.md](security-todo.md) for detailed vulnerability tracking and fixes.
 > **Outstanding Security Issues:** 3 (all MEDIUM/LOW priority) - Phases 1-4 complete ✅
@@ -11,10 +13,17 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 
 ### Automated Security Tools
 - [x] **Brakeman** - Static security analysis for Rails
-  - Status: ✅ Passing (2 weak warnings documented and accepted)
+  - Status: ✅ Passing (3 warnings, reviewed and accepted)
   - Command: `bin/brakeman --no-pager`
   - CI: Runs on every PR and push to main
-  - Warnings documented in `config/brakeman.ignore`
+  - Two are Weak-confidence XSS (a `link_to` on an admin-set `landing_url`, and
+    the TOTP QR SVG). The third is High-confidence Mass Assignment on
+    `permit(..., :admin)` in `Admin::GroupsController` — which is the feature,
+    not a bug: an administrator setting a group's admin flag is the supported
+    way to delegate. That flag is now covered by notification (see "Admin
+    accountability"), which is the mitigation that was previously missing.
+  - Note: there is no `config/brakeman.ignore`; these are accepted by review,
+    not suppressed.
 
 - [x] **bundler-audit** - Dependency vulnerability scanning
   - Status: ✅ No vulnerabilities found
@@ -107,8 +116,8 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 ## Testing
 
 ### Test Coverage
-- [x] **341 tests** across integration, model, controller, service, and system tests
-- [x] **1349 assertions**
+- [x] **680 tests** across integration, model, controller, service, and system tests
+- [x] **2714 assertions**
 - [x] **0 failures, 0 errors**
 
 ### Test Categories
@@ -194,7 +203,9 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 ### Logging & Monitoring
 - [x] Sentry integration (optional)
 - [x] Parameter filtering configured (passwords, tokens, secrets, backup codes, emails filtered from logs)
-- [ ] Audit log for admin actions
+- [x] Structured `Admin:` log lines for admin create/update/delete on users,
+      groups and applications (actor, record, source IP)
+- [ ] Durable audit log for admin actions (table + UI) — see "Admin accountability"
 
 ## Known Limitations & Risks
 
@@ -207,8 +218,13 @@ This checklist ensures Clinch meets security, quality, and documentation standar
 ### Future Security Enhancements (Post-Beta)
 - [x] Rate limiting on authentication endpoints (comprehensive coverage implemented)
 - [ ] Account lockout after N failed attempts (rate limiting provides similar protection)
-- [ ] Admin audit logging
-- [ ] Security event notifications (email/webhook alerts for suspicious activity)
+- [ ] Admin audit log proper (queryable table, retention policy, admin UI)
+      Partially addressed in 0.18.1: admin mutations now emit structured
+      `Admin:` log lines, and privilege/identity changes send email. What is
+      still missing is durable, queryable history — see "Admin accountability".
+- [x] Security event notifications (email/webhook alerts for suspicious activity)
+      SecurityMailer covers user-initiated events, plus admin-initiated email
+      changes and every change to the administrator set.
 - [ ] Advanced brute force detection (pattern analysis beyond rate limiting)
 - [ ] Suspicious login detection (geolocation, device fingerprinting)
 - [ ] IP allowlist/blocklist
@@ -257,7 +273,8 @@ To move from "experimental" to "Beta", the following must be completed:
 - [x] Rate limiting on auth endpoints
 - [x] Security headers configuration documented (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - [x] Known limitations documented (ForwardAuth same-domain requirement in README)
-- [ ] Admin audit logging
+- [x] Admin accountability — resolved as notification + logging, not an audit table.
+      See "Admin accountability" below for why that is the right bar for Beta.
 
 **Nice to have (Can defer to post-Beta):**
 - [ ] Bug bounty program
@@ -270,11 +287,11 @@ To move from "experimental" to "Beta", the following must be completed:
 
 ## Status Summary
 
-**Current Status:** Ready for Beta Release 🎉
+**Current Status:** Beta, declared in 0.18.0 🎉
 
 **Strengths:**
 - ✅ Comprehensive security tooling in place
-- ✅ Strong test coverage (374 tests, 1538 assertions)
+- ✅ Strong test coverage (680 tests, 2714 assertions)
 - ✅ Modern security features (PKCE, token rotation, WebAuthn)
 - ✅ Clean security scans (brakeman, bundler-audit, Trivy)
 - ✅ Well-documented codebase
@@ -282,17 +299,51 @@ To move from "experimental" to "Beta", the following must be completed:
 
 **All Critical Requirements Met:**
 - All automated security scans passing ✅
-- All tests passing (374 tests, 1542 assertions) ✅
+- All tests passing (680 tests, 2714 assertions) ✅
 - Core features implemented and tested ✅
 - Documentation complete ✅
 - Production deployment guide ✅
 - Protocol conformance validation complete ✅
 
 **Optional for Post-Beta:**
-- Admin audit logging
+- Admin audit log proper (queryable table + UI)
 - Traditional security audit/penetration test
 - Bug bounty program
 - Advanced monitoring/alerting
+
+### Admin accountability
+
+"Admin audit logging" sat in this document four times under three different
+priorities — once as required for Beta, twice as optional afterwards, and once
+more as an unclassified gap under Logging & Monitoring. That contradiction is
+why it kept resurfacing, so it is resolved here.
+
+The gap it pointed at was real but misnamed. Every `SecurityMailer` event was a
+user acting on their own account; nothing in `app/controllers/admin/` notified
+or logged anything. So a user changing their own email was told, while an admin
+changing it *for* them was silent — and that address is what password resets go
+to and what ForwardAuth apps key on downstream. The same held for group
+membership, including membership of admin groups.
+
+What Beta needs is that those changes are **noticed**, not that they are
+**queryable**. Notification and a log line deliver that. A durable audit table
+mainly buys accountability *between* administrators, which is worth little when
+the deployment has one; it stays on the post-Beta list for the deployments where
+several people share the admin role.
+
+Shipped in 0.18.1:
+
+- admin-initiated email changes notify both the old and the new address, reusing
+  the same mailer the self-service path uses
+- every change to the set of administrators notifies the affected user and all
+  other administrators, detected on the resulting admin set rather than on a
+  particular form, so the user screen and the group screen are both covered
+  (including flipping a group's own `admin` flag, which promotes its members in
+  one request)
+- admin create/update/delete on users, groups and applications emit a structured
+  `Admin:` line naming actor, record and source IP
+
+Still open: durable history, retention, and a UI to query it. Tracked above.
 
 **Recommendation:**
 Clinch meets all critical requirements for Beta release. The OIDC implementation is protocol-compliant (48/48 conformance tests passed), security scans are clean, and the codebase has strong test coverage.
@@ -301,4 +352,4 @@ For production use in security-sensitive environments, consider a traditional se
 
 ---
 
-Last updated: 2026-01-02
+Last updated: 2026-09-16

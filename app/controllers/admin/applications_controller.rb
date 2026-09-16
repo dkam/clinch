@@ -58,6 +58,7 @@ module Admin
           client_secret = @application.generate_new_client_secret!
         end
 
+        log_admin_action("created application", @application, type: @application.app_type)
         flash[:notice] = "Application created successfully."
         if @application.oidc?
           flash[:client_id] = @application.client_id
@@ -85,6 +86,8 @@ module Admin
           @application.allowed_groups = []
         end
 
+        log_admin_action("updated application", @application,
+          type: @application.app_type, domain: @application.domain_pattern, active: @application.active?)
         redirect_to admin_application_path(@application), notice: "Application updated successfully."
       else
         @available_groups = Group.order(:name)
@@ -94,6 +97,7 @@ module Admin
 
     def destroy
       @application.destroy
+      log_admin_action("deleted application", @application)
       redirect_to admin_applications_path, notice: "Application deleted successfully."
     end
 
@@ -103,6 +107,7 @@ module Admin
         new_client_id = SecureRandom.urlsafe_base64(32)
         @application.update!(client_id: new_client_id)
 
+        log_admin_action("regenerated credentials for application", @application)
         flash[:notice] = "Credentials regenerated successfully."
         flash[:client_id] = @application.client_id
 

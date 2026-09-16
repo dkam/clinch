@@ -1,0 +1,47 @@
+<p>Hello,</p>
+
+<% if @recipient == @user.email_address %>
+  <% if @granted %>
+    <p>
+      Your Clinch account (<strong><%= @user.email_address %></strong>) was just
+      granted administrator access, via the group
+      <strong><%= @group_name %></strong>.
+    </p>
+    <p>
+      You can now manage every user, group and application on this Clinch
+      instance.
+    </p>
+  <% else %>
+    <p>
+      Administrator access was just revoked from your Clinch account
+      (<strong><%= @user.email_address %></strong>). You were removed from the
+      group <strong><%= @group_name %></strong>.
+    </p>
+  <% end %>
+  <p>This change was made by <strong><%= @actor_email %></strong>.</p>
+<% else %>
+  <% if @granted %>
+    <p>
+      <strong><%= @user.email_address %></strong> was just granted administrator
+      access on this Clinch instance, via the group
+      <strong><%= @group_name %></strong>.
+    </p>
+  <% else %>
+    <p>
+      Administrator access was just revoked from
+      <strong><%= @user.email_address %></strong>, by removal from the group
+      <strong><%= @group_name %></strong>.
+    </p>
+  <% end %>
+  <p>
+    The change was made by <strong><%= @actor_email %></strong>. You are
+    receiving this because you are an administrator of this instance.
+  </p>
+  <p>
+    If this was not expected, review the administrator group membership now — an
+    unexpected change here means someone can reach every account and every
+    application behind Clinch.
+  </p>
+<% end %>
+
+<%= render "event_metadata" %>
