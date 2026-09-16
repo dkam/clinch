@@ -1,7 +1,7 @@
 # Clinch
 ## Position and Control for your Authentication
 > [!NOTE]
-> This software is experimental. If you'd like to try it out, find bugs, security flaws and improvements, please do.  
+> This software is in beta. If you'd like to try it out, find bugs, security flaws and improvements, please do.  
 
 We do these things not because they're easy, but because we thought they'd be easy.
 
@@ -26,7 +26,7 @@ Clinch sits in a sweet spot among several excellent open-source identity solutio
 **Clinch** offers a middle ground with built-in user management, a modern web interface, and focused SSO capabilities (OIDC + ForwardAuth). It's perfect for users who want self-hosted simplicity without external dependencies or enterprise complexity.
 
 - **[Passes the OpenID Connect Conformance Tests](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** — verified against the official OIDC test suite
-- **450+ tests, 1800+ assertions** — comprehensive test coverage across integration, model, controller, and security tests
+- **670 tests, 2600+ assertions** — comprehensive test coverage across integration, model, controller, and security tests
 - **Single Docker container** — SQLite, job queue, and cache all in one process
 
 ---
@@ -792,7 +792,7 @@ All security scans run automatically on every pull request and push to main via 
 
 **Current Status:**
 - ✅ All security scans passing
-- ✅ 450 tests, 1818 assertions, 0 failures
+- ✅ 670 tests, 2643 assertions, 0 failures
 - ✅ No known dependency vulnerabilities
 - ✅ Phases 1-4 security hardening complete (18+ vulnerabilities fixed)
 - 🟡 3 outstanding security issues (all MEDIUM/LOW priority)
