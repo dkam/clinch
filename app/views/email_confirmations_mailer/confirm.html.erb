@@ -1,0 +1,13 @@
+<p>Hello,</p>
+
+<p>
+  Confirm that <strong><%= @address %></strong> is the email address for your
+  Clinch account by opening
+  <%= link_to "this confirmation page", email_confirmation_url(@token) %>.
+</p>
+
+<% if @user.unconfirmed_email.present? %>
+  <p>Your account keeps its current address until you do.</p>
+<% end %>
+
+<p>This link will expire in 24 hours. If you did not ask for this, ignore this email.</p>

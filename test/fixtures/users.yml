@@ -4,18 +4,22 @@ one:
   email_address: one@example.com
   password_digest: <%= password_digest %>
   status: 0 # active
+  email_verified_at: <%= 1.month.ago %>
 
 two:
   email_address: two@example.com
   password_digest: <%= password_digest %>
   status: 0 # active
+  email_verified_at: <%= 1.month.ago %>
 
 alice:
   email_address: alice@example.com
   password_digest: <%= password_digest %>
   status: 0 # active
+  email_verified_at: <%= 1.month.ago %>
 
 bob:
   email_address: bob@example.com
   password_digest: <%= password_digest %>
   status: 0 # active
+  email_verified_at: <%= 1.month.ago %>

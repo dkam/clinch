@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_23_000002) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -193,6 +193,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_000001) do
     t.index ["user_id"], name: "index_oidc_device_codes_on_user_id"
   end
 
+  create_table "oidc_pairwise_subjects", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.string "subject", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["application_id"], name: "index_oidc_pairwise_subjects_on_application_id"
+    t.index ["user_id", "application_id"], name: "index_oidc_pairwise_subjects_on_user_id_and_application_id", unique: true
+    t.index ["user_id"], name: "index_oidc_pairwise_subjects_on_user_id"
+  end
+
   create_table "oidc_refresh_tokens", force: :cascade do |t|
     t.string "acr"
     t.integer "application_id", null: false
@@ -276,6 +287,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_000001) do
     t.datetime "created_at", null: false
     t.json "custom_claims", default: {}, null: false
     t.string "email_address", null: false
+    t.datetime "email_verified_at"
     t.integer "last_otp_at"
     t.datetime "last_sign_in_at"
     t.string "name"
@@ -284,6 +296,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_000001) do
     t.integer "status", default: 0, null: false
     t.boolean "totp_required", default: false, null: false
     t.string "totp_secret"
+    t.string "unconfirmed_email"
     t.datetime "updated_at", null: false
     t.string "username"
     t.string "webauthn_id"
@@ -333,6 +346,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_000001) do
   add_foreign_key "oidc_authorization_codes", "users"
   add_foreign_key "oidc_device_codes", "applications", on_delete: :cascade
   add_foreign_key "oidc_device_codes", "users"
+  add_foreign_key "oidc_pairwise_subjects", "applications", on_delete: :cascade
+  add_foreign_key "oidc_pairwise_subjects", "users", on_delete: :cascade
   add_foreign_key "oidc_refresh_tokens", "applications"
   add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
   add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes", on_delete: :nullify

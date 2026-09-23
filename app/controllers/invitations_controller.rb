@@ -20,7 +20,8 @@ class InvitationsController < ApplicationController
     end
 
     if @user.update(password: password, password_confirmation: password_confirmation)
-      @user.update!(status: :active)
+      # The invitation link went to this address, so following it proves it.
+      @user.update!(status: :active, email_verified_at: Time.current)
       @user.sessions.destroy_all
       start_new_session_for @user
       redirect_to root_path, notice: "Your account has been set up successfully. Welcome!"

@@ -31,9 +31,9 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 | [CLN-02](#cln-02-passkey-sign-in-counted-as-two-factor-without-user-verification) | Passkey sign-in counted as two-factor without user verification | High | **Partly fixed** | Small |
 | [CLN-03](#cln-03-sign-in-throttles-are-per-ip-only-pending-2fa-state-never-expires) | Sign-in throttles are per IP only; pending 2FA state never expires | High | By inspection | Medium |
 | [CLN-04](#cln-04-refresh-grant-runs-without-a-row-lock-and-mints-before-checking-consent) | Refresh grant runs without a row lock and mints before checking consent | Medium | **Fixed** | Small |
-| [CLN-05](#cln-05-revoke-all-leaves-tokens-alive-and-the-pairwise-subject-is-not-stable) | "Revoke all" leaves tokens alive and the pairwise subject is not stable | Medium | Verified | Medium |
+| [CLN-05](#cln-05-revoke-all-leaves-tokens-alive-and-the-pairwise-subject-is-not-stable) | "Revoke all" leaves tokens alive and the pairwise subject is not stable | Medium | **Fixed** | Medium |
 | [CLN-06](#cln-06-rp-initiated-logout-is-triggerable-by-any-site-id_token_hint-ignored) | RP-initiated logout is triggerable by any site; `id_token_hint` ignored | Medium | Verified | Medium |
-| [CLN-07](#cln-07-email_verified-is-always-true-email-changes-are-never-confirmed) | `email_verified` is always true; email changes are never confirmed | Medium | By inspection | Medium |
+| [CLN-07](#cln-07-email_verified-is-always-true-email-changes-are-never-confirmed) | `email_verified` is always true; email changes are never confirmed | Medium | **Fixed** | Medium |
 | **Worth fixing** | | | | |
 | [CLN-08](#cln-08-consent-page-is-served-without-a-form-action-csp-directive) | Consent page is served without a form-action CSP directive | Medium | **Fixed** | Small |
 | [CLN-09](#cln-09-internal-ip-host-authorisation-patterns-are-unanchored) | Internal-IP host authorisation patterns are unanchored | Low | **Fixed** | Small |
@@ -80,8 +80,31 @@ informational warnings; standardrb reports the same four pre-existing offences.
 The model and registration sides are tested. Worth revisiting if a WebAuthn test
 harness is ever added.
 
-Still open: CLN-02 step 3, CLN-03, CLN-05, CLN-06, CLN-07, CLN-10, CLN-15,
-CLN-16, CLN-18, CLN-20.
+**23 September 2026** — CLN-05 and CLN-07, the two findings Silo's OIDC
+binding depends on, since it links accounts by verified address and keys
+identities on `(iss, sub)`.
+
+- CLN-07: `users.email_verified_at` drives `email_verified` (ID token,
+  userinfo, admin claim preview). A self-service change is held in
+  `unconfirmed_email` until a `generates_token_for(:email_confirmation)` link
+  sent to the new address is followed; an admin change takes effect but is
+  unverified until the same link is followed; accepting an invitation
+  verifies. Existing accounts were backfilled as verified, since that is what
+  relying parties have been told so far.
+- CLN-05: subjects live in `oidc_pairwise_subjects`, seeded from the consent
+  `sid` relying parties already hold, and outlive consent. Destroying a
+  consent revokes that user's tokens for the application, whichever path
+  destroys it. Nothing falls back to the numeric user id. The review
+  suggested an HMAC-derived subject; a stored one was used instead, because
+  existing random subjects have to be kept anyway, and a stored value does not
+  change if the server key does.
+
+Tests: `test/integration/email_verification_test.rb`,
+`test/integration/pairwise_subject_stability_test.rb`, and the inverted CLN-05
+probe.
+
+Still open: CLN-02 step 3, CLN-03, CLN-06, CLN-10, CLN-15, CLN-16, CLN-18,
+CLN-20.
 
 ---
 
@@ -224,7 +247,7 @@ before `revoke!` and before minting.
 
 **Severity:** Medium · **Status:** Verified · **Effort:** Medium
 
-- [ ] Fixed
+- [x] Fixed — 23 September 2026. See Progress.
 
 **What.** The single-application revoke action revokes tokens and then deletes
 the consent. The bulk "revoke all" action deletes consents only. Existing
@@ -291,7 +314,7 @@ carries a query string.
 
 **Severity:** Medium · **Status:** By inspection · **Effort:** Medium
 
-- [ ] Fixed
+- [x] Fixed — 23 September 2026. See Progress.
 
 **What.** ID tokens and userinfo hard-code `email_verified: true`. Invited
 users do prove control of their address by following the invitation link, but

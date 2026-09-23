@@ -1026,9 +1026,8 @@ class OidcController < ApplicationController
       return
     end
 
-    # Find user consent for this application to get pairwise SID
     consent = OidcUserConsent.find_by(user: user, application: access_token.application)
-    subject = consent&.sid || user.id.to_s
+    subject = OidcPairwiseSubject.for(user, access_token.application)
 
     # Parse scopes from access token (space-separated string)
     requested_scopes = access_token.scope.to_s.split
@@ -1048,7 +1047,7 @@ class OidcController < ApplicationController
         claims[:email] = user.email_address
       end
       if should_include_claim_for_userinfo?("email_verified", userinfo_claims)
-        claims[:email_verified] = true
+        claims[:email_verified] = user.email_verified?
       end
     end
 
@@ -1148,7 +1147,6 @@ class OidcController < ApplicationController
 
     user = access_token.user
     application = access_token.application
-    consent = OidcUserConsent.find_by(user: user, application: application)
     scopes = access_token.scope.to_s.split
 
     body = {
@@ -1158,7 +1156,7 @@ class OidcController < ApplicationController
       token_type: "Bearer",
       exp: access_token.expires_at.to_i,
       iat: access_token.created_at.to_i,
-      sub: consent&.sid || user.id.to_s,
+      sub: OidcPairwiseSubject.for(user, application),
       # RFC 8707: the resource the token was bound to (falls back to the client
       # when no resource indicator was used at authorization time).
       aud: access_token.resource.presence || application.client_id

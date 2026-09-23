@@ -10,8 +10,7 @@ class OidcJwtService
       # Use application's configured ID token TTL (defaults to 1 hour)
       ttl = application.id_token_expiry_seconds
 
-      # Use pairwise SID from consent if available, fallback to user ID
-      subject = consent&.sid || user.id.to_s
+      subject = OidcPairwiseSubject.for(user, application)
 
       # Parse scopes (space-separated string)
       requested_scopes = scopes.to_s.split
@@ -34,7 +33,7 @@ class OidcJwtService
           payload[:email] = user.email_address
         end
         if should_include_claim?("email_verified", id_token_claims)
-          payload[:email_verified] = true
+          payload[:email_verified] = user.email_verified?
         end
       end
 
@@ -111,7 +110,7 @@ class OidcJwtService
 
       payload = {
         iss: issuer_url,
-        sub: consent.sid,  # Pairwise subject identifier
+        sub: consent.subject,  # Pairwise subject identifier
         aud: application.client_id,
         iat: now,
         jti: SecureRandom.uuid,  # Unique identifier for this logout token
@@ -153,7 +152,7 @@ class OidcJwtService
 
       payload = {
         iss: issuer_url,
-        sub: consent&.sid || user.id.to_s,
+        sub: OidcPairwiseSubject.for(user, application),
         # RFC 8707: the resource the token was bound to. Falls back to the
         # client_id when no resource indicator was used, mirroring introspection.
         aud: access_token.resource.presence || application.client_id,

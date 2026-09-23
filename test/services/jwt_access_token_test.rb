@@ -48,7 +48,8 @@ class JwtAccessTokenTest < ActiveSupport::TestCase
     assert_equal "RS256", header["alg"]
     assert_equal OidcJwtService.send(:key_id), header["kid"], "must name the signing key so a client can rotate"
     assert_equal OidcJwtService.issuer_url, payload["iss"]
-    assert_equal @user.id.to_s, payload["sub"]
+    assert_equal OidcPairwiseSubject.for(@user, @application), payload["sub"]
+    refute_equal @user.id.to_s, payload["sub"], "sub is pairwise, never the numeric user id (CLN-05)"
     assert_equal "https://c2a2.example.com", payload["aud"], "audience is the RFC 8707 resource"
     assert_equal @application.client_id, payload["client_id"]
     assert_equal "openid email groups", payload["scope"]

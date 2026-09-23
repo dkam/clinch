@@ -8,8 +8,8 @@ require "clinch/internal_host_patterns"
 # fixed its assertions are inverted, so a test here asserts the secure behaviour
 # once its finding is closed.
 #
-# STILL ASSERTING THE BUG (not yet fixed): CLN-05, CLN-06. Invert those when
-# their findings are addressed.
+# STILL ASSERTING THE BUG (not yet fixed): CLN-06. Invert it when the finding
+# is addressed.
 class ReviewProbeTest < ActionDispatch::IntegrationTest
   test "CLN-08 consent page CSP carries form-action limited to self and the redirect host" do
     bob = users(:bob)
@@ -54,7 +54,8 @@ class ReviewProbeTest < ActionDispatch::IntegrationTest
   end
 
   # NOT YET FIXED — asserts the current (insecure) behaviour.
-  test "CLN-05 revoke_all_consents leaves tokens valid and sub falls back to numeric user id" do
+  # Full coverage lives in test/integration/pairwise_subject_stability_test.rb.
+  test "CLN-05 revoke_all_consents revokes tokens, so nothing falls back to the numeric user id" do
     alice = users(:alice)
     app = applications(:kavita_app)
     token = OidcAccessToken.create!(application: app, user: alice, scope: "openid email")
@@ -63,8 +64,7 @@ class ReviewProbeTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/active_sessions"
     assert_equal 0, alice.oidc_user_consents.count
     get "/oauth/userinfo", headers: {"Authorization" => "Bearer #{token.plaintext_token}"}
-    assert_response :success
-    assert_equal alice.id.to_s, JSON.parse(response.body)["sub"]
+    assert_response :unauthorized
   end
 
   # NOT YET FIXED — asserts the current (insecure) behaviour.

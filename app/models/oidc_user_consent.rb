@@ -8,6 +8,11 @@ class OidcUserConsent < ApplicationRecord
   before_validation :set_granted_at, on: :create
   before_validation :set_sid, on: :create
 
+  # Withdrawing consent has to cut off what it authorised — every path that
+  # deletes a consent (one app, all apps, account cleanup) goes through here.
+  # The subject is pinned first so the next consent keeps it (CLN-05).
+  before_destroy :pin_subject, :revoke_tokens
+
   # Upsert a user's consent for an application. The record is unique on
   # user+application and shared across the browser and device flows.
   #
@@ -65,6 +70,12 @@ class OidcUserConsent < ApplicationRecord
     end.join(", ")
   end
 
+  # The `sub` this user has at this application. Not the sid: the sid names this
+  # consent (backchannel logout), the subject outlives it.
+  def subject
+    OidcPairwiseSubject.for(user, application)
+  end
+
   # Find consent by SID
   def self.find_by_sid(sid)
     find_by(sid: sid)
@@ -84,5 +95,15 @@ class OidcUserConsent < ApplicationRecord
 
   def set_sid
     self.sid ||= SecureRandom.uuid
+  end
+
+  def pin_subject
+    subject
+  end
+
+  def revoke_tokens
+    now = Time.current
+    OidcAccessToken.where(user_id: user_id, application_id: application_id, revoked_at: nil).update_all(revoked_at: now)
+    OidcRefreshToken.where(user_id: user_id, application_id: application_id, revoked_at: nil).update_all(revoked_at: now)
   end
 end

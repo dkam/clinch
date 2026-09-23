@@ -75,7 +75,9 @@ module Admin
       target = users(:bob)
       old_email = target.email_address
 
-      assert_enqueued_emails 2 do
+      # Two change notices, plus the confirmation link the new address needs
+      # before it is reported as verified (CLN-07).
+      assert_enqueued_emails 3 do
         patch admin_user_path(target), params: {
           user: {email_address: "bob-new@example.com"}
         }

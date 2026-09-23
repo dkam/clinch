@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   resource :session
   resources :passwords, param: :token
   resources :invitations, param: :token, only: [:show, :update]
+  resources :email_confirmations, param: :token, only: [:create, :show, :update]
   mount ActionCable.server => "/cable"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

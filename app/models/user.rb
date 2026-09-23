@@ -8,6 +8,7 @@ class User < ApplicationRecord
   has_many :groups, through: :user_groups
   has_many :application_user_claims, dependent: :destroy
   has_many :oidc_user_consents, dependent: :destroy
+  has_many :oidc_pairwise_subjects, dependent: :delete_all
   has_many :webauthn_credentials, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :oidc_access_tokens
@@ -24,7 +25,15 @@ class User < ApplicationRecord
     updated_at
   end
 
+  # Proves control of email_awaiting_confirmation. Bound to the address pair and
+  # the verified state, so a link stops working once it has been used, once a
+  # newer change replaces the pending address, or once the address moves on.
+  generates_token_for :email_confirmation, expires_in: 24.hours do
+    [email_address, unconfirmed_email, email_verified_at&.to_i]
+  end
+
   normalizes :email_address, with: ->(e) { e.strip.downcase }
+  normalizes :unconfirmed_email, with: ->(e) { e.strip.downcase }
   normalizes :username, with: ->(u) { u.strip.downcase if u.present? }
 
   # Reserved OIDC claim names that should not be overridden
@@ -41,6 +50,12 @@ class User < ApplicationRecord
     length: {minimum: 2, maximum: 30}
   validates :password, length: {minimum: 8}, allow_nil: true
   validate :no_reserved_claim_names
+  validate :unconfirmed_email_is_usable, if: -> { unconfirmed_email.present? && will_save_change_to_unconfirmed_email? }
+
+  # An address set by anything other than confirmation is unproven. Doing this
+  # on save rather than in each controller means no path — admin edit, console,
+  # a future API — can change the address and leave it marked verified.
+  before_save :unverify_changed_email
 
   # Enum - automatically creates scopes (User.active, User.disabled, etc.)
   enum :status, {active: 0, disabled: 1, pending_invitation: 2}
@@ -62,6 +77,37 @@ class User < ApplicationRecord
 
   def admin?
     groups.any?(&:admin?)
+  end
+
+  # What relying parties are told as `email_verified`. Relying parties link and
+  # provision accounts on it, so it is only true once the address has followed
+  # a link sent to it (an invitation or a confirmation).
+  def email_verified?
+    email_verified_at.present?
+  end
+
+  # The address a confirmation link would prove: a pending change, or the
+  # current address while it is unverified. Nil when there is nothing to prove.
+  def email_awaiting_confirmation
+    unconfirmed_email.presence || (email_address unless email_verified?)
+  end
+
+  # Holds a self-service change until the new address confirms it. The account
+  # keeps its current address — for sign-in, resets and every relying party —
+  # until then.
+  def request_email_change(new_email)
+    self.unconfirmed_email = new_email
+    save
+  end
+
+  # Called when a confirmation link is followed. Validation re-checks that the
+  # address is still free, since another account may have taken it since.
+  def confirm_email
+    update(
+      email_address: unconfirmed_email.presence || email_address,
+      unconfirmed_email: nil,
+      email_verified_at: Time.current
+    )
   end
 
   # TOTP methods
@@ -283,6 +329,25 @@ class User < ApplicationRecord
     # at redemption — oidc_controller#device_code_grant re-runs
     # `application.user_allowed?(user)`, which covers user.active?, so a code
     # approved before deactivation cannot be exchanged for tokens afterwards.
+  end
+
+  def unconfirmed_email_is_usable
+    if !URI::MailTo::EMAIL_REGEXP.match?(unconfirmed_email)
+      errors.add(:email_address, "is invalid")
+    elsif unconfirmed_email == email_address
+      errors.add(:email_address, "is already your address")
+    elsif User.where(email_address: unconfirmed_email).where.not(id: id).exists?
+      errors.add(:email_address, "has already been taken")
+    end
+  end
+
+  def unverify_changed_email
+    return unless will_save_change_to_email_address?
+    return if will_save_change_to_email_verified_at?
+
+    self.email_verified_at = nil
+    # A pending change was made against the old address; it no longer applies.
+    self.unconfirmed_email = nil unless will_save_change_to_unconfirmed_email?
   end
 
   def no_reserved_claim_names

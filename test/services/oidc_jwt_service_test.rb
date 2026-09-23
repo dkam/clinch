@@ -66,7 +66,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # Decode without verification for testing the payload
     decoded = JWT.decode(token, nil, false).first
     assert_equal @application.client_id, decoded["aud"], "Should have correct audience"
-    assert_equal @user.id.to_s, decoded["sub"], "Should have correct subject"
+    assert_equal OidcPairwiseSubject.for(@user, @application), decoded["sub"], "Should have the pairwise subject"
+    refute_equal @user.id.to_s, decoded["sub"], "sub is never the numeric user id (CLN-05)"
     assert_equal @user.email_address, decoded["email"], "Should have correct email"
     assert_equal true, decoded["email_verified"], "Should have email verified"
     assert_equal @user.email_address, decoded["preferred_username"], "Should have preferred username"
@@ -215,7 +216,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
 
     assert_not_nil decoded_array, "Should decode valid token"
     decoded = decoded_array.first # JWT.decode returns an array
-    assert_equal @user.id.to_s, decoded["sub"], "Should decode subject correctly"
+    assert_equal OidcPairwiseSubject.for(@user, @application), decoded["sub"], "Should decode subject correctly"
     assert_equal @application.client_id, decoded["aud"], "Should decode audience correctly"
     assert decoded["exp"] > Time.current.to_i, "Token should not be expired"
   end
@@ -254,7 +255,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     decoded = JWT.decode(token, nil, false).first
     # ID tokens include email_verified when email scope is requested
     assert_includes decoded.keys, "email_verified"
-    assert_equal @user.id.to_s, decoded["sub"], "Should decode subject correctly"
+    assert_equal OidcPairwiseSubject.for(@user, @application), decoded["sub"], "Should decode subject correctly"
     assert_equal @application.client_id, decoded["aud"], "Should decode audience correctly"
   end
 

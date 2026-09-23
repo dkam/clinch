@@ -6,7 +6,7 @@ module ClaimsHelper
     claims = {
       # Standard OIDC claims
       email: user.email_address,
-      email_verified: true,
+      email_verified: user.email_verified?,
       preferred_username: user.username.presence || user.email_address,
       name: user.name.presence || user.email_address
     }

@@ -34,16 +34,12 @@ class ProfilesController < ApplicationController
         return
       end
 
-      old_email = @user.email_address
-      if @user.update(email_params)
-        new_email = @user.email_address
-        if old_email != new_email
-          context = security_event_context
-          [old_email, new_email].uniq.each do |recipient|
-            SecurityMailer.email_address_changed(@user, recipient: recipient, old_email: old_email, new_email: new_email, **context).deliver_later
-          end
-        end
-        redirect_to profile_path, notice: "Email updated successfully."
+      # The new address has to prove it receives mail before it replaces the
+      # current one (CLN-07). Both addresses are told once it does — see
+      # EmailConfirmationsController#update.
+      if @user.request_email_change(email_params[:email_address])
+        EmailConfirmationsMailer.confirm(@user).deliver_later
+        redirect_to profile_path, notice: "We sent a confirmation link to #{@user.unconfirmed_email}. Your address changes once you follow it."
       else
         render :show, status: :unprocessable_entity
       end

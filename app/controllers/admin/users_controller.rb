@@ -189,6 +189,10 @@ module Admin
           user, recipient: recipient, old_email: old_email, new_email: new_email, **context
         ).deliver_later
       end
+
+      # The admin's word sets the address but does not verify it (CLN-07); the
+      # new address confirms itself before relying parties are told it is verified.
+      EmailConfirmationsMailer.confirm(user).deliver_later
     end
   end
 end
