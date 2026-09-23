@@ -29,7 +29,7 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 | **Fix soon** | | | | |
 | [CLN-01](#cln-01-disabled-users-oidc-tokens-stay-valid-until-expiry) | Disabled users' OIDC tokens stay valid until expiry | High | **Fixed** | Small |
 | [CLN-02](#cln-02-passkey-sign-in-counted-as-two-factor-without-user-verification) | Passkey sign-in counted as two-factor without user verification | High | **Partly fixed** | Small |
-| [CLN-03](#cln-03-sign-in-throttles-are-per-ip-only-pending-2fa-state-never-expires) | Sign-in throttles are per IP only; pending 2FA state never expires | High | By inspection | Medium |
+| [CLN-03](#cln-03-sign-in-throttles-are-per-ip-only-pending-2fa-state-never-expires) | Sign-in throttles are per IP only; pending 2FA state never expires | High | **Fixed** | Medium |
 | [CLN-04](#cln-04-refresh-grant-runs-without-a-row-lock-and-mints-before-checking-consent) | Refresh grant runs without a row lock and mints before checking consent | Medium | **Fixed** | Small |
 | [CLN-05](#cln-05-revoke-all-leaves-tokens-alive-and-the-pairwise-subject-is-not-stable) | "Revoke all" leaves tokens alive and the pairwise subject is not stable | Medium | **Fixed** | Medium |
 | [CLN-06](#cln-06-rp-initiated-logout-is-triggerable-by-any-site-id_token_hint-ignored) | RP-initiated logout is triggerable by any site; `id_token_hint` ignored | Medium | Verified | Medium |
@@ -105,8 +105,16 @@ Tests: `test/integration/email_verification_test.rb`,
 `test/integration/pairwise_subject_stability_test.rb`, and the inverted CLN-05
 probe.
 
-Still open: CLN-02 step 3, CLN-03, CLN-06, CLN-10, CLN-15, CLN-16, CLN-18,
-CLN-20.
+CLN-03, same day: `SignInThrottle` counts failures per account in
+`Rails.cache` — 10 passwords per email address (counted for addresses with no
+account too, with the same answer, so it enumerates nothing) and 5 TOTP codes
+per user, each over an hour. While over the limit even a correct answer is
+refused, or the limit would not bound guessing. The pending TOTP and passkey
+state now carries its start time and lapses after five minutes, and the per-IP
+limit on the TOTP step counts POSTs only. Tests:
+`test/integration/sign_in_throttle_test.rb`.
+
+Still open: CLN-02 step 3, CLN-06, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
 
 ---
 
@@ -184,7 +192,7 @@ path applies.
 
 **Severity:** High · **Status:** By inspection · **Effort:** Medium
 
-- [ ] Fixed
+- [x] Fixed — 23 September 2026. See Progress.
 
 **What.** The password step allows 20 attempts per 3 minutes and the TOTP step
 10 per 3 minutes, both keyed by client IP through Rails' `rate_limit`. There is

@@ -25,26 +25,11 @@
 
 ---
 
-### MEDIUM - Account Lockout Mechanism
+### ~~MEDIUM - Account Lockout Mechanism~~ / ~~Per-Account Rate Limiting~~
 
-**Files:** `app/controllers/sessions_controller.rb`, `app/models/user.rb`
-**Impact:** Brute force attack mitigation
-
-**Implementation:**
-- Add `failed_login_attempts` and `locked_until` columns to users
-- Progressive delays: 5 attempts → 5s, 10 → 1min, 15 → 15min, 20+ → 1hr
-- Admin notification on lockout
-- Configurable via `MAX_LOGIN_ATTEMPTS` ENV
-
----
-
-### MEDIUM - Per-Account Rate Limiting
-
-**Files:** `app/controllers/sessions_controller.rb`, `config/initializers/rack_attack.rb`
-**Impact:** Distributed brute force prevention
-
-**Current:** Global rate limiting only
-**Needed:** Add per-email rate limiting (10 failed attempts/email/hour)
+Done 2026-09-23 as CLN-03 in [security-review-2026-09.md](security-review-2026-09.md):
+per-account failure limits on the password and TOTP steps (`SignInThrottle`),
+and pending second-factor state that lapses after five minutes.
 
 ---
 

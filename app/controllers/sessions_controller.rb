@@ -1,8 +1,16 @@
 class SessionsController < ApplicationController
   allow_unauthenticated_access only: %i[new create verify_totp webauthn_challenge webauthn_verify]
   rate_limit to: 20, within: 3.minutes, only: :create, with: -> { redirect_to signin_path, alert: "Too many attempts. Try again later." }
-  rate_limit to: 10, within: 3.minutes, only: :verify_totp, with: -> { redirect_to totp_verification_path, alert: "Too many attempts. Try again later." }
+  # POST only: loading the code form is not an attempt (CLN-03).
+  rate_limit to: 10, within: 3.minutes, only: :verify_totp, if: -> { request.post? }, with: -> { redirect_to totp_verification_path, alert: "Too many attempts. Try again later." }
   rate_limit to: 10, within: 3.minutes, only: [:webauthn_challenge, :webauthn_verify], with: -> { render json: {error: "Too many attempts. Try again later."}, status: :too_many_requests }
+
+  # How long a half-finished sign-in (password accepted, second factor pending;
+  # or a passkey challenge issued) stays open. Without it the second-factor
+  # step could be held open indefinitely (CLN-03).
+  PENDING_SIGN_IN_TTL = 5.minutes
+
+  THROTTLED_MESSAGE = "Too many failed attempts for this account. Try again later.".freeze
 
   def new
     # Redirect to signup if this is first run
@@ -37,12 +45,21 @@ class SessionsController < ApplicationController
   end
 
   def create
+    email = params[:email_address].to_s
+    if SignInThrottle.blocked?(:password, email)
+      redirect_to signin_path, alert: THROTTLED_MESSAGE
+      return
+    end
+
     user = User.authenticate_by(params.permit(:email_address, :password))
 
     if user.nil?
+      SignInThrottle.record_failure(:password, email)
       redirect_to signin_path, alert: "Invalid email address or password."
       return
     end
+
+    SignInThrottle.clear(:password, email)
 
     # Store the redirect URL from forward auth if present (after validation)
     if params[:rd].present?
@@ -78,6 +95,7 @@ class SessionsController < ApplicationController
       # TOTP is enabled, proceed to verification
       # Store user ID in session temporarily for TOTP verification
       session[:pending_totp_user_id] = user.id
+      session[:pending_totp_started_at] = Time.current.to_i
       session[:pending_remember_me] = remember_me?
       # Preserve the redirect URL through TOTP verification (after validation)
       if params[:rd].present?
@@ -99,7 +117,9 @@ class SessionsController < ApplicationController
   def verify_totp
     # Get the pending user from session
     user_id = session[:pending_totp_user_id]
-    unless user_id
+    unless user_id && pending_fresh?(:pending_totp_started_at)
+      session.delete(:pending_totp_user_id)
+      session.delete(:pending_totp_started_at)
       redirect_to signin_path, alert: "Session expired. Please sign in again."
       return
     end
@@ -131,11 +151,18 @@ class SessionsController < ApplicationController
         return
       end
 
+      if SignInThrottle.blocked?(:totp, user.id)
+        redirect_to totp_verification_path, alert: THROTTLED_MESSAGE
+        return
+      end
+
       remember_me = session.delete(:pending_remember_me) || false
 
       # Try TOTP verification first (password + TOTP = 2FA)
       if user.verify_totp(code)
+        SignInThrottle.clear(:totp, user.id)
         session.delete(:pending_totp_user_id)
+        session.delete(:pending_totp_started_at)
         # Restore redirect URL if it was preserved
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
@@ -147,7 +174,9 @@ class SessionsController < ApplicationController
 
       # Try backup code verification (password + backup code = 2FA)
       if user.verify_backup_code(code)
+        SignInThrottle.clear(:totp, user.id)
         session.delete(:pending_totp_user_id)
+        session.delete(:pending_totp_started_at)
         # Restore redirect URL if it was preserved
         if session[:totp_redirect_url].present?
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
@@ -158,6 +187,7 @@ class SessionsController < ApplicationController
       end
 
       # Invalid code
+      SignInThrottle.record_failure(:totp, user.id)
       redirect_to totp_verification_path, alert: "Invalid verification code. Please try again."
       nil
     end
@@ -206,6 +236,7 @@ class SessionsController < ApplicationController
 
     # Store user ID in session for verification
     session[:pending_webauthn_user_id] = user.id
+    session[:pending_webauthn_started_at] = Time.current.to_i
     session[:pending_remember_me] = remember_me?
 
     # Store redirect URL if present
@@ -239,7 +270,9 @@ class SessionsController < ApplicationController
   def webauthn_verify
     # Get pending user from session
     user_id = session[:pending_webauthn_user_id]
-    unless user_id
+    unless user_id && pending_fresh?(:pending_webauthn_started_at)
+      session.delete(:pending_webauthn_user_id)
+      session.delete(:pending_webauthn_started_at)
       render json: {error: "Session expired. Please try again."}, status: :unprocessable_entity
       return
     end
@@ -327,6 +360,7 @@ class SessionsController < ApplicationController
 
       # Clean up session
       session.delete(:pending_webauthn_user_id)
+      session.delete(:pending_webauthn_started_at)
       remember_me = session.delete(:pending_remember_me) || false
       if session[:webauthn_redirect_url].present?
         session[:return_to_after_authenticating] = session.delete(:webauthn_redirect_url)
@@ -355,6 +389,13 @@ class SessionsController < ApplicationController
   end
 
   private
+
+  # A pending sign-in older than PENDING_SIGN_IN_TTL (or one set before this
+  # timestamp existed) has to start again from the first step.
+  def pending_fresh?(started_at_key)
+    started_at = session[started_at_key]
+    started_at.present? && Time.at(started_at.to_i) > PENDING_SIGN_IN_TTL.ago
+  end
 
   def remember_me?
     ActiveModel::Type::Boolean.new.cast(params[:remember_me]) || false
