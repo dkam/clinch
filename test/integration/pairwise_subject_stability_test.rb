@@ -46,6 +46,7 @@ class PairwiseSubjectStabilityTest < ActionDispatch::IntegrationTest
 
   test "a new user and client get a subject that is stable and is not the user id" do
     bob = users(:bob)
+    OidcUserConsent.record!(user: bob, application: @app, scopes: %w[openid])
     token = OidcAccessToken.create!(application: @app, user: bob, scope: "openid")
 
     first = userinfo_sub(token)
@@ -57,6 +58,7 @@ class PairwiseSubjectStabilityTest < ActionDispatch::IntegrationTest
 
   test "introspection reports the same subject as userinfo" do
     bob = users(:bob)
+    OidcUserConsent.record!(user: bob, application: @app, scopes: %w[openid])
     token = OidcAccessToken.create!(application: @app, user: bob, scope: "openid")
     secret = @app.generate_new_client_secret!
 
@@ -77,6 +79,21 @@ class PairwiseSubjectStabilityTest < ActionDispatch::IntegrationTest
 
     assert_equal @legacy_sub, logout["sub"]
     assert_equal consent.sid, logout["sid"]
+  end
+
+  # A token is only as good as the grant behind it. Destroying a consent revokes
+  # its tokens, but the check at use time does not depend on every path having
+  # done so — the same defence in depth CLN-01 applies to disabled users.
+  test "a token whose consent is gone is refused at userinfo and reported inactive at introspection" do
+    bob = users(:bob) # no consent for kavita
+    token = OidcAccessToken.create!(application: @app, user: bob, scope: "openid email")
+
+    get "/oauth/userinfo", headers: {"Authorization" => "Bearer #{token.plaintext_token}"}
+    assert_response :unauthorized
+
+    secret = @app.generate_new_client_secret!
+    post "/oauth/introspect", params: {token: token.plaintext_token, client_id: @app.client_id, client_secret: secret}
+    assert_equal({"active" => false}, JSON.parse(response.body))
   end
 
   private

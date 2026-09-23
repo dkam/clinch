@@ -1026,7 +1026,14 @@ class OidcController < ApplicationController
       return
     end
 
+    # A token is only as good as the grant behind it. Withdrawing consent revokes
+    # its tokens; this check does not rely on every path having done so.
     consent = OidcUserConsent.find_by(user: user, application: access_token.application)
+    unless consent
+      head :unauthorized
+      return
+    end
+
     subject = OidcPairwiseSubject.for(user, access_token.application)
 
     # Parse scopes from access token (space-separated string)
@@ -1148,6 +1155,12 @@ class OidcController < ApplicationController
     user = access_token.user
     application = access_token.application
     scopes = access_token.scope.to_s.split
+
+    # No consent, no grant: the token is not usable, whatever its own row says.
+    unless OidcUserConsent.exists?(user: user, application: application)
+      render json: {active: false}
+      return
+    end
 
     body = {
       active: true,

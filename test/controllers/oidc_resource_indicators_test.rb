@@ -120,6 +120,7 @@ class OidcResourceIndicatorsTest < ActionDispatch::IntegrationTest
   test "introspection aud falls back to the client when no resource was bound" do
     # A confidential client introspecting its own unbound token (no RFC 8707
     # resource) sees aud fall back to the client_id.
+    OidcUserConsent.record!(user: @user, application: @resource, scopes: %w[openid])
     token = OidcAccessToken.create!(application: @resource, user: @user, scope: "openid")
     assert_equal @resource.client_id, introspect(token.plaintext_token)["aud"]
   end

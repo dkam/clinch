@@ -94,7 +94,9 @@ identities on `(iss, sub)`.
 - CLN-05: subjects live in `oidc_pairwise_subjects`, seeded from the consent
   `sid` relying parties already hold, and outlive consent. Destroying a
   consent revokes that user's tokens for the application, whichever path
-  destroys it. Nothing falls back to the numeric user id. The review
+  destroys it, and userinfo and introspection refuse a token with no consent
+  behind it regardless (401 / `{"active": false}`), as CLN-01 does for
+  disabled users. Nothing falls back to the numeric user id. The review
   suggested an HMAC-derived subject; a stored one was used instead, because
   existing random subjects have to be kept anyway, and a stored value does not
   change if the server key does.

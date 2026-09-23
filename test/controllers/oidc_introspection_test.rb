@@ -45,7 +45,7 @@ class OidcIntrospectionTest < ActionDispatch::IntegrationTest
   end
 
   test "a client may introspect its own token" do
-    token = OidcAccessToken.create!(application: @rs, user: @user, scope: "openid")
+    token = issue(scope: "openid", resource: nil, application: @rs)
     body = introspect(token, @rs.client_id, @rs_secret)
 
     assert_equal true, body["active"]
@@ -123,8 +123,11 @@ class OidcIntrospectionTest < ActionDispatch::IntegrationTest
 
   private
 
-  def issue(scope:, resource:)
-    OidcAccessToken.create!(application: @client, user: @user, scope: scope, resource: resource)
+  # Every real grant records consent before minting, and introspection reports a
+  # token without one as inactive, so tests issue both.
+  def issue(scope:, resource:, application: @client)
+    OidcUserConsent.record!(user: @user, application: application, scopes: scope.split)
+    OidcAccessToken.create!(application: application, user: @user, scope: scope, resource: resource)
   end
 
   def introspect(token, client_id, secret)
