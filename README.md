@@ -107,7 +107,7 @@ Features:
 | `exp` | Expiration timestamp | Configurable TTL |
 | `iat` | Issued-at timestamp | Token creation time |
 | `email` | User email | |
-| `email_verified` | Email verification | Always `true` |
+| `email_verified` | Email verification | `true` only once the address has been confirmed |
 | `preferred_username` | Username/email | Fallback to email |
 | `name` | Display name | User's name or email |
 | `nonce` | Random value | From auth request (prevents replay) |
@@ -123,6 +123,27 @@ Features:
 **Authentication Context Class Reference (`acr`):**
 - `"1"` - Something you know (password only)
 - `"2"` - Two-factor or phishing-resistant (TOTP, backup codes, WebAuthn/passkey)
+
+**Email verification (`email_verified`):**
+
+Driven by `users.email_verified_at`, not hard-coded. It is `true` only once
+someone has followed a link sent *to that address* — accepting an invitation, or
+confirming an email change. It is `false` otherwise, including for:
+
+- the first user's own signup address (first-run signup sends no confirmation)
+- an invited user who has not yet accepted their invitation
+- an address an admin changes on an existing user
+
+and it returns to `false` whenever the address changes.
+
+A self-service email change is staged in `unconfirmed_email` and does **not**
+take effect until the new address confirms it — sign-in, password resets and
+every relying party keep seeing the old address until then. A signed-in user can
+request a fresh link from their profile for either a pending change or an
+unverified current address.
+
+This matters if you auto-provision or link accounts on the claim, which many
+apps do: treat `email_verified: false` as "do not merge on this address".
 
 Client apps (Audiobookshelf, Kavita, Proxmox, Grafana, etc.) redirect to Clinch for login and receive ID tokens, access tokens, and refresh tokens.
 
