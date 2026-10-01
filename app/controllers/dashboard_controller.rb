@@ -1,7 +1,7 @@
 class DashboardController < ApplicationController
   def index
     # First run: redirect to signup
-    if User.count.zero?
+    if Setup.open?
       redirect_to signup_path
       return
     end

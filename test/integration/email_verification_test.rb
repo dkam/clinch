@@ -161,7 +161,7 @@ class EmailVerificationTest < ActionDispatch::IntegrationTest
     # Signup is only open while there are no accounts at all.
     ActiveRecord::Base.connection.disable_referential_integrity { User.delete_all }
 
-    post signup_path, params: {user: {email_address: "first@example.com", password: "password123", password_confirmation: "password123"}}
+    post signup_path, params: {setup_code: Setup.code, user: {email_address: "first@example.com", password: "password123", password_confirmation: "password123"}}
 
     refute User.find_by(email_address: "first@example.com").email_verified?
   end

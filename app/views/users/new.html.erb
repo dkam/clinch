@@ -8,10 +8,25 @@
     <%= render "shared/form_errors", form: form %>
 
     <div class="my-5">
+      <%= label_tag :setup_code, "Setup code", class: "block font-medium text-sm text-gray-700 dark:text-gray-300" %>
+      <%= text_field_tag :setup_code, params[:setup_code],
+          required: true,
+          autofocus: true,
+          autocomplete: "off",
+          spellcheck: false,
+          autocapitalize: "characters",
+          placeholder: "XXXX-XXXX-XXXX",
+          class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full uppercase tracking-widest font-mono dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" %>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Printed in the server's log when Clinch starts. To show it again, run
+        <code class="font-mono">bin/rails clinch:setup_code</code>.
+      </p>
+    </div>
+
+    <div class="my-5">
       <%= form.label :email_address, class: "block font-medium text-sm text-gray-700 dark:text-gray-300" %>
       <%= form.email_field :email_address,
           required: true,
-          autofocus: true,
           autocomplete: "email",
           placeholder: "admin@example.com",
           class: "block shadow-sm rounded-md border border-gray-400 focus:outline-blue-600 px-3 py-2 mt-2 w-full dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" %>
@@ -46,7 +61,7 @@
     <div class="mt-4 p-4 bg-blue-50 rounded-lg dark:bg-blue-900/30">
       <p class="text-sm text-blue-900 dark:text-blue-200">
         <strong>Note:</strong> This is a first-run setup. You're creating the initial administrator account.
-        After this, you'll be able to invite other users from the admin dashboard.
+        Once it exists, this page closes and everyone else joins by invitation from the admin dashboard.
       </p>
     </div>
   <% end %>

@@ -447,9 +447,16 @@ docker compose up -d
 ```
 
 **First Run:**
-1. Visit `http://localhost:3000` (or your configured domain)
-2. Complete the first-run wizard to create your admin account
+1. Find the setup code in the logs — while no users exist, Clinch prints one at every boot:
+   ```bash
+   docker compose logs clinch | grep -A2 "setup code"
+   # or print it again:
+   docker compose exec clinch bin/rails clinch:setup_code
+   ```
+2. Visit `http://localhost:3000` (or your configured domain) and enter the setup code, your email and a password to create your admin account
 3. Configure applications and invite users
+
+The setup code is derived from `SECRET_KEY_BASE` and is only accepted until the first account exists, so a freshly deployed public instance can't be claimed by whoever reaches it first.
 
 **Upgrading:**
 
