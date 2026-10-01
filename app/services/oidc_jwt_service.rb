@@ -244,7 +244,8 @@ class OidcJwtService
             OpenSSL::PKey::RSA.new(key_data)
           rescue OpenSSL::PKey::RSAError => e
             Rails.logger.error "OIDC: Failed to load private key: #{e.message}"
-            Rails.logger.error "OIDC: Key source length: #{key_source.length}, starts with: #{key_source[0..50]}"
+            # Never log key content, only its shape
+            Rails.logger.error "OIDC: Key source length: #{key_source.length}, PEM header: #{key_data.include?("-----BEGIN")}, lines: #{key_data.count("\n") + 1}"
             raise "Invalid OIDC private key format. Please ensure the key is in PEM format with proper newlines."
           end
         else
