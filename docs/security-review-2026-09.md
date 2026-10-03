@@ -28,7 +28,7 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 |----|---------|----------|--------|--------|
 | **Fix soon** | | | | |
 | [CLN-01](#cln-01-disabled-users-oidc-tokens-stay-valid-until-expiry) | Disabled users' OIDC tokens stay valid until expiry | High | **Fixed** | Small |
-| [CLN-02](#cln-02-passkey-sign-in-counted-as-two-factor-without-user-verification) | Passkey sign-in counted as two-factor without user verification | High | **Partly fixed** | Small |
+| [CLN-02](#cln-02-passkey-sign-in-counted-as-two-factor-without-user-verification) | Passkey sign-in counted as two-factor without user verification | High | **Fixed** | Small |
 | [CLN-03](#cln-03-sign-in-throttles-are-per-ip-only-pending-2fa-state-never-expires) | Sign-in throttles are per IP only; pending 2FA state never expires | High | **Fixed** | Medium |
 | [CLN-04](#cln-04-refresh-grant-runs-without-a-row-lock-and-mints-before-checking-consent) | Refresh grant runs without a row lock and mints before checking consent | Medium | **Fixed** | Small |
 | [CLN-05](#cln-05-revoke-all-leaves-tokens-alive-and-the-pairwise-subject-is-not-stable) | "Revoke all" leaves tokens alive and the pairwise subject is not stable | Medium | **Fixed** | Medium |
@@ -67,7 +67,7 @@ Tests live in:
 - `test/integration/security_review_probe_test.rb` — the appendix probes, with
   every assertion now inverted to assert the *secure* behaviour.
 - `test/integration/security_review_phase1_test.rb` — CLN-12, 14, 17, 19.
-- `test/integration/webauthn_user_verification_test.rb` — CLN-02 steps 1 and 2.
+- `test/integration/webauthn_user_verification_test.rb` — CLN-02.
 - `test/lib/internal_host_patterns_test.rb` — CLN-09.
 - `test/integration/csp_test.rb` — extended with the consent page (CLN-08).
 
@@ -78,7 +78,8 @@ informational warnings; standardrb reports the same four pre-existing offences.
 (`sessions#webauthn_verify`) is not covered by a test — reaching the code after
 `verify` needs a genuinely signed assertion, which the suite has no fixture for.
 The model and registration sides are tested. Worth revisiting if a WebAuthn test
-harness is ever added.
+harness is ever added. *(Closed 1 October 2026: `WebAuthn::FakeClient` from the
+webauthn gem signs real assertions; see CLN-02 below.)*
 
 **23 September 2026** — CLN-05 and CLN-07, the two findings Silo's OIDC
 binding depends on, since it links accounts by verified address and keys
@@ -114,7 +115,27 @@ state now carries its start time and lapses after five minutes, and the per-IP
 limit on the TOTP step counts POSTs only. Tests:
 `test/integration/sign_in_throttle_test.rb`.
 
-Still open: CLN-02 step 3, CLN-06, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
+**1 October 2026** — CLN-02 closed. Rather than refuse every key without user
+verification, a passkey sign-in now counts the factors it actually presents:
+
+- PIN or biometric performed → acr 2.
+- Touch only, as the second step after an accepted password (the TOTP page
+  offers a passkey in place of the code) → acr 2. The password step has to be
+  within CLN-03's five-minute window.
+- Touch only, on its own, for a user with 2FA (enabled by them or required by
+  an admin) → refused. One factor does not satisfy 2FA, and the passkey path
+  previously skipped both the TOTP step and the forced TOTP enrolment.
+- Touch only, on its own, for a user without 2FA → acr 1, the same as a
+  password.
+
+The challenge asks for `userVerification: "required"` when the sign-in will need
+it, so the browser prompts for the PIN; `webauthn_verify` enforces it either
+way. No internal check reads acr, so a PIN-less key enrolled before 3 September
+still works for users without 2FA; relying parties see acr 1 for those sign-ins.
+Tests: `test/integration/webauthn_user_verification_test.rb`, now driving real
+signed assertions through `WebAuthn::FakeClient`.
+
+Still open: CLN-06, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
 
 ---
 
@@ -154,14 +175,9 @@ codes too.
 
 **Severity:** High · **Status:** By inspection · **Effort:** Small
 
-- [~] Partly fixed — 3 September 2026. Steps 1 and 2 of the staged plan are
-  done: `webauthn_credentials.user_verified` now records the UV flag at both
-  registration and login (a sign-in without UV logs a warning), and
-  registration requires `userVerification: "required"` so no new PIN-less key
-  can be enrolled. **Step 3 is still open:** after a week of data, if the logs
-  show no UV-less sign-ins, require UV at login too and stop stamping acr 2
-  without it. Existing keys are deliberately untouched until then, so a
-  PIN-less key registered before today still yields acr 2.
+- [x] Fixed — 1 October 2026. See Progress. Steps 1 and 2 (3 September)
+  record the UV flag on the credential and require UV at registration; step 3
+  counts a touch-only sign-in as one factor instead of two.
 
 **What.** Both the authentication challenge and credential registration request
 `userVerification: "preferred"`. A roaming security key with no PIN or
@@ -639,9 +655,10 @@ format-validated, and the QR code SVG is generated from a server-side value.
 1. ~~**CLN-01, CLN-04, CLN-08, CLN-09, CLN-11** are each under an hour and four of
    them already have a failing test in the appendix. Ship these together.~~
    **Done 3 September 2026**, together with CLN-12, 13, 14, 17 and 19.
-2. **CLN-02 and CLN-03** change sign-in behaviour and need a decision on whether
+2. ~~**CLN-02 and CLN-03** change sign-in behaviour and need a decision on whether
    to require user verification outright. Decide, then implement in one release
-   with a changelog note.
+   with a changelog note.~~ **Done**: CLN-03 23 September, CLN-02 1 October 2026
+   (touch-only keys count as one factor rather than being refused).
 3. **CLN-05, CLN-06, CLN-07** touch the contract with relying parties. Plan the
    deterministic subject migration carefully so existing consents keep their
    current `sid`.

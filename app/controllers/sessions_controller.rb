@@ -252,9 +252,12 @@ class SessionsController < ApplicationController
         Base64.urlsafe_decode64(encoded_id)
       end
 
+      # Ask for a PIN or biometric up front when this sign-in will need one, so
+      # the browser prompts for it instead of letting a touch-only ceremony
+      # complete and then be rejected by webauthn_verify.
       options = WebAuthn::Credential.options_for_get(
         allow: credential_ids,
-        user_verification: "preferred"
+        user_verification: passkey_must_verify_user?(user) ? "required" : "preferred"
       )
 
       # Store challenge in session
@@ -338,17 +341,21 @@ class SessionsController < ApplicationController
         return
       end
 
-      # CLN-02 step 1: record whether the authenticator actually verified the
-      # user (PIN or biometric) rather than merely being touched. The session is
-      # still stamped acr "2" either way for now; this is the data that decides
-      # when requiring user verification at login (step 3) is safe to switch on.
+      # CLN-02: whether the authenticator verified the user (PIN or biometric)
+      # rather than merely being touched. A touch proves possession and nothing
+      # else, so a touch-only passkey is one factor, not two.
       user_verified = webauthn_credential.response.authenticator_data.user_verified?
 
-      unless user_verified
-        Rails.logger.warn "WebAuthn: passkey sign-in WITHOUT user verification " \
-          "(user: #{user.id}, credential: #{stored_credential.id}, " \
-          "nickname: #{stored_credential.display_name.inspect}) - counted as acr 2"
+      # One factor is not enough for a user with 2FA. Enforced here, not just
+      # requested in the challenge options, because the client can ignore that.
+      if passkey_must_verify_user?(user) && !user_verified
+        render json: {error: "This passkey isn't protected by a PIN or biometric, so it can't sign you in on its own. Sign in with your password, then use the passkey as your second step."}, status: :unprocessable_entity
+        return
       end
+
+      # Two factors: a passkey that verified the user, or any passkey used as
+      # the second step after the password. Otherwise one, like a password.
+      acr = (user_verified || password_accepted_for?(user)) ? "2" : "1"
 
       # Update credential usage
       stored_credential.update_usage!(
@@ -358,16 +365,19 @@ class SessionsController < ApplicationController
         user_verified: user_verified
       )
 
-      # Clean up session
+      # Clean up session. Clear the pending TOTP user too: it marks the password
+      # as checked, and left behind it would let a later touch-only passkey
+      # sign-in in this browser skip the user-verification requirement.
       session.delete(:pending_webauthn_user_id)
       session.delete(:pending_webauthn_started_at)
+      session.delete(:pending_totp_user_id)
+      session.delete(:pending_totp_started_at)
       remember_me = session.delete(:pending_remember_me) || false
       if session[:webauthn_redirect_url].present?
         session[:return_to_after_authenticating] = session.delete(:webauthn_redirect_url)
       end
 
-      # Create session (WebAuthn/passkey = phishing-resistant, ACR = "2")
-      start_new_session_for user, acr: "2", remember_me: remember_me
+      start_new_session_for user, acr: acr, remember_me: remember_me
 
       render json: {
         success: true,
@@ -399,6 +409,20 @@ class SessionsController < ApplicationController
 
   def remember_me?
     ActiveModel::Type::Boolean.new.cast(params[:remember_me]) || false
+  end
+
+  # create sets pending_totp_user_id only once the password has been accepted;
+  # the TOTP page then offers a passkey as an alternative to the code. Subject
+  # to the same expiry as that page, or a stale password step would still count.
+  def password_accepted_for?(user)
+    session[:pending_totp_user_id] == user.id && pending_fresh?(:pending_totp_started_at)
+  end
+
+  # A user with 2FA, whether they turned it on or an admin requires it, must
+  # present two factors. A passkey that verifies the user (PIN or biometric) is
+  # two on its own; a touch-only one is enough just as the second step.
+  def passkey_must_verify_user?(user)
+    (user.totp_required? || user.totp_enabled?) && !password_accepted_for?(user)
   end
 
   def validate_redirect_url(url)

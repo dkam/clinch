@@ -114,15 +114,15 @@ Features:
 | **Security Claims** | | |
 | `at_hash` | Access token hash | SHA-256 hash of access_token (OIDC Core §3.1.3.6) |
 | `auth_time` | Authentication time | Unix timestamp of when user logged in (OIDC Core §2) |
-| `acr` | Auth context class | `"1"` = password, `"2"` = 2FA/passkey (OIDC Core §2) |
+| `acr` | Auth context class | `"1"` = one factor, `"2"` = two factors (OIDC Core §2) |
 | `azp` | Authorized party | OAuth client_id (OIDC Core §2) |
 | Custom Claims | | |
 | `groups` | User's groups | Array of group names |
 | *custom* | Arbitrary key-values | From groups, users, or app-specific config |
 
 **Authentication Context Class Reference (`acr`):**
-- `"1"` - Something you know (password only)
-- `"2"` - Two-factor or phishing-resistant (TOTP, backup codes, WebAuthn/passkey)
+- `"1"` - One factor: a password alone, or a security key used with a touch and no PIN
+- `"2"` - Two factors: password plus TOTP, backup code or passkey, or a passkey that checked a PIN or biometric
 
 **Email verification (`email_verified`):**
 

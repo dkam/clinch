@@ -1,15 +1,13 @@
 require "test_helper"
 require "webauthn/fake_client"
 
-# CLN-02 (September 2026 review), staged:
-#   1. record the UV flag on the credential so we can see what authenticators
-#      actually do in this deployment;
-#   2. require user verification at *registration*, so no new PIN-less key can
-#      be enrolled (existing keys keep working);
-#   3. later, once the logs show it is safe, require UV at login too.
-#
-# Until step 3, a passkey sign-in is still stamped acr "2"; the data gathered
-# here is what decides when that becomes safe.
+# CLN-02 (September 2026 review): a passkey only counts as two factors when the
+# authenticator verified the user (PIN or biometric). A touch proves possession
+# and nothing else.
+#   - registration requires user verification, so every new key is two factors;
+#   - a touch-only key enrolled before that counts as one factor: acr "1" for a
+#     user without 2FA, rejected on its own for a user with 2FA, and acceptable
+#     as the second step once the password has been accepted.
 class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
   test "registration options require user verification" do
     user = users(:alice)
@@ -85,9 +83,8 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
   end
 
   test "authentication options still allow existing keys without user verification" do
-    # Step 2 only tightens registration. Requiring UV at login would lock out
-    # anyone already carrying a PIN-less roaming key, which is what step 3 is
-    # gated on.
+    # A user without 2FA may still sign in with a PIN-less roaming key, at one
+    # factor, so the browser must not refuse to use it.
     user = users(:alice)
     user.webauthn_credentials.create!(
       external_id: Base64.urlsafe_encode64("uv-login-cred"),
@@ -100,5 +97,157 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_equal "preferred", JSON.parse(response.body)["userVerification"]
+  end
+
+  test "a user without 2FA signs in with a touch-only passkey at one factor" do
+    user = users(:alice)
+    authenticator = enroll_passkey(user)
+
+    assert_difference -> { user.sessions.count }, 1 do
+      passkey_sign_in(user, authenticator, user_verified: false)
+    end
+
+    assert_response :success
+    assert_equal "1", user.sessions.last.acr
+    assert_equal false, user.webauthn_credentials.last.user_verified
+  end
+
+  test "a user without 2FA signs in with a passkey that verified them at two factors" do
+    user = users(:alice)
+    authenticator = enroll_passkey(user)
+
+    passkey_sign_in(user, authenticator, user_verified: true)
+
+    assert_response :success
+    assert_equal "2", user.sessions.last.acr
+  end
+
+  test "a user who turned on 2FA cannot sign in with a touch-only passkey alone" do
+    user = users(:alice)
+    user.enable_totp!
+    authenticator = enroll_passkey(user)
+
+    assert_no_difference -> { user.sessions.count } do
+      passkey_sign_in(user, authenticator, user_verified: false)
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "a 2FA-required user cannot sign in with a passkey alone if it did not verify them" do
+    user = users(:alice)
+    user.update!(totp_required: true)
+    authenticator = enroll_passkey(user)
+
+    assert_no_difference -> { user.sessions.count } do
+      passkey_sign_in(user, authenticator, user_verified: false)
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "a 2FA-required user can sign in with a passkey that verified them" do
+    user = users(:alice)
+    user.update!(totp_required: true)
+    authenticator = enroll_passkey(user)
+
+    assert_difference -> { user.sessions.count }, 1 do
+      passkey_sign_in(user, authenticator, user_verified: true)
+    end
+
+    assert_response :success
+    assert_equal "2", user.sessions.last.acr
+    assert_equal true, user.webauthn_credentials.last.user_verified
+  end
+
+  test "a 2FA-required user can use a touch-only passkey as the second factor after their password" do
+    user = users(:alice)
+    user.update!(totp_required: true)
+    user.enable_totp!
+    authenticator = enroll_passkey(user)
+
+    post session_path, params: {email_address: user.email_address, password: "password"}
+    assert_redirected_to totp_verification_path
+
+    assert_difference -> { user.sessions.count }, 1 do
+      passkey_sign_in(user, authenticator, user_verified: false)
+    end
+
+    assert_response :success
+    assert_equal "2", user.sessions.last.acr
+  end
+
+  test "an expired password step does not count towards a touch-only passkey sign-in" do
+    user = users(:alice)
+    user.enable_totp!
+    authenticator = enroll_passkey(user)
+
+    post session_path, params: {email_address: user.email_address, password: "password"}
+    assert_redirected_to totp_verification_path
+
+    travel SessionsController::PENDING_SIGN_IN_TTL + 1.minute do
+      assert_no_difference -> { user.sessions.count } do
+        passkey_sign_in(user, authenticator, user_verified: false)
+      end
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "a password accepted earlier does not carry over to a later touch-only passkey sign-in" do
+    user = users(:alice)
+    user.update!(totp_required: true)
+    user.enable_totp!
+    authenticator = enroll_passkey(user)
+
+    post session_path, params: {email_address: user.email_address, password: "password"}
+    passkey_sign_in(user, authenticator, user_verified: false)
+    assert_response :success
+    delete signout_path
+
+    assert_no_difference -> { user.sessions.count } do
+      passkey_sign_in(user, authenticator, user_verified: false)
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  test "authentication options require user verification for a 2FA-required user" do
+    user = users(:alice)
+    user.update!(totp_required: true)
+    enroll_passkey(user)
+
+    post "/sessions/webauthn/challenge", params: {email: user.email_address}
+    assert_response :success
+
+    assert_equal "required", JSON.parse(response.body)["userVerification"]
+  end
+
+  private
+
+  # Stores a credential held by a fake authenticator, encoded the way
+  # WebauthnController#create stores it, and returns the authenticator.
+  def enroll_passkey(user)
+    authenticator = WebAuthn::FakeClient.new("http://localhost")
+    challenge = WebAuthn.configuration.encoder.encode(SecureRandom.random_bytes(32))
+    credential = WebAuthn::Credential.from_create(authenticator.create(challenge: challenge, user_verified: true))
+    credential.verify(challenge, user_verification: true)
+
+    user.webauthn_credentials.create!(
+      external_id: Base64.urlsafe_encode64(credential.id),
+      public_key: Base64.urlsafe_encode64(credential.public_key),
+      sign_count: credential.sign_count,
+      nickname: "test key"
+    )
+    authenticator
+  end
+
+  def passkey_sign_in(user, authenticator, user_verified:)
+    post "/sessions/webauthn/challenge", params: {email: user.email_address}
+    assert_response :success
+    challenge = JSON.parse(response.body)["challenge"]
+
+    assertion = authenticator.get(challenge: challenge, user_verified: user_verified)
+    post "/sessions/webauthn/verify", params: {credential: assertion}, as: :json
   end
 end

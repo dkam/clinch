@@ -26,12 +26,11 @@ class WebauthnController < ApplicationController
       },
       exclude: user.webauthn_credentials.pluck(:external_id),
       authenticator_selection: {
-        # CLN-02 step 2: require user verification when *enrolling* a key, so no
-        # new PIN-less authenticator can be added. "preferred" is satisfied by a
-        # touch alone, which proves possession only — yet a passkey sign-in is
-        # stamped acr "2" and treated as multi-factor by relying parties and the
-        # forward-auth policy. Login still accepts "preferred" so existing keys
-        # keep working; see test/integration/webauthn_user_verification_test.rb.
+        # CLN-02: require user verification when *enrolling* a key, so every new
+        # passkey is two factors on its own. "preferred" is satisfied by a touch
+        # alone, which proves possession only. Touch-only keys enrolled before
+        # this still sign in, but count as one factor; see
+        # sessions#webauthn_verify and webauthn_user_verification_test.rb.
         userVerification: "required",
         residentKey: "preferred",
         authenticatorAttachment: "platform" # Prefer platform authenticators first
@@ -68,12 +67,12 @@ class WebauthnController < ApplicationController
 
       # Verify the credential against the challenge.
       #
-      # user_verification: true is what actually enforces CLN-02 step 2. The
+      # user_verification: true is what actually enforces CLN-02 here. The
       # `userVerification: "required"` in the creation options is only a request
       # to the client, and the gem checks the UV flag solely when told to here
       # (AuthenticatorResponse#verify runs verify_item(:user_verified) under
       # `if user_verification`). Without this argument an authenticator that
-      # ignores the request enrolls a PIN-less key that then signs in as acr "2".
+      # ignores the request enrolls a PIN-less key.
       webauthn_credential.verify(challenge, user_verification: true)
 
       # Extract credential metadata from the hash
