@@ -48,6 +48,7 @@ class Setup
         if User.exists?
           user.errors.add(:base, "Clinch already has an administrator. Please sign in.")
         elsif user.save
+          ensure_admin_group
           Group.admin.where.not(id: user.group_ids).each { |group| user.groups << group }
         end
       end
@@ -83,6 +84,15 @@ class Setup
     end
 
     private
+
+    # A fresh deploy loads schema.rb rather than running migrations, so the one
+    # that seeds the "admins" group never runs there. Without it the first
+    # account would join no admin group and nobody could reach the admin panel.
+    def ensure_admin_group
+      return if Group.admin.exists?
+
+      Group.create!(name: "admins", description: "Members can access the admin panel.", admin: true)
+    end
 
     def normalise(given)
       given.to_s.upcase.gsub(/[^A-Z0-9]/, "")

@@ -63,6 +63,18 @@ class SetupTest < ActiveSupport::TestCase
     assert_equal Group.admin.pluck(:id).sort, user.groups.admin.pluck(:id).sort
   end
 
+  # A fresh deploy builds its database from schema.rb, so the migration that
+  # seeds the default groups never runs and there are no groups at all.
+  test "the first account on a fresh install is an admin even with no groups yet" do
+    empty_the_instance
+    [ApplicationGroup, UserGroup, Group].each(&:delete_all)
+
+    user = Setup.create_admin(email_address: "first@example.com", password: "a good long password", password_confirmation: "a good long password")
+
+    assert user.persisted?
+    assert user.reload.admin?
+  end
+
   # The check runs inside the same IMMEDIATE transaction as the insert, so a
   # submission that loses the race to the first one lands here.
   test "no admin is created once a user exists" do
