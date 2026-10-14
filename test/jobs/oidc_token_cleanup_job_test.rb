@@ -3,6 +3,35 @@ require "test_helper"
 class OidcTokenCleanupJobTest < ActiveJob::TestCase
   include ActiveSupport::Testing::TimeHelpers
 
+  # Every code exchange mints a refresh token pointing at its access token, and
+  # the refresh token outlives it by weeks. The first sweep deleted the expired
+  # access token out from under it and raised, so nothing after it ever ran.
+  test "deletes expired access tokens that a live refresh token still references" do
+    user = User.create!(email_address: "cleanup_refresh@example.com", password: "password123")
+    application = Application.create!(
+      name: "Cleanup Refresh App",
+      slug: "cleanup-refresh-app",
+      app_type: "oidc",
+      redirect_uris: ["http://localhost/cb"].to_json,
+      active: true
+    )
+
+    access_token = refresh_token = expired_device_code = nil
+    travel_to(10.days.ago) do
+      access_token = OidcAccessToken.create!(application: application, user: user, scope: "openid")
+      refresh_token = OidcRefreshToken.create!(application: application, user: user, scope: "openid", oidc_access_token: access_token)
+      expired_device_code = OidcDeviceCode.create!(application: application, scope: "openid")
+    end
+    assert refresh_token.expires_at.future?, "the refresh token should still be live"
+
+    OidcTokenCleanupJob.new.perform
+
+    assert_not OidcAccessToken.exists?(access_token.id), "expired access token should be deleted"
+    assert OidcRefreshToken.exists?(refresh_token.id), "live refresh token should be kept"
+    assert_nil refresh_token.reload.oidc_access_token_id
+    assert_not OidcDeviceCode.exists?(expired_device_code.id), "the sweeps after it should run too"
+  end
+
   # Regression: deleting an old authorization code while a descendant token
   # still references it must not blow up on the FK. We rely on ON DELETE
   # SET NULL so the token row survives (audit trail) with a NULL FK.

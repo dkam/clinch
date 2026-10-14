@@ -11,10 +11,12 @@ class User < ApplicationRecord
   has_many :oidc_pairwise_subjects, dependent: :delete_all
   has_many :webauthn_credentials, dependent: :destroy
   has_many :api_keys, dependent: :destroy
-  has_many :oidc_access_tokens
-  has_many :oidc_refresh_tokens
-  has_many :oidc_authorization_codes
-  has_many :oidc_device_codes
+  # Without these, the foreign keys refused to delete anyone who had ever
+  # signed in to an OIDC app.
+  has_many :oidc_access_tokens, dependent: :delete_all
+  has_many :oidc_refresh_tokens, dependent: :delete_all
+  has_many :oidc_authorization_codes, dependent: :delete_all
+  has_many :oidc_device_codes, dependent: :delete_all
 
   # Token generation for passwordless flows
   generates_token_for :invitation_login, expires_in: 24.hours do

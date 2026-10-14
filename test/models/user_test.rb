@@ -22,6 +22,29 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 1, user.reload.sessions.count
   end
 
+  test "a user who has used OIDC can be deleted" do
+    user = User.create!(email_address: "oidc_leaver@example.com", password: "password123")
+    application = Application.create!(
+      name: "Leaver App",
+      slug: "leaver-app",
+      app_type: "oidc",
+      redirect_uris: ["http://localhost/cb"].to_json,
+      active: true
+    )
+    code = OidcAuthorizationCode.create!(application: application, user: user, redirect_uri: "http://localhost/cb", scope: "openid")
+    access_token = OidcAccessToken.create!(application: application, user: user, scope: "openid", oidc_authorization_code: code)
+    OidcRefreshToken.create!(application: application, user: user, scope: "openid", oidc_access_token: access_token, oidc_authorization_code: code)
+    OidcDeviceCode.create!(application: application, scope: "openid").approve!(user: user, acr: "1", auth_time: Time.current.to_i)
+
+    user.destroy!
+
+    assert_not User.exists?(user.id)
+    assert_equal 0, OidcAccessToken.where(user_id: user.id).count
+    assert_equal 0, OidcRefreshToken.where(user_id: user.id).count
+    assert_equal 0, OidcAuthorizationCode.where(user_id: user.id).count
+    assert_equal 0, OidcDeviceCode.where(user_id: user.id).count
+  end
+
   test "downcases and strips email_address" do
     user = User.new(email_address: " DOWNCASED@EXAMPLE.COM ")
     assert_equal("downcased@example.com", user.email_address)

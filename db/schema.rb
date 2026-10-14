@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -210,7 +210,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.integer "auth_time"
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
-    t.integer "oidc_access_token_id", null: false
+    t.integer "oidc_access_token_id"
     t.integer "oidc_authorization_code_id"
     t.integer "oidc_device_code_id"
     t.string "resource"
@@ -355,7 +355,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   add_foreign_key "oidc_pairwise_subjects", "applications", on_delete: :cascade
   add_foreign_key "oidc_pairwise_subjects", "users", on_delete: :cascade
   add_foreign_key "oidc_refresh_tokens", "applications"
-  add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens"
+  add_foreign_key "oidc_refresh_tokens", "oidc_access_tokens", on_delete: :nullify
   add_foreign_key "oidc_refresh_tokens", "oidc_authorization_codes", on_delete: :nullify
   add_foreign_key "oidc_refresh_tokens", "oidc_device_codes", on_delete: :nullify
   add_foreign_key "oidc_refresh_tokens", "users"
