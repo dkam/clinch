@@ -2,9 +2,9 @@ require "test_helper"
 require "clinch/internal_host_patterns"
 
 # Host authorisation is the DNS-rebinding defence. These patterns are added to
-# config.hosts when CLINCH_ALLOW_INTERNAL_IPS=true, which .env.example documents
-# as the normal setting, so an unanchored pattern silently allows any attacker
-# host that merely *contains* a private-range address.
+# config.hosts when CLINCH_ALLOW_INTERNAL_IPS=true, which cross-compose
+# deployments need, so an unanchored pattern silently allows any attacker host
+# that merely *contains* a private-range address.
 class InternalHostPatternsTest < ActiveSupport::TestCase
   def matches?(host)
     Clinch::InternalHostPatterns.all.any? { |p| p.match?(host) }

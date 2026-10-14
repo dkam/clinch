@@ -1,30 +1,36 @@
 # WebAuthn configuration for Clinch Identity Provider
 WebAuthn.configure do |config|
-  # Relying Party name (displayed in authenticator prompts)
-  # CLINCH_HOST should include protocol (https://) for WebAuthn
-  origin_host = ENV.fetch("CLINCH_HOST", "http://localhost")
+  # The origin browsers report during a ceremony. CLINCH_HOST is documented
+  # with a scheme, but the OIDC issuer and ForwardAuth have always accepted it
+  # without one, so this does too. A bare host used to become the origin as it
+  # was, which no browser ever reports, and the RP ID fell back to localhost.
+  origin_host = ENV.fetch("CLINCH_HOST", "http://localhost").strip.chomp("/")
+  unless origin_host.match?(%r{\Ahttps?://}i)
+    origin_host = "#{Rails.env.production? ? "https" : "http"}://#{origin_host}"
+  end
   config.allowed_origins = [origin_host]
+  origin_domain = URI.parse(origin_host).host.to_s.downcase
 
-  # Relying Party ID (must match origin domain without protocol)
-  # Extract domain from origin for RP ID if CLINCH_RP_ID not set
-  if ENV["CLINCH_RP_ID"].present?
-    config.rp_id = ENV["CLINCH_RP_ID"]
+  # The RP ID is the domain that owns the passkeys: the origin's host or a
+  # parent of it. By default it's the registrable domain (example.com for
+  # auth.example.com), so passkeys survive moving Clinch to another subdomain.
+  derived_rp_id = begin
+    PublicSuffix.parse(origin_domain).domain || origin_domain
+  rescue PublicSuffix::DomainInvalid
+    origin_domain
+  end
+
+  # Browsers refuse an RP ID that isn't the origin's host or a parent of it,
+  # such as the localhost that .env.example used to preset, so no passkey can
+  # exist under one. Using the derived RP ID instead loses nothing.
+  configured_rp_id = ENV["CLINCH_RP_ID"].to_s.strip.downcase.presence
+  config.rp_id = if configured_rp_id.nil?
+    derived_rp_id
+  elsif origin_domain == configured_rp_id || origin_domain.end_with?(".#{configured_rp_id}")
+    configured_rp_id
   else
-    # Extract registrable domain from CLINCH_HOST using PublicSuffix
-    origin_uri = URI.parse(origin_host)
-    if origin_uri.host
-      begin
-        # Use PublicSuffix to get the registrable domain (e.g., "aapamilne.com" from "auth.aapamilne.com")
-        domain = PublicSuffix.parse(origin_uri.host)
-        config.rp_id = domain.domain || origin_uri.host
-      rescue PublicSuffix::DomainInvalid => e
-        Rails.logger.warn "WebAuthn: Failed to parse domain '#{origin_uri.host}': #{e.message}, using host as fallback"
-        config.rp_id = origin_uri.host
-      end
-    else
-      Rails.logger.error "WebAuthn: Could not extract host from CLINCH_HOST '#{origin_host}'"
-      config.rp_id = "localhost"
-    end
+    Rails.logger.error "WebAuthn: CLINCH_RP_ID '#{configured_rp_id}' can't own passkeys for #{origin_host}; using '#{derived_rp_id}'"
+    derived_rp_id
   end
 
   # For development, we also allow localhost with common ports and without port
