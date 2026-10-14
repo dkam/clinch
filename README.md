@@ -392,7 +392,7 @@ services:
       SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
       SMTP_ENABLE_STARTTLS: ${SMTP_ENABLE_STARTTLS:-true}
 
-      # OIDC Configuration (optional - generates temporary key if not provided)
+      # OIDC signing key (optional - generated and kept in the database if not provided)
       OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY}
 
       # Optional Configuration
@@ -410,7 +410,7 @@ Create a `.env` file in the same directory:
 # Generate SECRET_KEY_BASE (required)
 openssl rand -hex 64
 
-# Generate OIDC private key (optional - auto-generated if not provided)
+# Generate OIDC private key (optional - Clinch generates one and keeps it in the database if not provided)
 openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
 cat private_key.pem  # Copy the output into OIDC_PRIVATE_KEY below
 ```
@@ -432,8 +432,8 @@ SMTP_DOMAIN=yourdomain.com
 SMTP_USERNAME=your-smtp-username
 SMTP_PASSWORD=your-smtp-password
 
-# OIDC Private Key (OPTIONAL - generates temporary key if not provided)
-# For production, generate a persistent key and paste the ENTIRE contents here
+# OIDC Private Key (OPTIONAL - generated and kept in the database if not provided)
+# To manage the key yourself, paste the ENTIRE contents of the PEM file here
 OIDC_PRIVATE_KEY=
 
 # Optional: Force SSL redirects (only if NOT behind a reverse proxy handling SSL)

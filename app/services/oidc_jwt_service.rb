@@ -249,16 +249,8 @@ class OidcJwtService
             raise "Invalid OIDC private key format. Please ensure the key is in PEM format with proper newlines."
           end
         else
-          # In production, we should never generate a key on the fly
-          # because it would be different across servers/deployments
-          if Rails.env.production?
-            raise "OIDC private key not configured. Set OIDC_PRIVATE_KEY environment variable or add to Rails credentials."
-          end
-
-          # Generate a new key for development/test only
-          Rails.logger.warn "OIDC: No private key found in ENV or credentials, generating new key (development only)"
-          Rails.logger.warn "OIDC: Set OIDC_PRIVATE_KEY environment variable for consistency across restarts"
-          OpenSSL::PKey::RSA.new(2048)
+          # Generated once and kept in the database; see OidcSigningKey.
+          OpenSSL::PKey::RSA.new(OidcSigningKey.pem)
         end
       end
     end

@@ -1,6 +1,14 @@
 # OIDC Private Key Setup
 
-Your OIDC provider needs an RSA private key to sign ID tokens. **This key must persist across deployments** or all existing tokens will become invalid.
+Clinch signs ID tokens, JWT access tokens and logout tokens with an RSA private key. **This key must persist across deployments** or all existing tokens will become invalid.
+
+## Default: let Clinch generate it
+
+If neither `OIDC_PRIVATE_KEY` nor Rails credentials supply a key, Clinch generates a 2048-bit key the first time it needs one and keeps it in the `oidc_signing_keys` table. There is nothing to set up.
+
+The key is encrypted with keys derived from `SECRET_KEY_BASE`, like TOTP secrets, so a copy of the database alone can't sign tokens. It also means a backup needs both: restore the database with a different `SECRET_KEY_BASE` and Clinch can't read its key (or anyone's TOTP secret).
+
+Supply a key yourself, as below, if you'd rather manage it outside Clinch. A key in `OIDC_PRIVATE_KEY` or credentials always wins over the stored one.
 
 ## Option 1: Environment Variable (Recommended for Docker/Kamal)
 
@@ -97,7 +105,7 @@ Todo
 
 ## Troubleshooting
 
-### "No private key found" warning
+### Checking which key is loaded
 
 Check your setup:
 
@@ -108,8 +116,8 @@ echo $OIDC_PRIVATE_KEY
 # Can Rails load it?
 bin/rails runner "puts ENV['OIDC_PRIVATE_KEY'].present? ? 'ENV set' : 'ENV missing'"
 
-# Does it load correctly?
-bin/rails runner "puts OidcJwtService.send(:private_key).to_s[0..50]"
+# Which key is in use? (prints the key ID, never the key)
+bin/rails runner "puts OidcJwtService.jwks[:keys].first[:kid]"
 ```
 
 ### "invalid RSA key" error
@@ -120,13 +128,14 @@ bin/rails runner "puts OidcJwtService.send(:private_key).to_s[0..50]"
 
 ### Different JWKS key ID on each restart
 
-This means the key is being regenerated. You need to set `OIDC_PRIVATE_KEY` or add to credentials.
+The key is changing between boots. Check that `OIDC_PRIVATE_KEY` isn't being set to different values, and that the database (the `storage/` volume) is persisted rather than recreated with the container.
 
 ### All tokens invalid after deployment
 
 The key changed. You either:
 - Regenerated the key (don't do this!)
-- Forgot to set ENV variable in production
+- Removed `OIDC_PRIVATE_KEY`, so Clinch fell back to its stored key (or generated one)
+- Restored the database with a different `SECRET_KEY_BASE`
 - The key wasn't loaded correctly
 
 Check logs for warnings and verify key is loaded:

@@ -1,4 +1,5 @@
 require "test_helper"
+require "minitest/mock"
 
 class OidcJwtServiceTest < ActiveSupport::TestCase
   TEST_OIDC_KEY = <<~KEY
@@ -54,6 +55,37 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     OidcJwtService.instance_variable_set(:@private_key, nil)
     OidcJwtService.instance_variable_set(:@public_key, nil)
     OidcJwtService.instance_variable_set(:@key_id, nil)
+  end
+
+  test "without a configured key, production generates one and keeps it across restarts" do
+    ENV.delete("OIDC_PRIVATE_KEY")
+    forget_signing_key
+
+    Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new("production")) do
+      first_kid = @service.jwks[:keys].first[:kid]
+
+      forget_signing_key # as a restart, or another process, would
+      assert_equal first_kid, @service.jwks[:keys].first[:kid]
+    end
+
+    assert_equal 1, OidcSigningKey.count
+  end
+
+  test "a generated signing key is stored encrypted" do
+    ENV.delete("OIDC_PRIVATE_KEY")
+    forget_signing_key
+
+    @service.jwks
+
+    stored = OidcSigningKey.connection.select_value("SELECT private_key_pem FROM oidc_signing_keys")
+    assert stored.present?
+    assert_not_includes stored, "PRIVATE KEY"
+  end
+
+  test "a configured key is used and none is generated" do
+    @service.jwks
+
+    assert_equal 0, OidcSigningKey.count
   end
 
   test "should generate id token with required claims" do
@@ -174,32 +206,6 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   ensure
     # Restore original value and clear cached key
     ENV["OIDC_PRIVATE_KEY"] = original_value
-    OidcJwtService.instance_variable_set(:@private_key, nil)
-  end
-
-  test "should raise error in production when no key configured" do
-    # Skip this test if we can't properly stub Rails.env
-    skip "Skipping production env test" unless Rails.env.development? || Rails.env.test?
-
-    # Clear any cached keys
-    OidcJwtService.instance_variable_set(:@private_key, nil)
-
-    # Temporarily remove the key
-    original_value = ENV["OIDC_PRIVATE_KEY"]
-    ENV.delete("OIDC_PRIVATE_KEY")
-
-    # Stub Rails.env to be production
-    Rails.env = ActiveSupport::StringInquirer.new("production")
-
-    error = assert_raises RuntimeError do
-      OidcJwtService.send(:private_key)
-    end
-
-    assert_match(/OIDC private key not configured/, error.message)
-  ensure
-    # Restore original environment and clear cached key
-    ENV["OIDC_PRIVATE_KEY"] = original_value if original_value
-    Rails.env = ActiveSupport::StringInquirer.new(ENV.fetch("RAILS_ENV", "test"))
     OidcJwtService.instance_variable_set(:@private_key, nil)
   end
 
@@ -692,5 +698,13 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # Standard claims should be filtered
     refute_includes decoded.keys, "email", "Should not include email without email scope"
     refute_includes decoded.keys, "name", "Should not include name without profile scope"
+  end
+
+  private
+
+  def forget_signing_key
+    OidcJwtService.instance_variable_set(:@private_key, nil)
+    OidcJwtService.instance_variable_set(:@public_key, nil)
+    OidcJwtService.instance_variable_set(:@key_id, nil)
   end
 end

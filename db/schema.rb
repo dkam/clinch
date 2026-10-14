@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_23_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -230,6 +230,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_000002) do
     t.index ["token_family_id"], name: "index_oidc_refresh_tokens_on_token_family_id"
     t.index ["token_hmac"], name: "index_oidc_refresh_tokens_on_token_hmac", unique: true
     t.index ["user_id"], name: "index_oidc_refresh_tokens_on_user_id"
+  end
+
+  create_table "oidc_signing_keys", force: :cascade do |t|
+    t.text "private_key_pem", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "oidc_user_consents", force: :cascade do |t|

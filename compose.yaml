@@ -44,8 +44,9 @@ services:
       CLINCH_RP_NAME: ${CLINCH_RP_NAME:-Clinch Identity Provider}
 
       # --- OIDC ---
-      # Optional: a temporary key is generated if unset, but it changes on every
-      # restart and invalidates existing sessions. Generate a persistent one with:
+      # Optional: if unset, Clinch generates a signing key the first time it
+      # needs one and keeps it in the database, encrypted with SECRET_KEY_BASE.
+      # Set this only to manage the key yourself:
       #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
       OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY:-}
 
