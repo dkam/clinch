@@ -13,7 +13,7 @@ class OidcController < ApplicationController
 
   # Discovery and JWKS endpoints are public
   # authorize is also unauthenticated to handle prompt=none and prompt=login specially
-  allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :introspect, :userinfo, :logout, :authorize, :device_authorization]
+  allow_unauthenticated_access only: [:discovery, :jwks, :token, :revoke, :introspect, :userinfo, :logout, :confirm_logout, :authorize, :device_authorization]
   # Machine-to-machine endpoints (token/revoke/introspect/userinfo/device_authorization)
   # and pure redirect handlers (logout/authorize) legitimately skip CSRF. The consent
   # endpoint is browser-facing and state-changing (it grants OAuth scopes), so it MUST
@@ -1306,45 +1306,67 @@ class OidcController < ApplicationController
     head :ok
   end
 
-  # GET /logout
+  # GET|POST /logout: OpenID Connect RP-Initiated Logout 1.0 (CLN-06)
+  #
+  # Signing someone out is a state change any page could trigger with an image
+  # tag, so it happens straight away only when the request carries an ID token
+  # Clinch issued to the signed-in user. Otherwise the user is asked first, on a
+  # page whose form posts to confirm_logout with a CSRF token.
   def logout
-    # OpenID Connect RP-Initiated Logout
-    # Handle id_token_hint and post_logout_redirect_uri parameters
+    hint = OidcJwtService.decode_id_token_hint(params[:id_token_hint])
+    @logout_client = logout_client(hint)
+    @post_logout_redirect_uri = validate_logout_redirect_uri(params[:post_logout_redirect_uri], @logout_client)
+    @state = params[:state]
 
-    params[:id_token_hint]
-    post_logout_redirect_uri = params[:post_logout_redirect_uri]
-    state = params[:state]
+    if authenticated? && !hint_names_current_user?(hint, @logout_client)
+      render :logout
+      return
+    end
 
-    # If user is authenticated, log them out
+    end_session_and_redirect
+  end
+
+  # POST /logout/confirm: the confirmation page's form. Unlike /logout, this
+  # keeps CSRF protection, so another site can't submit it on the user's behalf.
+  def confirm_logout
+    @logout_client = Application.oidc.active.find_by(client_id: params[:client_id]) if params[:client_id].present?
+    @post_logout_redirect_uri = validate_logout_redirect_uri(params[:post_logout_redirect_uri], @logout_client)
+    @state = params[:state]
+
+    end_session_and_redirect
+  end
+
+  private
+
+  def end_session_and_redirect
     if authenticated?
-      user = Current.session.user
-
-      # Send backchannel logout notifications to all connected applications
-      send_backchannel_logout_notifications(user)
-
-      # Invalidate the current session
+      send_backchannel_logout_notifications(Current.session.user)
       Current.session&.destroy
       reset_session
     end
 
-    # If post_logout_redirect_uri is provided, validate and redirect
-    if post_logout_redirect_uri.present?
-      validated_uri = validate_logout_redirect_uri(post_logout_redirect_uri)
-
-      if validated_uri
-        redirect_to uri_with_query(validated_uri, state: state), allow_other_host: true
-      else
-        # Invalid redirect URI - log warning and go to default
-        Rails.logger.warn "OIDC Logout: Invalid post_logout_redirect_uri attempted: #{post_logout_redirect_uri}"
-        redirect_to root_path
-      end
+    if @post_logout_redirect_uri
+      redirect_to uri_with_query(@post_logout_redirect_uri, state: @state), allow_other_host: true
     else
-      # Default redirect to home page
       redirect_to root_path
     end
   end
 
-  private
+  # The client the logout is for: the hint's audience, or client_id, which has
+  # to agree with the hint when both are given.
+  def logout_client(hint)
+    hinted = Array(hint&.dig("aud")).first
+    return nil if hinted.present? && params[:client_id].present? && params[:client_id] != hinted
+
+    client_id = hinted.presence || params[:client_id]
+    Application.oidc.active.find_by(client_id: client_id) if client_id.present?
+  end
+
+  def hint_names_current_user?(hint, client)
+    return false unless hint && client
+
+    hint["sub"] == OidcPairwiseSubject.for(Current.session.user, client)
+  end
 
   # Redirect back to the client's redirect_uri with an OAuth 2.0 authorization
   # error (RFC 6749 §4.1.2.1). Extracted because the authorize / consent flows
@@ -1416,8 +1438,11 @@ class OidcController < ApplicationController
   # Adds parameters to a client's redirect URI, keeping any query it was
   # registered with (RFC 6749 §3.1.2). Blank values are left out.
   def uri_with_query(uri, params)
+    query = params.compact_blank.to_query
+    return uri if query.empty?
+
     separator = uri.include?("?") ? "&" : "?"
-    "#{uri}#{separator}#{params.compact_blank.to_query}"
+    "#{uri}#{separator}#{query}"
   end
 
   # Look up @application from client_id. RFC 6749 §4.1.2.1 requires that an
@@ -1566,32 +1591,24 @@ class OidcController < ApplicationController
     end
   end
 
-  def validate_logout_redirect_uri(uri)
-    return nil unless uri.present?
+  # A post-logout redirect has to be one of the logout's own client's
+  # registered URIs; with no client identified, there is nowhere to send the
+  # user but home. (Clinch has no separate post_logout_redirect_uris, so a
+  # client's redirect URIs serve.)
+  def validate_logout_redirect_uri(uri, client)
+    return nil unless uri.present? && client
 
-    begin
-      parsed_uri = URI.parse(uri)
+    parsed_uri = URI.parse(uri)
 
-      # Only allow HTTP/HTTPS schemes (prevent javascript:, data:, etc.)
-      return nil unless parsed_uri.is_a?(URI::HTTP) || parsed_uri.is_a?(URI::HTTPS)
+    # Only allow HTTP/HTTPS schemes (prevent javascript:, data:, etc.)
+    return nil unless parsed_uri.is_a?(URI::HTTP) || parsed_uri.is_a?(URI::HTTPS)
 
-      # Only allow HTTPS in production
-      return nil if Rails.env.production? && parsed_uri.scheme != "https"
+    # Only allow HTTPS in production
+    return nil if Rails.env.production? && parsed_uri.scheme != "https"
 
-      # Check if URI matches any registered OIDC application's redirect URIs
-      # According to OIDC spec, post_logout_redirect_uri should be pre-registered
-      Application.oidc.active.find_each do |app|
-        # Check if this URI matches any of the app's registered redirect URIs
-        if app.parsed_redirect_uris.any? { |registered_uri| logout_uri_matches?(uri, registered_uri) }
-          return uri
-        end
-      end
-
-      # No matching application found
-      nil
-    rescue URI::InvalidURIError
-      nil
-    end
+    uri if client.parsed_redirect_uris.any? { |registered_uri| logout_uri_matches?(uri, registered_uri) }
+  rescue URI::InvalidURIError
+    nil
   end
 
   # Check if logout URI matches a registered redirect URI

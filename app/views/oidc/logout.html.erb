@@ -1,0 +1,22 @@
+<div class="mx-auto max-w-md w-full">
+  <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Sign out of Clinch?</h1>
+  <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+    <% if @logout_client %>
+      <%= @logout_client.name %> asked to sign you out.
+    <% else %>
+      A page asked to sign you out.
+    <% end %>
+    Signing out of Clinch also signs you out of the apps you use through it.
+  </p>
+
+  <%= form_with url: confirm_logout_path, method: :post, class: "mt-6 flex gap-3" do |form| %>
+    <%= hidden_field_tag :client_id, @logout_client&.client_id if @logout_client %>
+    <%= hidden_field_tag :post_logout_redirect_uri, @post_logout_redirect_uri if @post_logout_redirect_uri %>
+    <%= hidden_field_tag :state, @state if @state.present? %>
+
+    <%= form.submit "Sign out",
+        class: "inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900" %>
+    <%= link_to "Stay signed in", root_path,
+        class: "inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900" %>
+  <% end %>
+</div>

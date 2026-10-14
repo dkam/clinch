@@ -36,7 +36,10 @@ class OidcRedirectUriQueryTest < ActionDispatch::IntegrationTest
   end
 
   test "a post-logout redirect keeps the redirect URI's query" do
-    get "/logout", params: {post_logout_redirect_uri: REDIRECT_URI, state: "st"}
+    consent = OidcUserConsent.record!(user: @user, application: @application, scopes: %w[openid])
+    hint = OidcJwtService.generate_id_token(@user, @application, consent: consent)
+
+    get "/logout", params: {id_token_hint: hint, post_logout_redirect_uri: REDIRECT_URI, state: "st"}
 
     assert_response :redirect
     query = Rack::Utils.parse_query(URI(response.location).query)

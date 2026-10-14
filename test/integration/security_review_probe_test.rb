@@ -8,8 +8,6 @@ require "clinch/internal_host_patterns"
 # fixed its assertions are inverted, so a test here asserts the secure behaviour
 # once its finding is closed.
 #
-# STILL ASSERTING THE BUG (not yet fixed): CLN-06. Invert it when the finding
-# is addressed.
 class ReviewProbeTest < ActionDispatch::IntegrationTest
   test "CLN-08 consent page CSP carries form-action limited to self and the redirect host" do
     bob = users(:bob)
@@ -67,14 +65,14 @@ class ReviewProbeTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  # NOT YET FIXED — asserts the current (insecure) behaviour.
-  test "CLN-06 GET /logout with no id_token_hint destroys the session" do
+  test "CLN-06 GET /logout with no id_token_hint asks before signing anyone out" do
     alice = users(:alice)
     sign_in_as(alice)
     sid = Session.last.id
     get "/logout"
-    assert_redirected_to "/"
-    assert_nil Session.find_by(id: sid)
+    assert_response :success
+    assert_select "form[action='/logout/confirm']"
+    assert Session.exists?(sid)
   end
 
   test "CLN-11 profile password change revokes other sessions but keeps the current one" do

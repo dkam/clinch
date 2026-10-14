@@ -134,6 +134,18 @@ class OidcJwtService
       JWT.decode(token, public_key, true, {algorithm: "RS256"})
     end
 
+    # The claims of an ID token this provider signed, given as id_token_hint at
+    # logout, or nil. Expiry is not checked: RP-Initiated Logout 1.0 §2 asks the
+    # OP to accept a hint whose exp has passed, since RPs often log a user out
+    # long after their ID token expired.
+    def decode_id_token_hint(token)
+      return nil if token.blank?
+
+      JWT.decode(token, public_key, true, {algorithm: "RS256", verify_expiration: false, iss: issuer_url, verify_iss: true}).first
+    rescue JWT::DecodeError
+      nil
+    end
+
     # RFC 9068 — JWT Profile for OAuth 2.0 Access Tokens.
     #
     # Issued instead of an opaque handle when the client sets

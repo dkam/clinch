@@ -32,7 +32,7 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 | [CLN-03](#cln-03-sign-in-throttles-are-per-ip-only-pending-2fa-state-never-expires) | Sign-in throttles are per IP only; pending 2FA state never expires | High | **Fixed** | Medium |
 | [CLN-04](#cln-04-refresh-grant-runs-without-a-row-lock-and-mints-before-checking-consent) | Refresh grant runs without a row lock and mints before checking consent | Medium | **Fixed** | Small |
 | [CLN-05](#cln-05-revoke-all-leaves-tokens-alive-and-the-pairwise-subject-is-not-stable) | "Revoke all" leaves tokens alive and the pairwise subject is not stable | Medium | **Fixed** | Medium |
-| [CLN-06](#cln-06-rp-initiated-logout-is-triggerable-by-any-site-id_token_hint-ignored) | RP-initiated logout is triggerable by any site; `id_token_hint` ignored | Medium | Verified | Medium |
+| [CLN-06](#cln-06-rp-initiated-logout-is-triggerable-by-any-site-id_token_hint-ignored) | RP-initiated logout is triggerable by any site; `id_token_hint` ignored | Medium | **Fixed** | Medium |
 | [CLN-07](#cln-07-email_verified-is-always-true-email-changes-are-never-confirmed) | `email_verified` is always true; email changes are never confirmed | Medium | **Fixed** | Medium |
 | **Worth fixing** | | | | |
 | [CLN-08](#cln-08-consent-page-is-served-without-a-form-action-csp-directive) | Consent page is served without a form-action CSP directive | Medium | **Fixed** | Small |
@@ -114,7 +114,21 @@ state now carries its start time and lapses after five minutes, and the per-IP
 limit on the TOTP step counts POSTs only. Tests:
 `test/integration/sign_in_throttle_test.rb`.
 
-Still open: CLN-02 step 3, CLN-06, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
+CLN-06, 14 October 2026: `/logout` verifies `id_token_hint` (signature and
+issuer; an expired hint still counts, as RP-Initiated Logout allows) and signs
+the user out at once only when the hint's subject is theirs. Otherwise it
+shows a confirmation page whose form posts to `/logout/confirm`, which keeps
+CSRF protection. `post_logout_redirect_uri` is checked against the hinted
+client's redirect URIs only, or `client_id`'s, and the state is appended with
+`&` when the URI has a query. Tests: `test/controllers/oidc_logout_test.rb` and
+the inverted CLN-06 probe.
+
+CLN-10 is unchanged (the cookie still has to reach every app for ForwardAuth),
+but since 14 October 2026 a replayed cookie can no longer add a passkey, API
+key or authenticator: those need a password entered in the last fifteen
+minutes, recorded in the host-only Rails session (`RecentAuthentication`).
+
+Still open: CLN-02 step 3, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
 
 ---
 
@@ -292,7 +306,7 @@ existing consents keep their current `sid` value as their subject.
 
 **Severity:** Medium · **Status:** Verified · **Effort:** Medium
 
-- [ ] Fixed
+- [x] Fixed — 14 October 2026. See Progress.
 
 **What.** The logout handler reads `id_token_hint` and discards it. A bare GET
 to `/logout` from any origin destroys the Clinch session and enqueues

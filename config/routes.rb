@@ -39,6 +39,8 @@ Rails.application.routes.draw do
   post "/oauth/introspect", to: "oidc#introspect"
   match "/oauth/userinfo", to: "oidc#userinfo", via: [:get, :post]
   get "/logout", to: "oidc#logout"
+  post "/logout", to: "oidc#logout"
+  post "/logout/confirm", to: "oidc#confirm_logout", as: :confirm_logout
 
   # OAuth 2.0 Device Authorization Grant (RFC 8628)
   post "/oauth/device_authorization", to: "oidc#device_authorization"
