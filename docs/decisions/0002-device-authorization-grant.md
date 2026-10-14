@@ -40,6 +40,9 @@ CLIs and agents. The human approves wherever their passkey lives.
   authorization request supplied a `code_challenge`. The `device_code` itself is a
   high-entropy secret delivered directly to the client over TLS.
 - A well-known public client `clinch-cli` (no secret, PKCE) is seeded for tools to use.
+  *(2026-10: no longer seeded. Seeds run on every fresh install, so every instance got
+  this client and a confidential introspection client whose secret was printed to the
+  logs. Create a public client for CLI tools in the admin panel instead.)*
 
 ## Consequences
 
