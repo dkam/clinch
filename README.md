@@ -26,7 +26,7 @@ Clinch sits in a sweet spot among several excellent open-source identity solutio
 **Clinch** offers a middle ground with built-in user management, a modern web interface, and focused SSO capabilities (OIDC + ForwardAuth). It's perfect for users who want self-hosted simplicity without external dependencies or enterprise complexity.
 
 - **[Passes the OpenID Connect Conformance Tests](https://www.certification.openid.net/plan-detail.html?plan=FbQNTJuYVzrzs&public=true)** — verified against the official OIDC test suite
-- **670 tests, 2600+ assertions** — comprehensive test coverage across integration, model, controller, and security tests
+- **Over 800 tests** — comprehensive test coverage across integration, model, controller, and security tests
 - **Single Docker container** — SQLite, job queue, and cache all in one process
 
 ---
@@ -83,11 +83,16 @@ Apps that only need "who is it?", or you want available from the internet behind
 #### OpenID Connect (OIDC)
 
 Standard OAuth2/OIDC provider with endpoints:
-- `/.well-known/openid-configuration` - Discovery endpoint
-- `/authorize` - Authorization endpoint with PKCE support
-- `/token` - Token endpoint (authorization_code and refresh_token grants)
-- `/userinfo` - User info endpoint
-- `/revoke` - Token revocation endpoint (RFC 7009)
+- `/.well-known/openid-configuration` - Discovery endpoint (clients that use it need nothing else from this list)
+- `/.well-known/jwks.json` - Signing keys
+- `/oauth/authorize` - Authorization endpoint with PKCE support
+- `/oauth/token` - Token endpoint (authorization_code, refresh_token and device_code grants)
+- `/oauth/userinfo` - User info endpoint
+- `/oauth/revoke` - Token revocation endpoint (RFC 7009)
+- `/oauth/introspect` - Token introspection endpoint (RFC 7662)
+- `/oauth/device_authorization` - Device authorization endpoint (RFC 8628)
+- `/oauth/register` - Dynamic client registration (RFC 7591), while an admin has it switched on
+- `/logout` - RP-initiated logout
 
 Features:
 - **Refresh tokens** - Long-lived tokens (30 days default) with automatic rotation and revocation
@@ -184,7 +189,7 @@ API keys respect the same access controls as browser sessions — the user must 
 
 ### SMTP Integration
 Send emails for:
-- Invitation links (one-time token, 7-day expiry)
+- Invitation links (one-time token, 24-hour expiry)
 - Password reset links (one-time token, 1-hour expiry)
 
 ### Session Management
@@ -295,12 +300,12 @@ Configure different claims for different applications on a per-user basis:
 ## Authentication Flows
 
 ### OIDC Authorization Flow
-1. Client redirects user to `/authorize` with client_id, redirect_uri, scope (optional PKCE)
+1. Client redirects user to `/oauth/authorize` with client_id, redirect_uri, scope (optional PKCE)
 2. User authenticates with Clinch (username/password + optional TOTP)
 3. Access control check: Is user in an allowed group for this app?
 4. If allowed, generate authorization code and redirect to client
-5. Client exchanges code at `/token` for ID token, access token, and refresh token
-6. Client uses access token to fetch fresh user info from `/userinfo`
+5. Client exchanges code at `/oauth/token` for ID token, access token, and refresh token
+6. Client uses access token to fetch fresh user info from `/oauth/userinfo`
 7. When access token expires, client uses refresh token to get new tokens (no re-authentication)
 
 ### ForwardAuth Flow
@@ -390,13 +395,14 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
-      SMTP_ENABLE_STARTTLS: ${SMTP_ENABLE_STARTTLS:-true}
+      SMTP_STARTTLS_AUTO: ${SMTP_STARTTLS_AUTO:-true}
 
       # OIDC signing key (optional - generated and kept in the database if not provided)
       OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY}
 
-      # Optional Configuration
-      FORCE_SSL: ${FORCE_SSL:-false}
+      # How your proxy reaches Clinch (see docs/forward-auth.md)
+      CLINCH_DOCKER_SERVICE_NAME: ${CLINCH_DOCKER_SERVICE_NAME:-}
+      CLINCH_ALLOW_INTERNAL_IPS: ${CLINCH_ALLOW_INTERNAL_IPS:-false}
     volumes:
       - ./storage:/rails/storage
     restart: unless-stopped
@@ -436,8 +442,6 @@ SMTP_PASSWORD=your-smtp-password
 # To manage the key yourself, paste the ENTIRE contents of the PEM file here
 OIDC_PRIVATE_KEY=
 
-# Optional: Force SSL redirects (only if NOT behind a reverse proxy handling SSL)
-FORCE_SSL=false
 ```
 
 Start Clinch:
@@ -483,6 +487,13 @@ docker compose logs --tail=100 clinch
 Clinch stores all persistent data in the `storage/` directory (or `/rails/storage` in Docker):
 - SQLite database (`production.sqlite3`)
 - Uploaded files via ActiveStorage (application icons)
+
+**Keep `SECRET_KEY_BASE` with your backups.** It isn't in `storage/`, but the
+database can't be fully used without it: TOTP secrets and the generated OIDC
+signing key are encrypted with keys derived from it, and token lookups depend
+on it. Restore the database under a different `SECRET_KEY_BASE` and every user
+has to set up 2FA again, every client's tokens stop working, and Clinch can't
+read its signing key. If you set `OIDC_PRIVATE_KEY` yourself, back that up too.
 
 **Database Backup:**
 
@@ -760,7 +771,7 @@ user.revoke_all_consents!
 
 ### Running Tests
 
-Clinch has comprehensive test coverage with 450 tests covering integration, models, controllers, services, and system tests.
+Clinch has comprehensive test coverage, with over 800 tests covering integration, models, controllers, services, and system tests.
 
 ```bash
 # Run all tests
@@ -820,7 +831,7 @@ All security scans run automatically on every pull request and push to main via 
 
 **Current Status:**
 - ✅ All security scans passing
-- ✅ 670 tests, 2643 assertions, 0 failures
+- ✅ Over 800 tests, 0 failures
 - ✅ No known dependency vulnerabilities
 - ✅ Phases 1-4 security hardening complete (18+ vulnerabilities fixed)
 - 🟡 3 outstanding security issues (all MEDIUM/LOW priority)

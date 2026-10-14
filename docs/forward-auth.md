@@ -334,7 +334,7 @@ app.example.com {
 |----------|---------|---------|-------------------|
 | `CLINCH_HOST` | `auth.aapamilne.com` | Primary domain | Always set to your auth domain |
 | `CLINCH_DOCKER_SERVICE_NAME` | `nil` | Docker service name | Set to service name in same compose |
-| `CLINCH_ALLOW_INTERNAL_IPS` | `true` | Allow private IPs | `true` for internal, `false` for external |
+| `CLINCH_ALLOW_INTERNAL_IPS` | `false` | Allow private IPs | `true` for internal, `false` for external |
 | `CLINCH_ALLOW_LOCALHOST` | `false` | Allow localhost access | `true` for development only |
 
 ### Security Architecture

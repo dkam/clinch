@@ -13,10 +13,12 @@ When a user logs out from Clinch (or any connected application), Clinch sends se
 Backchannel logout notifications are sent when:
 
 1. **User clicks "Sign Out" in Clinch** - All connected OIDC applications are notified, then the Clinch session is terminated
-2. **User logs out via OIDC `/logout` endpoint** (RP-Initiated Logout) - All connected applications are notified, then the Clinch session is terminated
+2. **User logs out via OIDC `/logout` endpoint** (RP-Initiated Logout) - All connected applications are notified, then the Clinch session is terminated. This happens straight away when the request carries an `id_token_hint` for the signed-in user; otherwise Clinch asks the user to confirm first
 3. **User clicks "Logout" on an app (Dashboard)** - Backchannel logout is sent to that app, all access/refresh tokens are revoked, but OAuth consent is preserved (user can sign back in without re-authorizing)
 4. **User clicks "Revoke Access" for a specific app (Active Sessions page)** - Backchannel logout is sent to that app to terminate its session, all access/refresh tokens are revoked, then the OAuth consent is permanently destroyed (user must re-authorize the app to use it again)
 5. **User clicks "Revoke All App Access"** - All connected applications receive backchannel logout notifications, all tokens are revoked, then all OAuth consents are permanently destroyed
+6. **An admin disables or deletes the user** - Every application the user had consented to is notified
+7. **An admin deletes an application** - That application is notified for each of its users
 
 ### The Logout Flow
 
@@ -185,11 +187,14 @@ The logout token will contain:
 | `iss` | Issuer (Clinch URL) | Yes |
 | `aud` | Your application's client_id | Yes |
 | `iat` | Issued at timestamp | Yes |
+| `exp` | Expiry, two minutes after `iat` | Yes |
 | `jti` | Unique token ID | Yes |
-| `sub` | Pairwise subject identifier (user's SID) | Yes |
-| `sid` | Session ID (same as sub) | Yes |
+| `sub` | Pairwise subject identifier: the user's `sub` at your app | Yes |
+| `sid` | The `sid` claim from your ID tokens. It names the user's grant to your app (their consent), not a browser session | Yes |
 | `events` | Must contain `http://schemas.openid.net/event/backchannel-logout` | Yes |
 | `nonce` | Must NOT be present (spec requirement) | No |
+
+The token's JOSE header has `typ: logout+jwt`, so it can't be mistaken for an ID token.
 
 ### 4. Session Tracking Requirements
 
@@ -254,10 +259,10 @@ tail -f log/development.log | grep BackchannelLogout
 **1. HTTP Timeout**
 - Symptom: `Timeout sending logout to...` in logs
 - Solution: Ensure the RP's backchannel logout endpoint responds within 5 seconds
-- Note: Clinch will retry 3 times with exponential backoff
+- Note: Clinch retries a network failure twice more, after about 3 and then about 18 seconds. An error status is not retried
 
 **2. HTTP Errors (Non-200 Status)**
-- Symptom: `Application X returned HTTP 400/500...` in logs
+- Symptom: `https://your-app/... returned HTTP 400/500` in logs
 - Solution: Check the RP's logs for JWT validation errors
 - Common causes:
   - Wrong JWKS (public key mismatch)

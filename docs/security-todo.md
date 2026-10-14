@@ -1,6 +1,8 @@
 # Security Status
 
-**Last Audit:** 2025-12-31
+**Last Audit:** 2025-12-31. The September 2026 review,
+[security-review-2026-09.md](security-review-2026-09.md), is more recent and
+tracks its findings (CLN-01 to CLN-20) there.
 **Target Users:** Self-hosters, small businesses
 
 > **Beta Release Criteria:** See [beta-checklist.md](beta-checklist.md) for overall release readiness assessment.
@@ -49,12 +51,12 @@ These are policy decisions for self-hosters, not security bugs:
 
 | Item | Default | Notes |
 |------|---------|-------|
-| Session cookie domain | Root domain | Enables SSO across subdomains. Add `SECURE_SUBDOMAIN_ISOLATION` ENV to disable |
-| CSP policy | unsafe-inline, unsafe-eval | Required for Stimulus/Turbo. Audit JS to remove if needed |
-| Logout redirect validation | Allows query params | Per OAuth 2.0 spec. Document behavior |
+| Session cookie domain | Root domain | Enables SSO across subdomains (CLN-10); there is no setting to turn it off yet. Adding a passkey, API key or authenticator needs a recently confirmed password, so a replayed cookie can't make its access permanent |
+| CSP policy | Nonce-based | No `unsafe-inline` or `unsafe-eval` |
+| Logout redirect validation | Hinted client only | Must match one of the logging-out client's redirect URIs; query params ignored (CLN-06) |
 | Invitation token lifetime | 24 hours | Add `INVITATION_TOKEN_LIFETIME` ENV for high-security deployments |
 | Password minimum length | 8 chars | Add `PASSWORD_MIN_LENGTH` ENV, consider zxcvbn |
-| Admin self-demotion check | String comparison | Minor - use `.to_i` for integer comparison |
+| Admin self-demotion | Refused | Admins can't disable themselves or remove their own admin access, so one always remains |
 
 ---
 

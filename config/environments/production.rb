@@ -133,7 +133,7 @@ Rails.application.configure do
   end
 
   # Allow Docker service names if running in same compose
-  if ENV["CLINCH_DOCKER_SERVICE_NAME"]
+  if ENV["CLINCH_DOCKER_SERVICE_NAME"].present?
     allowed_hosts << ENV["CLINCH_DOCKER_SERVICE_NAME"]
   end
 

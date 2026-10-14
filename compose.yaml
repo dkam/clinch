@@ -35,7 +35,7 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
-      SMTP_ENABLE_STARTTLS: ${SMTP_ENABLE_STARTTLS:-true}
+      SMTP_STARTTLS_AUTO: ${SMTP_STARTTLS_AUTO:-true}
 
       # --- Passkeys / WebAuthn (requires HTTPS) ---
       # CLINCH_RP_ID is the domain that owns the passkeys. Use the parent domain
@@ -50,9 +50,17 @@ services:
       #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
       OIDC_PRIVATE_KEY: ${OIDC_PRIVATE_KEY:-}
 
-      # --- Optional ---
-      # Only enable if nothing in front of Clinch is terminating TLS.
-      FORCE_SSL: ${FORCE_SSL:-false}
+      # --- How your proxy reaches Clinch (see docs/forward-auth.md) ---
+      # Clinch only answers to CLINCH_HOST and its subdomains unless told otherwise.
+      # The Docker service name, if the proxy calls Clinch as e.g. http://clinch:3000.
+      CLINCH_DOCKER_SERVICE_NAME: ${CLINCH_DOCKER_SERVICE_NAME:-}
+      # "true" if the proxy calls Clinch at a private IP (another compose project or host).
+      CLINCH_ALLOW_INTERNAL_IPS: ${CLINCH_ALLOW_INTERNAL_IPS:-false}
+      # "true" to allow localhost, for development only.
+      CLINCH_ALLOW_LOCALHOST: ${CLINCH_ALLOW_LOCALHOST:-false}
+
+      # Clinch always behaves as an HTTPS site (secure cookies, HSTS) and expects
+      # the reverse proxy in front of it to terminate TLS.
     volumes:
       # SQLite database, Active Storage files, and generated keys.
       - ./storage:/rails/storage
