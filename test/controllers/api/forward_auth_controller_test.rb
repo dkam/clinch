@@ -559,16 +559,58 @@ module Api
     end
 
     test "should track failed attempts and eventually rate limit" do
-      Rails.application.config.forward_auth_cache
-
-      # Make 50 failed requests (no session = unauthorized)
       50.times do
-        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com", "Authorization" => "Bearer invalid_token"}
       end
 
       # The 51st should be rate limited
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com", "Authorization" => "Bearer invalid_token"}
+      assert_response 429
+    end
+
+    test "should lift the rate limit once the window has passed" do
+      50.times do
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com", "Authorization" => "Bearer invalid_token"}
+      end
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 429
+
+      travel 61.seconds do
+        sign_in_as(@user)
+        get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+        assert_response 200
+      end
+    end
+
+    test "should not count a request with no session as a failure" do
+      cache = Rails.application.config.forward_auth_cache
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 302
+
+      assert_nil cache.read("fa_fail:127.0.0.1"), "Being signed out is not a failed attempt"
+    end
+
+    test "should not count a forbidden request as a failure" do
+      cache = Rails.application.config.forward_auth_cache
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "unknown.example.com"}
+      assert_response 403
+
+      assert_nil cache.read("fa_fail:127.0.0.1"), "A signed-in user without access has not presented a bad credential"
+    end
+
+    test "should count a session that no longer exists as a failure" do
+      cache = Rails.application.config.forward_auth_cache
+      sign_in_as(@user)
+      Current.session.destroy!
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+      assert_response 302
+      assert_equal "Invalid session", response.headers["x-auth-reason"]
+
+      assert_equal 1, cache.read("fa_fail:127.0.0.1")
     end
 
     test "should not track successful requests as failures" do
@@ -634,18 +676,6 @@ module Api
       @rule.application_groups.destroy_all
 
       assert_nil cache.read("fa_apps"), "Cache should be busted after removing group from application"
-    end
-
-    test "should persist first failure in rate limit cache" do
-      cache = Rails.application.config.forward_auth_cache
-
-      assert_nil cache.read("fa_fail:127.0.0.1"), "Counter should not exist before any failures"
-
-      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
-      assert_response 302
-
-      count = cache.read("fa_fail:127.0.0.1")
-      assert_equal 1, count, "First failure should write counter with value 1"
     end
 
     test "should count bearer token failures toward rate limit" do

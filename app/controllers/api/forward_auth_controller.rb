@@ -4,7 +4,6 @@ module Api
     skip_before_action :verify_authenticity_token
 
     before_action :check_forward_auth_rate_limit
-    after_action :track_failed_forward_auth_attempt
 
     # GET /api/verify
     # Called by reverse proxies (Traefik, Caddy, nginx) to verify authentication and authorization.
@@ -21,11 +20,13 @@ module Api
 
       session = Session.includes(user: :groups).find_by(id: session_id)
       unless session
+        count_failed_attempt
         return render_unauthorized("Invalid session")
       end
 
       if session.expired?
         session.destroy
+        count_failed_attempt
         return render_unauthorized("Session expired")
       end
 
@@ -103,15 +104,16 @@ module Api
       head :too_many_requests
     end
 
-    def track_failed_forward_auth_attempt
-      return unless response.status.in?([401, 403, 302])
-      return if response.status == 302 && !response.headers["X-Auth-Reason"]
-
-      cache_key = "fa_fail:#{request.remote_ip}"
-      # Use increment to avoid resetting TTL on each failure (fixed window)
-      unless fa_cache.increment(cache_key)
-        fa_cache.write(cache_key, 1, expires_in: RATE_LIMIT_WINDOW)
-      end
+    # Only a credential that was presented and didn't check out counts: an
+    # unknown or expired API key, or a session cookie whose session is gone.
+    # Being signed out, or signed in without access to this app, is ordinary
+    # traffic; counting it let one household's browsers lock that address out
+    # of every app.
+    #
+    # increment sets the expiry only when it creates the counter, so the window
+    # is fixed from the first failure rather than extended by each one.
+    def count_failed_attempt
+      fa_cache.increment("fa_fail:#{request.remote_ip}", 1, expires_in: RATE_LIMIT_WINDOW)
     end
 
     def authenticate_bearer_token
@@ -119,10 +121,16 @@ module Api
       return nil unless auth_header&.start_with?("Bearer ")
 
       token = auth_header.delete_prefix("Bearer ").strip
-      return render_bearer_error("Missing token") if token.blank?
+      if token.blank?
+        count_failed_attempt
+        return render_bearer_error("Missing token")
+      end
 
       api_key = ApiKey.find_by_token(token)
-      return render_bearer_error("Invalid or expired API key") unless api_key&.active?
+      unless api_key&.active?
+        count_failed_attempt
+        return render_bearer_error("Invalid or expired API key")
+      end
 
       user = api_key.user
       return render_bearer_error("User account is not active") unless user.active?
