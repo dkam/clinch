@@ -211,8 +211,9 @@ class Application < ApplicationRecord
     pattern = domain_pattern.gsub(".", '\.')
     pattern = pattern.gsub("*", "[^.]*")
 
+    # A forwarded host can carry a port (app.example.com:8443); patterns don't.
     regex = Regexp.new("^#{pattern}$", Regexp::IGNORECASE)
-    regex.match?(domain.downcase)
+    regex.match?(domain.downcase.sub(/:\d+\z/, ""))
   end
 
   # Policy determination based on user status (for ForwardAuth)

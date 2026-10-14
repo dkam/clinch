@@ -1,6 +1,7 @@
 require "active_support/core_ext/integer/time"
 
 require_relative "../../lib/clinch/internal_host_patterns"
+require_relative "../../lib/clinch/host_patterns"
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -120,17 +121,14 @@ Rails.application.configure do
       registrable_domain = domain.domain  # Gets "example.com" from "auth.example.com"
 
       if registrable_domain.present?
-        # Allow the registrable domain and any subdomain of it. The pattern is
-        # anchored (\A...\z) with a mandatory dot before the domain so that
-        # look-alikes such as "evil-example.com" or "example.com.attacker.com"
-        # do NOT match — an unanchored /.*example\.com/ would allow both.
-        allowed_hosts << /\A(.+\.)?#{Regexp.escape(registrable_domain)}\z/i
+        # Allow the registrable domain and any subdomain of it.
+        allowed_hosts << Clinch::HostPatterns.domain_and_subdomains(registrable_domain)
       end
     rescue PublicSuffix::DomainInvalid
       # Fallback to simple domain extraction if PublicSuffix fails
       Rails.logger.warn "Could not parse domain '#{host_domain}' with PublicSuffix, using fallback"
       base_domain = host_domain.split(".").last(2).join(".")
-      allowed_hosts << /\A(.+\.)?#{Regexp.escape(base_domain)}\z/i
+      allowed_hosts << Clinch::HostPatterns.domain_and_subdomains(base_domain)
     end
   end
 

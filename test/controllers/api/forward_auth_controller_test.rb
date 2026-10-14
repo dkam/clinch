@@ -113,6 +113,14 @@ module Api
       assert_response 200
     end
 
+    test "should match a forwarded host that carries a port" do
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com:8443"}
+
+      assert_response 200
+    end
+
     test "should match exact domains correctly" do
       grant_everyone_access Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
       sign_in_as(@user)
