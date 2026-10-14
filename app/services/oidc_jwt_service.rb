@@ -37,11 +37,11 @@ class OidcJwtService
 
       # Profile claims (only if 'profile' scope requested)
       if requested_scopes.include?("profile")
-        if should_include_claim?("preferred_username", id_token_claims)
-          payload[:preferred_username] = user.username.presence || user.email_address
+        if should_include_claim?("preferred_username", id_token_claims) && user.claim_preferred_username
+          payload[:preferred_username] = user.claim_preferred_username
         end
-        if should_include_claim?("name", id_token_claims)
-          payload[:name] = user.name.presence || user.email_address
+        if should_include_claim?("name", id_token_claims) && user.claim_name
+          payload[:name] = user.claim_name
         end
         if should_include_claim?("updated_at", id_token_claims)
           payload[:updated_at] = user.updated_at.to_i

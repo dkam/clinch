@@ -1087,11 +1087,11 @@ class OidcController < ApplicationController
     # Per OIDC Core spec section 5.4, include available profile claims
     # Only include claims we have data for - omit unknown claims rather than returning null
     if requested_scopes.include?("profile")
-      if should_include_claim_for_userinfo?("preferred_username", userinfo_claims)
-        claims[:preferred_username] = user.username.presence || user.email_address
+      if should_include_claim_for_userinfo?("preferred_username", userinfo_claims) && user.claim_preferred_username
+        claims[:preferred_username] = user.claim_preferred_username
       end
-      if should_include_claim_for_userinfo?("name", userinfo_claims)
-        claims[:name] = user.name.presence || user.email_address
+      if should_include_claim_for_userinfo?("name", userinfo_claims) && user.claim_name
+        claims[:name] = user.claim_name
       end
       if should_include_claim_for_userinfo?("updated_at", userinfo_claims)
         claims[:updated_at] = user.updated_at.to_i

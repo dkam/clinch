@@ -102,8 +102,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     refute_equal @user.id.to_s, decoded["sub"], "sub is never the numeric user id (CLN-05)"
     assert_equal @user.email_address, decoded["email"], "Should have correct email"
     assert_equal true, decoded["email_verified"], "Should have email verified"
-    assert_equal @user.email_address, decoded["preferred_username"], "Should have preferred username"
-    assert_equal @user.email_address, decoded["name"], "Should have name"
+    assert_not decoded.key?("preferred_username"), "No username, so no preferred_username (never the email address)"
+    assert_not decoded.key?("name"), "No name or username, so no name (never the email address)"
     assert_equal @service.issuer_url, decoded["iss"], "Should have correct issuer"
     assert_in_delta Time.current.to_i + 3600, decoded["exp"], 5, "Should have correct expiration"
   end
@@ -611,6 +611,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "profile scope should include profile claims" do
+    @user.update!(username: "alice", name: "Alice Example")
     token = @service.generate_id_token(@user, @application, scopes: "openid profile")
 
     decoded = JWT.decode(token, nil, false).first
@@ -618,8 +619,8 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
     # Profile claims should be present
     assert_includes decoded.keys, "name", "Should include name with profile scope"
     assert_includes decoded.keys, "preferred_username", "Should include preferred_username with profile scope"
-    assert_equal @user.email_address, decoded["name"]
-    assert_equal @user.email_address, decoded["preferred_username"]
+    assert_equal "Alice Example", decoded["name"]
+    assert_equal "alice", decoded["preferred_username"]
 
     # Email claims should NOT be present
     refute_includes decoded.keys, "email", "Should not include email without email scope"
@@ -656,6 +657,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "multiple scopes should include all requested claims" do
+    @user.update!(username: "alice", name: "Alice Example")
     admin_group = groups(:admin_group)
     @user.groups << admin_group unless @user.groups.include?(admin_group)
 
@@ -672,6 +674,7 @@ class OidcJwtServiceTest < ActiveSupport::TestCase
   end
 
   test "scope parameter should handle space-separated string" do
+    @user.update!(username: "alice", name: "Alice Example")
     token = @service.generate_id_token(@user, @application, scopes: "openid email profile")
 
     decoded = JWT.decode(token, nil, false).first

@@ -77,6 +77,18 @@ class User < ApplicationRecord
   # What relying parties are told as `email_verified`. Relying parties link and
   # provision accounts on it, so it is only true once the address has followed
   # a link sent to it (an invitation or a confirmation).
+  # The profile scope's name claims. Neither falls back to the email address:
+  # that handed it to clients granted profile but not email, and an @ in
+  # preferred_username is refused by apps such as Gitea. With nothing to say,
+  # the claim is left out.
+  def claim_preferred_username
+    username.presence
+  end
+
+  def claim_name
+    name.presence || username.presence
+  end
+
   def email_verified?
     email_verified_at.present?
   end

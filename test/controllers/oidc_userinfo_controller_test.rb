@@ -103,6 +103,7 @@ class OidcUserinfoControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "userinfo with profile scope includes profile claims" do
+    @user.update!(username: "alice", name: "Alice Example")
     access_token = create_access_token("openid profile")
 
     get "/oauth/userinfo", headers: {
@@ -148,6 +149,7 @@ class OidcUserinfoControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "userinfo with multiple scopes includes all requested claims" do
+    @user.update!(username: "alice", name: "Alice Example")
     access_token = create_access_token("openid email profile groups")
 
     get "/oauth/userinfo", headers: {

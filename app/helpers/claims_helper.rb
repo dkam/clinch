@@ -7,9 +7,9 @@ module ClaimsHelper
       # Standard OIDC claims
       email: user.email_address,
       email_verified: user.email_verified?,
-      preferred_username: user.username.presence || user.email_address,
-      name: user.name.presence || user.email_address
-    }
+      preferred_username: user.claim_preferred_username,
+      name: user.claim_name
+    }.compact
 
     # Add groups
     if user.groups.any?
