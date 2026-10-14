@@ -235,6 +235,16 @@ class OidcController < ApplicationController
       end
     end
 
+    # The token endpoint refuses such a code anyway (see validate_pkce), but
+    # only after the user has signed in and consented, and only where the
+    # client's logs might show it. Saying so here is the first-run failure a
+    # client's developer can actually see.
+    if code_challenge.blank? && @application.requires_pkce?
+      client_type = @application.public_client? ? "public clients" : "this application"
+      redirect_authorize_error(redirect_uri, "invalid_request", description: "PKCE is required for #{client_type}: send a code_challenge using S256", state: state)
+      return
+    end
+
     # Normalize requested scopes to the set we support. Needed here so claims
     # validation below can check claim→scope coverage against what will actually
     # be granted.

@@ -551,6 +551,24 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     assert_match(/PKCE is required/, error["error_description"])
   end
 
+  test "authorization endpoint refuses a request without PKCE when the app requires it" do
+    assert @application.requires_pkce?
+    OidcUserConsent.record!(user: @user, application: @application, scopes: %w[openid])
+
+    get "/oauth/authorize", params: authorize_params_without_pkce
+
+    assert_pkce_required_redirect
+    assert_equal 0, OidcAuthorizationCode.where(application: @application).count
+  end
+
+  test "authorization endpoint refuses a request without PKCE before anyone signs in" do
+    sign_out
+
+    get "/oauth/authorize", params: authorize_params_without_pkce
+
+    assert_pkce_required_redirect
+  end
+
   # ====================
   # AUTH_TIME CLAIM TESTS
   # ====================
@@ -719,5 +737,28 @@ class OidcPkceControllerTest < ActionDispatch::IntegrationTest
     # Verify at_hash matches the access token hash
     expected_hash = Base64.urlsafe_encode64(Digest::SHA256.digest(access_token)[0..15], padding: false)
     assert_equal expected_hash, decoded["at_hash"], "at_hash should match SHA-256 hash of access token"
+  end
+
+  private
+
+  def authorize_params_without_pkce
+    {
+      client_id: @application.client_id,
+      redirect_uri: "http://localhost:4000/callback",
+      response_type: "code",
+      scope: "openid",
+      state: "st"
+    }
+  end
+
+  def assert_pkce_required_redirect
+    assert_response :redirect
+    location = URI(response.location)
+    assert_equal "localhost", location.host
+    query = Rack::Utils.parse_query(location.query)
+    assert_equal "invalid_request", query["error"]
+    assert_match(/PKCE is required/, query["error_description"])
+    assert_nil query["code"]
+    assert_equal "st", query["state"]
   end
 end
