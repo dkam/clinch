@@ -271,12 +271,22 @@ class OidcController < ApplicationController
       return
     end
 
+    # OIDC Core §3.1.2.1: prompt is a space-delimited list. With "none" no page
+    # may be shown: each point below that would show one answers with an error
+    # instead, so a silent-renew client hears back rather than hanging.
+    prompts = params[:prompt].to_s.split
+    silent = prompts.include?("none")
+    if silent && prompts.size > 1
+      redirect_authorize_error(redirect_uri, "invalid_request", description: "prompt=none cannot be combined with other values", state: state)
+      return
+    end
+
     # Check if user is authenticated
     unless authenticated?
       # Handle prompt=none - no UI allowed, return error immediately
       # Per OIDC Core spec §3.1.2.6: If prompt=none and user not authenticated,
       # return login_required error without showing any UI
-      if params[:prompt] == "none"
+      if silent
         redirect_authorize_error(redirect_uri, "login_required", state: state)
         return
       end
@@ -302,7 +312,7 @@ class OidcController < ApplicationController
     # Handle prompt=login - force re-authentication
     # Per OIDC Core spec §3.1.2.1: If prompt=login, the Authorization Server MUST prompt
     # the End-User for reauthentication, even if the End-User is currently authenticated
-    if params[:prompt] == "login"
+    if prompts.include?("login")
       # Destroy current session to force re-authentication
       # This creates a fresh authentication event with a new auth_time
       Current.session&.destroy!
@@ -311,9 +321,9 @@ class OidcController < ApplicationController
       cookies.delete(:session_id)
 
       # Store the current URL (which contains all OAuth params) for redirect after login
-      # Remove prompt=login to prevent infinite re-auth loop
-      return_url = remove_query_param(request.url, "prompt")
-      session[:return_to_after_authenticating] = return_url
+      # Drop "login" from prompt to prevent an infinite re-auth loop, keeping
+      # anything else it asked for (such as consent)
+      session[:return_to_after_authenticating] = url_without_prompt(request.url, "login")
 
       redirect_to signin_path, alert: "Please sign in to continue"
       return
@@ -328,6 +338,12 @@ class OidcController < ApplicationController
       session_age_seconds = Time.current.to_i - Current.session.created_at.to_i
 
       if session_age_seconds >= max_age_seconds
+        # A silent check can't sign anyone in, so it mustn't sign them out
+        if silent
+          redirect_authorize_error(redirect_uri, "login_required", state: state)
+          return
+        end
+
         # Session is too old - require re-authentication
         # Store the return URL in Rails session, then destroy the Session record
 
@@ -351,6 +367,11 @@ class OidcController < ApplicationController
 
     # Check if user is allowed to access this application
     unless @application.user_allowed?(user)
+      if silent
+        redirect_authorize_error(redirect_uri, "access_denied", description: "You do not have permission to access this application", state: state)
+        return
+      end
+
       render plain: "You do not have permission to access this application", status: :forbidden
       return
     end
@@ -395,7 +416,7 @@ class OidcController < ApplicationController
 
     # Check if user has already granted consent for these scopes
     existing_consent = user.has_oidc_consent?(@application, requested_scopes)
-    if existing_consent && claims_match_consent?(parsed_claims, existing_consent)
+    if existing_consent && claims_match_consent?(parsed_claims, existing_consent) && !prompts.include?("consent")
       # User has already consented, generate authorization code directly
       auth_code = OidcAuthorizationCode.create!(
         application: @application,
@@ -416,6 +437,11 @@ class OidcController < ApplicationController
       redirect_uri = "#{redirect_uri}?code=#{auth_code.plaintext_code}"
       redirect_uri += "&state=#{CGI.escape(state)}" if state.present?
       redirect_to redirect_uri, allow_other_host: true
+      return
+    end
+
+    if silent
+      redirect_authorize_error(redirect_uri, "consent_required", state: state)
       return
     end
 
@@ -1680,6 +1706,19 @@ class OidcController < ApplicationController
 
   # Check if a claim should be included in UserInfo response
   # Returns true if no claims filtering or claim is explicitly requested
+  # The URL to return to once a prompt value has been satisfied, without that
+  # value, so it isn't asked for again, but keeping any others.
+  def url_without_prompt(url, satisfied)
+    remaining = params[:prompt].to_s.split - [satisfied]
+    url = remove_query_param(url, "prompt")
+    return url if remaining.empty?
+
+    uri = URI.parse(url)
+    query = Rack::Utils.parse_query(uri.query).merge("prompt" => remaining.join(" "))
+    uri.query = Rack::Utils.build_query(query)
+    uri.to_s
+  end
+
   def should_include_claim_for_userinfo?(claim_name, userinfo_claims)
     return true if userinfo_claims.empty?
     userinfo_claims.key?(claim_name)
