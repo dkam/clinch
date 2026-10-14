@@ -88,6 +88,8 @@ export default class extends Controller {
         }
       });
 
+      if (await this.redirectedToReauthenticate(challengeResponse)) return;
+
       if (!challengeResponse.ok) {
         throw new Error("Failed to get registration challenge");
       }
@@ -122,6 +124,8 @@ export default class extends Controller {
           nickname: nickname
         })
       });
+
+      if (await this.redirectedToReauthenticate(credentialResponse)) return;
 
       const result = await credentialResponse.json();
 
@@ -270,6 +274,18 @@ export default class extends Controller {
       this.errorTarget.style.display = "none";
       this.errorTarget.textContent = "";
     }
+  }
+
+  // Adding a passkey needs a recently confirmed password. The server answers
+  // 403 with somewhere to confirm it, and sends the user back here afterwards.
+  async redirectedToReauthenticate(response) {
+    if (response.status !== 403) return false;
+
+    const body = await response.clone().json().catch(() => ({}));
+    if (!body.reauthenticate_url) return false;
+
+    window.location.href = body.reauthenticate_url;
+    return true;
   }
 
   getCSRFToken() {

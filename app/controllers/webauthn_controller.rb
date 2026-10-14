@@ -1,6 +1,7 @@
 class WebauthnController < ApplicationController
   before_action :set_webauthn_credential, only: [:destroy]
   skip_before_action :require_authentication, only: [:check]
+  require_recent_authentication only: [:new, :challenge, :create]
 
   # Rate limit check endpoint to prevent enumeration attacks
   rate_limit to: 10, within: 1.minute, only: [:check], with: -> {

@@ -8,6 +8,12 @@ module SessionTestHelper
     end
   end
 
+  # sign_in_as sets only the session cookie. Adding an API key, passkey or
+  # authenticator also needs a recently confirmed password (RecentAuthentication).
+  def confirm_password(password = "password")
+    post "/reauthenticate", params: {password: password}
+  end
+
   def sign_out
     Current.session&.destroy!
     cookies.delete("session_id")

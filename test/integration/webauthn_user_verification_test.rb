@@ -14,6 +14,7 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
   test "registration options require user verification" do
     user = users(:alice)
     sign_in_as(user)
+    confirm_password
 
     post "/webauthn/challenge"
     assert_response :success
@@ -32,6 +33,7 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
     # verifying a real UV-less attestation can.
     user = users(:alice)
     sign_in_as(user)
+    confirm_password
 
     post "/webauthn/challenge"
     assert_response :success
@@ -50,6 +52,7 @@ class WebauthnUserVerificationTest < ActionDispatch::IntegrationTest
   test "registration accepts an attestation that did perform user verification" do
     user = users(:alice)
     sign_in_as(user)
+    confirm_password
 
     post "/webauthn/challenge"
     assert_response :success

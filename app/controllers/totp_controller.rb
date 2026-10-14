@@ -4,6 +4,8 @@ class TotpController < ApplicationController
   # See Authentication#begin_required_totp_setup.
   allow_unauthenticated_access only: [:new, :create, :backup_codes, :complete_setup]
   before_action :set_user
+  # Someone enrolling because 2FA is required has just entered their password.
+  require_recent_authentication only: [:new, :create], unless: -> { @forced_setup }
   before_action :redirect_if_totp_enabled, only: [:new, :create]
   before_action :require_totp_enabled, only: [:backup_codes, :verify_password, :destroy]
 

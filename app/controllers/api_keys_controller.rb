@@ -1,5 +1,6 @@
 class ApiKeysController < ApplicationController
   before_action :set_api_key, only: :destroy
+  require_recent_authentication only: [:new, :create]
 
   def index
     @api_keys = Current.session.user.api_keys.includes(:application).order(created_at: :desc)

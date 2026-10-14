@@ -116,6 +116,7 @@ module Authentication
     user.update!(last_sign_in_at: Time.current)
     user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip, acr: acr, remember_me: remember_me).tap do |session|
       Current.session = session
+      note_authentication
 
       # Extract root domain for cross-subdomain cookies (required for forward auth)
       domain = extract_root_domain(request.host)

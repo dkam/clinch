@@ -85,6 +85,9 @@ Rails.application.routes.draw do
   post "/totp/complete_setup", to: "totp#complete_setup", as: :complete_totp_setup
 
   # WebAuthn (Passkeys) routes
+  get "/reauthenticate", to: "reauthentications#new", as: :new_reauthentication
+  post "/reauthenticate", to: "reauthentications#create", as: :reauthentication
+
   get "/webauthn/new", to: "webauthn#new", as: :new_webauthn
   post "/webauthn/challenge", to: "webauthn#challenge"
   post "/webauthn/create", to: "webauthn#create"
