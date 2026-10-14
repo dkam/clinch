@@ -1,6 +1,29 @@
 require "test_helper"
 
 class InvitationFlowTest < ActionDispatch::IntegrationTest
+  test "invited user required to use TOTP enrols before getting a session" do
+    user = User.create!(
+      email_address: "totp_invitee@example.com",
+      password: "temppassword",
+      status: :pending_invitation,
+      totp_required: true
+    )
+    token = user.generate_token_for(:invitation_login)
+
+    assert_no_difference -> { user.sessions.count } do
+      put invitation_path(token), params: {
+        password: "SecurePassword123!",
+        password_confirmation: "SecurePassword123!"
+      }
+    end
+
+    assert_redirected_to new_totp_path
+    assert_equal "active", user.reload.status
+
+    get new_totp_path
+    assert_response :success
+  end
+
   test "complete invitation flow from email to account setup" do
     # Create a pending user (simulating admin invitation)
     user = User.create!(

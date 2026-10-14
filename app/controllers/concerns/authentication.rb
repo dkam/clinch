@@ -163,6 +163,31 @@ module Authentication
     cookies.delete(:session_id)
   end
 
+  # An administrator can require 2FA of someone who hasn't enrolled yet. They
+  # can't have a session until they have, so the step that proved their
+  # password (signing in, or accepting an invitation) leaves their id here
+  # instead, and TotpController lets them enrol on the strength of it. Longer
+  # than a half-finished sign-in: they may have to install an authenticator.
+  PENDING_TOTP_SETUP_TTL = 15.minutes
+
+  def begin_required_totp_setup(user)
+    session[:pending_totp_setup_user_id] = user.id
+    session[:pending_totp_setup_started_at] = Time.current.to_i
+  end
+
+  def pending_totp_setup_user
+    started_at = session[:pending_totp_setup_started_at]
+    return unless started_at.present? && Time.at(started_at.to_i) > PENDING_TOTP_SETUP_TTL.ago
+
+    User.active.find_by(id: session[:pending_totp_setup_user_id])
+  end
+
+  def clear_pending_totp_setup
+    session.delete(:pending_totp_setup_user_id)
+    session.delete(:pending_totp_setup_started_at)
+    session.delete(:totp_setup_completed_by)
+  end
+
   # Extract root domain for cross-subdomain cookies in SSO forward_auth system.
   #
   # PURPOSE: Enables a single authentication session to work across multiple subdomains

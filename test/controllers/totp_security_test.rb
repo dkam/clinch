@@ -224,6 +224,72 @@ class TotpSecurityTest < ActionDispatch::IntegrationTest
     user.destroy
   end
 
+  test "user with TOTP required can enrol and is then signed in" do
+    user = User.create!(email_address: "totp_enrol_test@example.com", password: "password123")
+    user.update!(totp_required: true, totp_secret: nil)
+
+    post signin_path, params: {email_address: "totp_enrol_test@example.com", password: "password123"}
+    assert_redirected_to new_totp_path
+    assert_not cookies[:session_id].present?, "No session until the second factor is enrolled"
+
+    get new_totp_path
+    assert_response :success
+
+    post totp_path, params: {code: ROTP::TOTP.new(session[:pending_totp_secret]).now}
+    assert_redirected_to backup_codes_totp_path
+    assert user.reload.totp_enabled?
+
+    get backup_codes_totp_path
+    assert_response :success
+    assert_select "button", "Continue to Sign In"
+
+    assert_difference -> { user.sessions.count }, 1 do
+      post complete_totp_setup_path
+    end
+    assert_equal "2", user.sessions.last.acr
+
+    get profile_path
+    assert_response :success
+
+    user.destroy
+  end
+
+  test "required TOTP setup expires like any half-finished sign-in" do
+    user = User.create!(email_address: "totp_enrol_expiry@example.com", password: "password123")
+    user.update!(totp_required: true, totp_secret: nil)
+
+    post signin_path, params: {email_address: "totp_enrol_expiry@example.com", password: "password123"}
+    assert_redirected_to new_totp_path
+
+    travel 16.minutes do
+      get new_totp_path
+      assert_redirected_to signin_path
+    end
+
+    user.destroy
+  end
+
+  test "required TOTP setup opens enrolment and nothing else" do
+    user = User.create!(email_address: "totp_enrol_scope@example.com", password: "password123")
+    user.update!(totp_required: true, totp_secret: nil)
+
+    post signin_path, params: {email_address: "totp_enrol_scope@example.com", password: "password123"}
+    assert_redirected_to new_totp_path
+
+    get regenerate_backup_codes_totp_path
+    assert_redirected_to signin_path
+
+    get profile_path
+    assert_redirected_to signin_path
+
+    # Skipping straight to the end without enrolling signs nobody in.
+    assert_no_difference -> { user.sessions.count } do
+      post complete_totp_setup_path
+    end
+
+    user.destroy
+  end
+
   # ====================
   # TOTP CODE FORMAT VALIDATION TESTS
   # ====================

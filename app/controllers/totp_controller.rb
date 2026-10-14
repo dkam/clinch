@@ -1,12 +1,15 @@
 class TotpController < ApplicationController
+  # Enrolment, and the backup codes that follow it, are also open to someone
+  # whose administrator requires 2FA before they may have a session at all.
+  # See Authentication#begin_required_totp_setup.
+  allow_unauthenticated_access only: [:new, :create, :backup_codes, :complete_setup]
   before_action :set_user
   before_action :redirect_if_totp_enabled, only: [:new, :create]
   before_action :require_totp_enabled, only: [:backup_codes, :verify_password, :destroy]
 
   # GET /totp/new - Show QR code to set up TOTP
   def new
-    # Check if user is being forced to set up TOTP by admin
-    @totp_setup_required = session[:pending_totp_setup_user_id].present?
+    @totp_setup_required = @forced_setup
 
     # Generate TOTP secret but don't save yet
     @totp_secret = ROTP::Base32.random
@@ -45,11 +48,9 @@ class TotpController < ApplicationController
       # Store plain codes temporarily in session for display after redirect
       session[:temp_backup_codes] = plain_codes
 
-      # Check if this was a required setup from login
-      if session[:pending_totp_setup_user_id].present?
-        session.delete(:pending_totp_setup_user_id)
-        # Mark that user should be auto-signed in after viewing backup codes
-        session[:auto_signin_after_forced_totp] = true
+      if @forced_setup
+        # complete_setup signs them in only if they enrolled in this browser.
+        session[:totp_setup_completed_by] = @user.id
         redirect_to backup_codes_totp_path, notice: "Two-factor authentication has been enabled successfully! Save these backup codes, then you'll be signed in."
       else
         # Regular setup from profile
@@ -67,11 +68,7 @@ class TotpController < ApplicationController
       @backup_codes = session[:temp_backup_codes]
       session.delete(:temp_backup_codes) # Clear after use
 
-      # Check if this was a forced TOTP setup during login
-      @auto_signin_pending = session[:auto_signin_after_forced_totp].present?
-      if @auto_signin_pending
-        session.delete(:auto_signin_after_forced_totp)
-      end
+      @auto_signin_pending = @forced_setup
     else
       # This will be shown after password verification for existing users
       # Since we can't display BCrypt hashes, redirect to regenerate
@@ -113,13 +110,16 @@ class TotpController < ApplicationController
 
   # POST /totp/complete_setup - Complete forced TOTP setup and sign in
   def complete_setup
-    # Sign in the user after they've saved their backup codes
-    # This is only used when admin requires TOTP and user just set it up during login
+    return redirect_to(profile_path) unless @forced_setup
+    return redirect_to(new_totp_path) unless session[:totp_setup_completed_by] == @user.id
+
+    clear_pending_totp_setup
     if session[:totp_redirect_url].present?
       session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
     end
 
-    start_new_session_for @user
+    # Password, then a code from the authenticator they just enrolled.
+    start_new_session_for @user, acr: "2"
     redirect_to after_authentication_url, notice: "Two-factor authentication enabled. Signed in successfully.", allow_other_host: true
   end
 
@@ -144,12 +144,24 @@ class TotpController < ApplicationController
   private
 
   def set_user
-    @user = Current.session.user
+    if resume_session
+      @user = Current.session.user
+    elsif (@user = pending_totp_setup_user)
+      @forced_setup = true
+    else
+      request_authentication
+    end
   end
 
   def redirect_if_totp_enabled
-    # Allow setup if admin requires it, even if already enabled (for regeneration)
-    if @user.totp_enabled? && !session[:pending_totp_setup_user_id].present?
+    return unless @user.totp_enabled?
+
+    if @forced_setup
+      # Someone enrolled since the password step, so this is an ordinary
+      # sign-in now, and must not replace the authenticator they set up.
+      clear_pending_totp_setup
+      redirect_to signin_path, alert: "Two-factor authentication is already set up. Please sign in."
+    else
       redirect_to profile_path, alert: "Two-factor authentication is already enabled."
     end
   end

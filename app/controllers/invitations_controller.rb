@@ -23,8 +23,14 @@ class InvitationsController < ApplicationController
       # The invitation link went to this address, so following it proves it.
       @user.update!(status: :active, email_verified_at: Time.current)
       @user.sessions.destroy_all
-      start_new_session_for @user
-      redirect_to root_path, notice: "Your account has been set up successfully. Welcome!"
+
+      if @user.totp_required? && !@user.totp_enabled?
+        begin_required_totp_setup(@user)
+        redirect_to new_totp_path, alert: "Your administrator requires two-factor authentication. Please set it up now to continue."
+      else
+        start_new_session_for @user
+        redirect_to root_path, notice: "Your account has been set up successfully. Welcome!"
+      end
     else
       redirect_to invitation_path(params[:token]), alert: "Passwords did not match."
     end

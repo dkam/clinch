@@ -81,8 +81,7 @@ class SessionsController < ApplicationController
     if user.totp_required? || user.totp_enabled?
       # If TOTP is required but not yet set up, redirect to setup
       if user.totp_required? && !user.totp_enabled?
-        # Store user ID in session for TOTP setup
-        session[:pending_totp_setup_user_id] = user.id
+        begin_required_totp_setup(user)
         # Preserve the redirect URL through TOTP setup
         if params[:rd].present?
           validated_url = validate_redirect_url(params[:rd])
