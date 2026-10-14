@@ -141,11 +141,23 @@ end
 
 **Successful Authentication (200 OK):**
 ```
-Remote-User: user@example.com
-Remote-Email: user@example.com
-Remote-Groups: media-managers,users
-Remote-Admin: false
+X-Remote-User: user@example.com
+X-Remote-Email: user@example.com
+X-Remote-Groups: media-managers,users
+X-Remote-Admin: false
 ```
+
+These are the default names; an application can rename or turn off any of
+them in its header configuration. Whatever they are called, tell the proxy to
+copy every one your app reads (`copy_headers` in Caddy, `authResponseHeaders`
+in Traefik). The proxy then replaces any copy the client sent with Clinch's,
+or drops it when Clinch sends none. A header the proxy isn't told about passes
+through from the client untouched, so an app that trusts it can be fed a
+forged identity.
+
+**Caddy 2.10.0 to 2.11.1:** `copy_headers` doesn't drop a client's copy of a
+header when Clinch's response leaves it out, as it does `X-Remote-Username` for
+users without a username (CVE-2026-30851). Use Caddy 2.11.2 or later.
 
 **Redirect to Login (302 Found):**
 ```
@@ -164,7 +176,7 @@ clinch.example.com {
 metube.example.com {
     forward_auth clinch:3000 {
         uri /api/verify?rd=https://clinch.example.com
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     handle {
@@ -251,7 +263,7 @@ services:
 metube.aapamilne.com {
     forward_auth clinch:3000 {  # Docker service name (preferred)
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     handle {
@@ -282,7 +294,7 @@ CLINCH_DOCKER_SERVICE_NAME=
 metube.aapamilne.com {
     forward_auth 192.168.2.246:3000 {  # IP access across composes
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 }
 ```
@@ -306,7 +318,7 @@ environment:
 app.example.com {
     forward_auth auth.example.com:3000 {  # External domain only
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 }
 ```

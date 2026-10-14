@@ -1,5 +1,11 @@
 # Caddy ForwardAuth Configuration Examples
 
+Use Caddy 2.11.2 or later. From 2.10.0 to 2.11.1, `copy_headers` passes on a
+client's own copy of a header whenever Clinch's response leaves it out
+(CVE-2026-30851), so a user could hand an app a forged identity. List every
+header the app reads in `copy_headers`; any you leave out pass through from
+the client untouched. See [Response Headers](forward-auth.md#response-headers).
+
 ## Basic Configuration (Protecting MEtube)
 
 Assuming Caddy and Clinch are running in a docker compose, and we can use the sevice name `clinch`. Exterally, assume you're connecting to https://clinch.example.com/ 
@@ -16,7 +22,7 @@ metube.yourdomain.com {
     forward_auth clinch:3000 {
         uri /api/verify
         # uri /api/verify?rd=https://clinch.yourdomain.com # Shouldn't need this, the rd value should be sent via headers
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     # If authentication succeeds, proxy to MEtube
@@ -53,7 +59,7 @@ clinch.yourdomain.com {
 metube.yourdomain.com {
     forward_auth clinch:3000 {
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     handle {
@@ -68,7 +74,7 @@ metube.yourdomain.com {
 sonarr.yourdomain.com {
     forward_auth clinch:3000 {
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     handle {
@@ -83,7 +89,7 @@ sonarr.yourdomain.com {
 grafana.yourdomain.com {
     forward_auth clinch:3000 {
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     handle {
@@ -123,7 +129,7 @@ Some applications can use the forwarded headers for user identification:
 metube.yourdomain.com {
     forward_auth clinch:3000 {
         uri /api/verify
-        copy_headers Remote-User Remote-Email Remote-Groups Remote-Admin
+        copy_headers X-Remote-User X-Remote-Email X-Remote-Name X-Remote-Username X-Remote-Groups X-Remote-Admin
     }
 
     # The headers are automatically passed to the backend
@@ -137,10 +143,10 @@ metube.yourdomain.com {
 ```
 
 Now MEtube receives these headers with every request:
-- `Remote-User`: user@example.com
-- `Remote-Email`: user@example.com
-- `Remote-Groups`: media-managers,users
-- `Remote-Admin`: false
+- `X-Remote-User`: user@example.com
+- `X-Remote-Email`: user@example.com
+- `X-Remote-Groups`: media-managers,users
+- `X-Remote-Admin`: false
 
 ## Troubleshooting
 

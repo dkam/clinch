@@ -30,7 +30,7 @@ services:
       # ForwardAuth middleware
       - "traefik.http.routers.metube.middlewares=metube-auth"
       - "traefik.http.middlewares.metube-auth.forwardauth.address=http://clinch:3000/api/verify?app=metube"
-      - "traefik.http.middlewares.metube-auth.forwardauth.authResponseHeaders=Remote-User,Remote-Email,Remote-Groups,Remote-Admin"
+      - "traefik.http.middlewares.metube-auth.forwardauth.authResponseHeaders=X-Remote-User,X-Remote-Email,X-Remote-Name,X-Remote-Username,X-Remote-Groups,X-Remote-Admin"
 
       - "traefik.http.services.metube.loadbalancer.server.port=8081"
 ```
@@ -79,20 +79,24 @@ http:
       forwardAuth:
         address: "http://clinch:3000/api/verify?app=metube"
         authResponseHeaders:
-          - "Remote-User"
-          - "Remote-Email"
-          - "Remote-Groups"
-          - "Remote-Admin"
+          - "X-Remote-User"
+          - "X-Remote-Email"
+          - "X-Remote-Name"
+          - "X-Remote-Username"
+          - "X-Remote-Groups"
+          - "X-Remote-Admin"
 
     # Clinch ForwardAuth for Sonarr (with group restriction)
     sonarr-auth:
       forwardAuth:
         address: "http://clinch:3000/api/verify?app=sonarr"
         authResponseHeaders:
-          - "Remote-User"
-          - "Remote-Email"
-          - "Remote-Groups"
-          - "Remote-Admin"
+          - "X-Remote-User"
+          - "X-Remote-Email"
+          - "X-Remote-Name"
+          - "X-Remote-Username"
+          - "X-Remote-Groups"
+          - "X-Remote-Admin"
 
   routers:
     clinch:
@@ -208,10 +212,12 @@ http:
       forwardAuth:
         address: "http://clinch:3000/api/verify?app=metube"
         authResponseHeaders:
-          - "Remote-User"
-          - "Remote-Email"
-          - "Remote-Groups"
-          - "Remote-Admin"
+          - "X-Remote-User"
+          - "X-Remote-Email"
+          - "X-Remote-Name"
+          - "X-Remote-Username"
+          - "X-Remote-Groups"
+          - "X-Remote-Admin"
 
   routers:
     metube:
@@ -237,10 +243,12 @@ spec:
   forwardAuth:
     address: http://clinch.clinch-system.svc.cluster.local:3000/api/verify?app=metube
     authResponseHeaders:
-      - Remote-User
-      - Remote-Email
-      - Remote-Groups
-      - Remote-Admin
+      - X-Remote-User
+      - X-Remote-Email
+      - X-Remote-Name
+      - X-Remote-Username
+      - X-Remote-Groups
+      - X-Remote-Admin
 
 ---
 

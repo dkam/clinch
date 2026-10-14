@@ -151,7 +151,7 @@ Client apps (Audiobookshelf, Kavita, Proxmox, Grafana, etc.) redirect to Clinch 
 Works with reverse proxies (Caddy, Traefik, Nginx):
 1. Proxy sends every request to `/api/verify`
 2. Response handling:
-   - **200 OK** → Proxy injects headers (`Remote-User`, `Remote-Groups`, `Remote-Email`) and forwards to app
+   - **200 OK** → Proxy injects headers (`X-Remote-User`, `X-Remote-Groups`, `X-Remote-Email`) and forwards to app
    - **Any other status** → Proxy returns that response directly to client (typically 302 redirect to login page)
 
 **Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
@@ -308,7 +308,7 @@ Configure different claims for different applications on a per-user basis:
 2. Reverse proxy sends request to Clinch at `/api/verify`
 3. Clinch checks for valid session cookie
 4. If valid session and user allowed:
-   - Return 200 with `Remote-User`, `Remote-Groups`, `Remote-Email` headers
+   - Return 200 with `X-Remote-User`, `X-Remote-Groups`, `X-Remote-Email` headers
    - Proxy forwards request to app with injected headers
 5. If no session or not allowed:
    - Return 401/403
