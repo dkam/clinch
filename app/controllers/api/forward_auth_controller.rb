@@ -44,9 +44,7 @@ module Api
       app = nil
 
       if forwarded_host.present?
-        apps = cached_forward_auth_apps
-
-        app = apps.find { |a| a.matches_domain?(forwarded_host) }
+        app = forward_auth_app_for(forwarded_host)
 
         if app
           unless app.active?
@@ -91,6 +89,16 @@ module Api
       fa_cache.fetch("fa_apps", expires_in: 5.minutes) do
         Application.forward_auth.includes(:allowed_groups).to_a
       end
+    end
+
+    # The most specific rule governs a host, so a stricter grafana.example.com
+    # isn't overridden by a broader *.example.com that happens to be older.
+    # Every matching pattern spans the whole host, so the one that spells out
+    # more of it literally leaves less to wildcards. Ties go to the oldest.
+    def forward_auth_app_for(host)
+      cached_forward_auth_apps
+        .select { |app| app.matches_domain?(host) }
+        .min_by { |app| [-app.domain_pattern.delete("*").length, app.id] }
     end
 
     RATE_LIMIT_MAX_FAILURES = 50
@@ -146,7 +154,10 @@ module Api
         return render_bearer_error("No host header present")
       end
 
-      unless app.matches_domain?(forwarded_host)
+      # The key's app has to be the rule that governs this host, not merely one
+      # that matches it: a key for *.example.com must not open a stricter
+      # grafana.example.com.
+      unless forward_auth_app_for(forwarded_host) == app
         return render_bearer_error("API key not valid for this domain")
       end
 

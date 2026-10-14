@@ -90,6 +90,26 @@ module Api
     # Deactivation revokes the user's API keys (see
     # User#revoke_sessions_when_deactivated), so the key is rejected as revoked
     # before the active-user check is reached.
+    test "bearer token for a wildcard app is refused where a more specific app applies" do
+      wildcard = grant_everyone_access(Application.create!(name: "Everything", slug: "everything", app_type: "forward_auth", domain_pattern: "*.example.com", active: true))
+      grafana = Application.create!(name: "Grafana", slug: "grafana", app_type: "forward_auth", domain_pattern: "grafana.example.com", active: true)
+      grafana.allowed_groups << groups(:admin_group)
+      token = @user.api_keys.create!(name: "Everything Key", application: wildcard).plaintext_token
+
+      get "/api/verify", headers: {
+        "Authorization" => "Bearer #{token}",
+        "X-Forwarded-Host" => "grafana.example.com"
+      }
+      assert_response :unauthorized
+      assert_equal "API key not valid for this domain", JSON.parse(response.body)["error"]
+
+      get "/api/verify", headers: {
+        "Authorization" => "Bearer #{token}",
+        "X-Forwarded-Host" => "wiki.example.com"
+      }
+      assert_response :ok
+    end
+
     test "bearer token for inactive user returns 401 JSON" do
       @user.update!(status: :disabled)
 

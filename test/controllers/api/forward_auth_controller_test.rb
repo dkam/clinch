@@ -100,6 +100,19 @@ module Api
       assert_equal "No authentication rule configured for this domain", response.headers["x-auth-reason"]
     end
 
+    test "should apply a specific rule over an older wildcard that also matches" do
+      grant_everyone_access Application.create!(name: "Everything", slug: "everything", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
+      grafana = Application.create!(name: "Grafana", slug: "grafana", app_type: "forward_auth", domain_pattern: "grafana.example.com", active: true)
+      grafana.allowed_groups << @group
+      sign_in_as(@user)  # Not in @group
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "grafana.example.com"}
+      assert_response 403
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "wiki.example.com"}
+      assert_response 200
+    end
+
     test "should match exact domains correctly" do
       grant_everyone_access Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
       sign_in_as(@user)
