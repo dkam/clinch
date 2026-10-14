@@ -1082,20 +1082,20 @@ class OidcController < ApplicationController
 
     # Merge custom claims from groups
     user.groups.each do |group|
-      claims.merge!(group.parsed_custom_claims)
+      claims.merge!(OidcClaims.without_reserved(group.parsed_custom_claims))
     end
 
     # Merge custom claims from user (overrides group claims)
-    claims.merge!(user.parsed_custom_claims)
+    claims.merge!(OidcClaims.without_reserved(user.parsed_custom_claims))
 
     # Merge app-specific custom claims (highest priority)
     application = access_token.application
-    claims.merge!(application.custom_claims_for_user(user))
+    claims.merge!(OidcClaims.without_reserved(application.custom_claims_for_user(user)))
 
     # Filter custom claims based on claims parameter
     # If claims parameter is present, only include requested custom claims
     if userinfo_claims.any?
-      claims = filter_custom_claims_for_userinfo(claims, userinfo_claims)
+      claims = OidcClaims.filter_custom(claims, userinfo_claims)
     end
 
     # Security: Don't cache user data responses
@@ -1683,43 +1683,5 @@ class OidcController < ApplicationController
   def should_include_claim_for_userinfo?(claim_name, userinfo_claims)
     return true if userinfo_claims.empty?
     userinfo_claims.key?(claim_name)
-  end
-
-  # Filter custom claims for UserInfo endpoint
-  # Removes claims not explicitly requested
-  # Applies value/values filtering if specified
-  def filter_custom_claims_for_userinfo(claims, userinfo_claims)
-    # Get all claim names that are NOT standard OIDC claims
-    standard_claims = %w[sub email email_verified name preferred_username updated_at groups]
-    custom_claim_names = claims.keys.map(&:to_s) - standard_claims
-
-    filtered = claims.dup
-
-    custom_claim_names.each do |claim_name|
-      claim_sym = claim_name.to_sym
-
-      unless userinfo_claims.key?(claim_name) || userinfo_claims.key?(claim_sym)
-        filtered.delete(claim_sym)
-        next
-      end
-
-      # Apply value/values filtering if specified
-      claim_spec = userinfo_claims[claim_name] || userinfo_claims[claim_sym]
-      next unless claim_spec.is_a?(Hash)
-
-      current_value = filtered[claim_sym]
-
-      # Check value constraint
-      if claim_spec["value"].present?
-        filtered.delete(claim_sym) unless current_value == claim_spec["value"]
-      end
-
-      # Check values constraint (array of allowed values)
-      if claim_spec["values"].is_a?(Array)
-        filtered.delete(claim_sym) unless claim_spec["values"].include?(current_value)
-      end
-    end
-
-    filtered
   end
 end

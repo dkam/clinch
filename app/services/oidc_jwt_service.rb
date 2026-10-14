@@ -1,8 +1,6 @@
 class OidcJwtService
   extend ClaimsMerger
 
-  RESERVED_CLAIMS = %i[iss sub aud exp iat nbf jti nonce azp].freeze
-
   class << self
     # Generate an ID token (JWT) for the user
     def generate_id_token(user, application, consent: nil, nonce: nil, access_token: nil, auth_time: nil, acr: nil, scopes: "openid", claims_requests: {})
@@ -87,19 +85,19 @@ class OidcJwtService
       # Note: Custom claims from groups are always merged (not scope-dependent)
       # Reserved claims are stripped as defense-in-depth (also validated at model layer)
       user.groups.each do |group|
-        payload = deep_merge_claims(payload, group.parsed_custom_claims.except(*RESERVED_CLAIMS))
+        payload = deep_merge_claims(payload, OidcClaims.without_reserved(group.parsed_custom_claims))
       end
 
       # Merge custom claims from user (arrays are combined, other values override)
-      payload = deep_merge_claims(payload, user.parsed_custom_claims.except(*RESERVED_CLAIMS))
+      payload = deep_merge_claims(payload, OidcClaims.without_reserved(user.parsed_custom_claims))
 
       # Merge app-specific custom claims (highest priority, arrays are combined)
-      payload = deep_merge_claims(payload, application.custom_claims_for_user(user).except(*RESERVED_CLAIMS))
+      payload = deep_merge_claims(payload, OidcClaims.without_reserved(application.custom_claims_for_user(user)))
 
       # Filter custom claims based on claims parameter
       # If claims parameter is present, only include requested custom claims
       if id_token_claims.any?
-        payload = filter_custom_claims(payload, id_token_claims)
+        payload = OidcClaims.filter_custom(payload, id_token_claims)
       end
 
       JWT.encode(payload, private_key, "RS256", {kid: key_id, typ: "JWT"})
@@ -291,45 +289,6 @@ class OidcJwtService
 
       # If it's a hash, the claim is requested (filtering happens later)
       true if claim_spec.is_a?(Hash)
-    end
-
-    # Filter custom claims based on claims parameter
-    # Removes claims not explicitly requested
-    # Applies value/values filtering if specified
-    def filter_custom_claims(payload, id_token_claims)
-      # Get all claim names that are NOT standard OIDC claims
-      standard_claims = %w[iss sub aud exp iat nbf jti nonce azp at_hash auth_time acr email email_verified name preferred_username updated_at groups]
-      custom_claim_names = payload.keys.map(&:to_s) - standard_claims
-
-      filtered = payload.dup
-
-      custom_claim_names.each do |claim_name|
-        claim_sym = claim_name.to_sym
-
-        # If claim is not requested, remove it
-        unless id_token_claims.key?(claim_name) || id_token_claims.key?(claim_sym)
-          filtered.delete(claim_sym)
-          next
-        end
-
-        # Apply value/values filtering if specified
-        claim_spec = id_token_claims[claim_name] || id_token_claims[claim_sym]
-        next unless claim_spec.is_a?(Hash)
-
-        current_value = filtered[claim_sym]
-
-        # Check value constraint
-        if claim_spec["value"].present?
-          filtered.delete(claim_sym) unless current_value == claim_spec["value"]
-        end
-
-        # Check values constraint (array of allowed values)
-        if claim_spec["values"].is_a?(Array)
-          filtered.delete(claim_sym) unless claim_spec["values"].include?(current_value)
-        end
-      end
-
-      filtered
     end
   end
 end

@@ -38,13 +38,6 @@ class User < ApplicationRecord
   normalizes :unconfirmed_email, with: ->(e) { e.strip.downcase }
   normalizes :username, with: ->(u) { u.strip.downcase if u.present? }
 
-  # Reserved OIDC claim names that should not be overridden
-  RESERVED_CLAIMS = %w[
-    iss sub aud exp iat nbf jti nonce azp
-    email email_verified preferred_username name
-    groups
-  ].freeze
-
   validates :email_address, presence: true, uniqueness: {case_sensitive: false},
     format: {with: URI::MailTo::EMAIL_REGEXP}
   validates :username, uniqueness: {case_sensitive: false}, allow_nil: true,
@@ -356,7 +349,7 @@ class User < ApplicationRecord
   def no_reserved_claim_names
     return if custom_claims.blank?
 
-    reserved_used = parsed_custom_claims.keys.map(&:to_s) & RESERVED_CLAIMS
+    reserved_used = parsed_custom_claims.keys.map(&:to_s) & OidcClaims::RESERVED
     if reserved_used.any?
       errors.add(:custom_claims, "cannot override reserved OIDC claims: #{reserved_used.join(", ")}")
     end
