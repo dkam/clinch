@@ -1585,17 +1585,7 @@ class OidcController < ApplicationController
     # Find all active OIDC consents for this user
     consents = OidcUserConsent.where(user: user).includes(:application)
 
-    consents.each do |consent|
-      # Skip if application doesn't support backchannel logout
-      next unless consent.application.supports_backchannel_logout?
-
-      # Enqueue background job to send logout notification
-      BackchannelLogoutJob.perform_later(
-        user_id: user.id,
-        application_id: consent.application.id,
-        consent_sid: consent.sid
-      )
-    end
+    consents.each(&:send_backchannel_logout)
 
     Rails.logger.info "OidcController: Enqueued #{consents.count} backchannel logout notifications for user #{user.id}"
   rescue => e

@@ -316,6 +316,7 @@ class User < ApplicationRecord
     now = Time.current
 
     sessions.destroy_all
+    oidc_user_consents.includes(:application).each(&:send_backchannel_logout)
     oidc_access_tokens.where(revoked_at: nil).update_all(revoked_at: now)
     oidc_refresh_tokens.where(revoked_at: nil).update_all(revoked_at: now)
     api_keys.where(revoked_at: nil).update_all(revoked_at: now)

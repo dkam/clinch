@@ -11,7 +11,8 @@ class OidcUserConsent < ApplicationRecord
   # Withdrawing consent has to cut off what it authorised — every path that
   # deletes a consent (one app, all apps, account cleanup) goes through here.
   # The subject is pinned first so the next consent keeps it (CLN-05).
-  before_destroy :pin_subject, :revoke_tokens
+  # It also ends the user's session at the RP, through backchannel logout.
+  before_destroy :pin_subject, :revoke_tokens, :send_backchannel_logout
 
   # Upsert a user's consent for an application. The record is unique on
   # user+application and shared across the browser and device flows.
@@ -74,6 +75,20 @@ class OidcUserConsent < ApplicationRecord
   # consent (backchannel logout), the subject outlives it.
   def subject
     OidcPairwiseSubject.for(user, application)
+  end
+
+  # Back-Channel Logout: tell the RP that this user's session there is over.
+  # The job is handed everything it needs, because the consent, the user or
+  # the application may be gone by the time it runs.
+  def send_backchannel_logout
+    return unless application.supports_backchannel_logout?
+
+    BackchannelLogoutJob.perform_later(
+      client_id: application.client_id,
+      logout_uri: application.backchannel_logout_uri,
+      subject: subject,
+      sid: sid
+    )
   end
 
   # Find consent by SID

@@ -16,16 +16,6 @@ class ActiveSessionsController < ApplicationController
       return
     end
 
-    # Send backchannel logout notification before revoking consent
-    if application.supports_backchannel_logout?
-      BackchannelLogoutJob.perform_later(
-        user_id: @user.id,
-        application_id: application.id,
-        consent_sid: consent.sid
-      )
-      Rails.logger.info "ActiveSessionsController: Enqueued backchannel logout for #{application.name}"
-    end
-
     # Revoke all tokens for this user-application pair
     now = Time.current
     revoked_access_tokens = OidcAccessToken.where(application: application, user: @user, revoked_at: nil)
@@ -35,7 +25,7 @@ class ActiveSessionsController < ApplicationController
 
     Rails.logger.info "ActiveSessionsController: Revoked #{revoked_access_tokens} access tokens and #{revoked_refresh_tokens} refresh tokens for #{application.name}"
 
-    # Revoke the consent
+    # Revoke the consent, which also sends the backchannel logout
     consent.destroy
     redirect_to active_sessions_path, notice: "Successfully revoked access to #{application.name}."
   end
@@ -51,15 +41,7 @@ class ActiveSessionsController < ApplicationController
       return
     end
 
-    # Send backchannel logout notification
-    if application.supports_backchannel_logout?
-      BackchannelLogoutJob.perform_later(
-        user_id: @user.id,
-        application_id: application.id,
-        consent_sid: consent.sid
-      )
-      Rails.logger.info "ActiveSessionsController: Enqueued backchannel logout for #{application.name}"
-    end
+    consent.send_backchannel_logout
 
     # Revoke all tokens for this user-application pair
     now = Time.current
@@ -80,18 +62,7 @@ class ActiveSessionsController < ApplicationController
     count = consents.count
 
     if count > 0
-      # Send backchannel logout notifications before revoking consents
-      consents.each do |consent|
-        next unless consent.application.supports_backchannel_logout?
-
-        BackchannelLogoutJob.perform_later(
-          user_id: @user.id,
-          application_id: consent.application.id,
-          consent_sid: consent.sid
-        )
-      end
-      Rails.logger.info "ActiveSessionsController: Enqueued #{count} backchannel logout notifications"
-
+      # Destroying each consent also sends its backchannel logout
       @user.oidc_user_consents.destroy_all
       redirect_to active_sessions_path, notice: "Successfully revoked access to #{count} applications."
     else

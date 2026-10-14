@@ -75,10 +75,16 @@ class PairwiseSubjectStabilityTest < ActionDispatch::IntegrationTest
     consent = OidcUserConsent.record!(user: @alice, application: @app, scopes: %w[openid])
     refute_equal @legacy_sub, consent.sid
 
-    logout = JWT.decode(OidcJwtService.generate_logout_token(@alice, @app, consent), nil, false).first
+    @app.update!(backchannel_logout_uri: "https://kavita.example.com/backchannel-logout")
 
-    assert_equal @legacy_sub, logout["sub"]
-    assert_equal consent.sid, logout["sid"]
+    assert_enqueued_with(job: BackchannelLogoutJob, args: [{
+      client_id: @app.client_id,
+      logout_uri: "https://kavita.example.com/backchannel-logout",
+      subject: @legacy_sub,
+      sid: consent.sid
+    }]) do
+      consent.send_backchannel_logout
+    end
   end
 
   # A token is only as good as the grant behind it. Destroying a consent revokes
