@@ -408,9 +408,7 @@ class OidcController < ApplicationController
       )
 
       # Redirect back to client with authorization code (plaintext)
-      redirect_uri = "#{redirect_uri}?code=#{auth_code.plaintext_code}"
-      redirect_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to redirect_uri, allow_other_host: true
+      redirect_to uri_with_query(redirect_uri, code: auth_code.plaintext_code, state: state), allow_other_host: true
       return
     end
 
@@ -434,9 +432,7 @@ class OidcController < ApplicationController
       )
 
       # Redirect back to client with authorization code (plaintext)
-      redirect_uri = "#{redirect_uri}?code=#{auth_code.plaintext_code}"
-      redirect_uri += "&state=#{CGI.escape(state)}" if state.present?
-      redirect_to redirect_uri, allow_other_host: true
+      redirect_to uri_with_query(redirect_uri, code: auth_code.plaintext_code, state: state), allow_other_host: true
       return
     end
 
@@ -533,8 +529,7 @@ class OidcController < ApplicationController
     session.delete(:oauth_params)
 
     # Redirect back to client with authorization code (plaintext)
-    redirect_uri = "#{oauth_params["redirect_uri"]}?code=#{auth_code.plaintext_code}"
-    redirect_uri += "&state=#{CGI.escape(oauth_params["state"])}" if oauth_params["state"]
+    redirect_uri = uri_with_query(oauth_params["redirect_uri"], code: auth_code.plaintext_code, state: oauth_params["state"])
 
     redirect_to redirect_uri, allow_other_host: true
   end
@@ -1333,9 +1328,7 @@ class OidcController < ApplicationController
       validated_uri = validate_logout_redirect_uri(post_logout_redirect_uri)
 
       if validated_uri
-        redirect_uri = validated_uri
-        redirect_uri += "?state=#{CGI.escape(state)}" if state.present?
-        redirect_to redirect_uri, allow_other_host: true
+        redirect_to uri_with_query(validated_uri, state: state), allow_other_host: true
       else
         # Invalid redirect URI - log warning and go to default
         Rails.logger.warn "OIDC Logout: Invalid post_logout_redirect_uri attempted: #{post_logout_redirect_uri}"
@@ -1413,11 +1406,14 @@ class OidcController < ApplicationController
   end
 
   def redirect_authorize_error(redirect_uri, error, description: nil, state: nil)
-    query = {error: error}
-    query[:error_description] = description if description
-    query[:state] = state if state.present?
-    separator = redirect_uri.include?("?") ? "&" : "?"
-    redirect_to "#{redirect_uri}#{separator}#{query.to_query}", allow_other_host: true
+    redirect_to uri_with_query(redirect_uri, error: error, error_description: description, state: state), allow_other_host: true
+  end
+
+  # Adds parameters to a client's redirect URI, keeping any query it was
+  # registered with (RFC 6749 §3.1.2). Blank values are left out.
+  def uri_with_query(uri, params)
+    separator = uri.include?("?") ? "&" : "?"
+    "#{uri}#{separator}#{params.compact_blank.to_query}"
   end
 
   # Look up @application from client_id. RFC 6749 §4.1.2.1 requires that an
