@@ -89,7 +89,9 @@ module Admin
         update_params[:custom_claims] = {}
       end
 
-      if @group.update(update_params)
+      saved = Group.transaction do
+        next false unless @group.update(update_params)
+
         # Handle user assignments
         if params[:group][:user_ids].present?
           user_ids = params[:group][:user_ids].reject(&:blank?)
@@ -106,6 +108,10 @@ module Admin
           @group.applications = []
         end
 
+        keeps_own_admin_access? || raise(ActiveRecord::Rollback)
+      end
+
+      if saved
         notify_admin_access_delta(admin_before, fallback_group: @group)
         log_admin_action("updated group", @group, admin: @group.admin?)
         redirect_to admin_group_path(@group), notice: "Group updated successfully."
@@ -118,7 +124,17 @@ module Admin
 
     def destroy
       admin_before = admin_user_ids
-      @group.destroy
+      destroyed = Group.transaction do
+        next false unless @group.destroy
+
+        keeps_own_admin_access? || raise(ActiveRecord::Rollback)
+      end
+
+      unless destroyed
+        redirect_to admin_group_path(@group), alert: "Group not deleted: #{@group.errors.full_messages.to_sentence}"
+        return
+      end
+
       notify_admin_access_delta(admin_before, fallback_group: @group)
       log_admin_action("deleted group", @group, admin: @group.admin?)
       redirect_to admin_groups_path, notice: "Group deleted successfully."
@@ -128,6 +144,17 @@ module Admin
 
     def set_group
       @group = Group.find(params[:id])
+    end
+
+    # Whether, with a change applied but not yet committed, the admin making it
+    # is still an administrator. Taking away your own access, by unticking
+    # admin, leaving the group or deleting it, is refused: you couldn't undo it,
+    # and if you were the only administrator, nobody could.
+    def keeps_own_admin_access?
+      return true if admin_user_ids.include?(Current.session.user.id)
+
+      @group.errors.add(:base, "you cannot remove your own administrator access")
+      false
     end
 
     def group_params

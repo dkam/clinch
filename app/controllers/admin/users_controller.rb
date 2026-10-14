@@ -46,6 +46,16 @@ module Admin
       update_params = user_params
       old_email = @user.email_address
 
+      # Disabling yourself would end your own session, and if you were the only
+      # administrator, nobody could undo it without a Rails console.
+      if @user == Current.session.user && update_params.key?(:status) && update_params[:status] != "active"
+        @user.errors.add(:base, "you cannot disable your own account")
+        @applications = Application.active.order(:name)
+        @available_groups = Group.order(:name)
+        render :edit, status: :unprocessable_entity
+        return
+      end
+
       # Only update password if provided
       update_params.delete(:password) if update_params[:password].blank?
 

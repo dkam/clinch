@@ -8,6 +8,45 @@ module Admin
       @group = groups(:one)
     end
 
+    test "cannot untick admin on the group that makes you an administrator" do
+      admins = groups(:admin_group)
+
+      patch admin_group_path(admins), params: {group: {name: admins.name, admin: "0", user_ids: admins.user_ids}}
+
+      assert_response :unprocessable_entity
+      assert admins.reload.admin?
+      assert @admin.reload.admin?
+    end
+
+    test "cannot remove yourself from the group that makes you an administrator" do
+      admins = groups(:admin_group)
+
+      patch admin_group_path(admins), params: {group: {name: admins.name, admin: "1", user_ids: admins.user_ids - [@admin.id]}}
+
+      assert_response :unprocessable_entity
+      assert @admin.reload.admin?
+    end
+
+    test "can remove someone else from the administrators group" do
+      admins = groups(:admin_group)
+      alice = users(:alice)
+
+      patch admin_group_path(admins), params: {group: {name: admins.name, admin: "1", user_ids: admins.user_ids - [alice.id]}}
+
+      assert_redirected_to admin_group_path(admins)
+      assert_not alice.reload.admin?
+    end
+
+    test "cannot delete the group that makes you an administrator" do
+      Group.create!(name: "other admins", admin: true)
+      admins = groups(:admin_group)
+
+      delete admin_group_path(admins)
+
+      assert Group.exists?(admins.id)
+      assert @admin.reload.admin?
+    end
+
     test "update assigns applications from application_ids" do
       app_a = applications(:kavita_app)
       app_b = applications(:another_app)

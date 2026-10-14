@@ -45,6 +45,13 @@ module Admin
       assert sole_admin.reload.admin?, "should still be admin"
     end
 
+    test "cannot disable your own account" do
+      patch admin_user_path(@admin), params: {user: {email_address: @admin.email_address, status: "disabled"}}
+
+      assert_response :unprocessable_entity
+      assert @admin.reload.active?
+    end
+
     test "create with auto_assign=0 skips the auto-assign callback" do
       post admin_users_path, params: {
         user: {email_address: "restricted@example.com"},
