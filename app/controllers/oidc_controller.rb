@@ -274,13 +274,6 @@ class OidcController < ApplicationController
       end
     end
 
-    # Check if application is active (now we can safely redirect with error)
-    unless @application.active?
-      Rails.logger.error "OAuth: Application is not active: #{@application.name}"
-      redirect_authorize_error(redirect_uri, "unauthorized_client", description: "Application is not active", state: state)
-      return
-    end
-
     # OIDC Core §3.1.2.1: prompt is a space-delimited list. With "none" no page
     # may be shown: each point below that would show one answers with an error
     # instead, so a silent-renew client hears back rather than hanging.
@@ -496,11 +489,12 @@ class OidcController < ApplicationController
     client_id = oauth_params["client_id"]
     application = Application.find_by(client_id: client_id, app_type: "oidc")
 
-    # Check if application is active (redirect with OAuth error)
+    # Deactivated since the consent page was shown: refuse on-page, without
+    # redirecting to its redirect URI (see set_application)
     unless application&.active?
       Rails.logger.error "OAuth: Application is not active: #{application&.name || client_id}"
       session.delete(:oauth_params)
-      redirect_authorize_error(oauth_params["redirect_uri"], "unauthorized_client", description: "Application is not active", state: oauth_params["state"])
+      render plain: "Invalid request: Application is not active", status: :bad_request
       return
     end
 
@@ -1437,6 +1431,15 @@ class OidcController < ApplicationController
     end
 
     @application = Application.find_by(client_id: client_id, app_type: "oidc")
+
+    # An inactive client gets no redirects either, even error ones: otherwise
+    # a deactivated client still bounces browsers from this origin to its
+    # redirect URI. Shown on-page, like an unknown client.
+    if @application && !@application.active?
+      Rails.logger.error "OAuth: Application is not active: #{@application.name}"
+      render plain: "Invalid request: Application is not active", status: :bad_request
+      return
+    end
     return if @application
 
     Rails.logger.error "OAuth: Invalid request - application not found for client_id: #{client_id}"
