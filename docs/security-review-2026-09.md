@@ -123,10 +123,16 @@ client's redirect URIs only, or `client_id`'s, and the state is appended with
 `&` when the URI has a query. Tests: `test/controllers/oidc_logout_test.rb` and
 the inverted CLN-06 probe.
 
-CLN-10 is unchanged (the cookie still has to reach every app for ForwardAuth),
-but since 14 October 2026 a replayed cookie can no longer add a passkey, API
-key or authenticator: those need a password entered in the last fifteen
-minutes, recorded in the host-only Rails session (`RecentAuthentication`).
+CLN-10 is partly addressed. The cookie still has to reach every app for
+ForwardAuth, but since 14 October 2026 a replayed cookie can no longer add a
+passkey, API key or authenticator: those need a password entered in the last
+fifteen minutes, recorded in the host-only Rails session
+(`RecentAuthentication`). Since 16 October 2026 sign-out, `prompt=login` and an
+expired `max_age` delete the cookie on the domain it was set for, so the
+browser drops it (`delete_session_cookie`; test:
+`test/integration/session_cookie_domain_test.rb`). Still to do: the README
+note on the trust boundary, and a separate short-lived forward-auth cookie so
+the IdP session never leaves the auth host.
 
 Still open: CLN-02 step 3, CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
 
@@ -442,7 +448,7 @@ cost without the benefit.
 
 **Fix.** Document the trust boundary prominently in the README. Set the domain
 attribute only when at least one forward-auth application exists. Pass the same
-domain to every `cookies.delete`. Longer term, consider a separate short-lived
+domain to every `cookies.delete` (done 16 October 2026). Longer term, consider a separate short-lived
 forward-auth cookie so the primary IdP session never leaves the auth host.
 
 **Where.**

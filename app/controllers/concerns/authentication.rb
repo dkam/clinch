@@ -161,7 +161,14 @@ module Authentication
 
   def terminate_session
     Current.session.destroy
-    cookies.delete(:session_id)
+    delete_session_cookie
+  end
+
+  # The cookie was set on the parent domain, and a browser only removes a
+  # cookie when the deletion names the same domain.
+  def delete_session_cookie
+    domain = extract_root_domain(request.host)
+    domain.present? ? cookies.delete(:session_id, domain: domain) : cookies.delete(:session_id)
   end
 
   # An administrator can require 2FA of someone who hasn't enrolled yet. They

@@ -321,7 +321,7 @@ class OidcController < ApplicationController
       Current.session&.destroy!
 
       # Clear the session cookie so the user is truly logged out
-      cookies.delete(:session_id)
+      delete_session_cookie
 
       # Store the current URL (which contains all OAuth params) for redirect after login
       # Drop "login" from prompt to prevent an infinite re-auth loop, keeping
@@ -357,7 +357,7 @@ class OidcController < ApplicationController
 
         # Destroy the Session record and clear its cookie
         Current.session&.destroy!
-        cookies.delete(:session_id)
+        delete_session_cookie
         Current.session = nil
 
         redirect_to signin_path, alert: "Please sign in to continue"
