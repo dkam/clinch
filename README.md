@@ -435,6 +435,7 @@ CLINCH_FROM_EMAIL=noreply@yourdomain.com
 SMTP_ADDRESS=smtp.example.com
 SMTP_PORT=587
 SMTP_DOMAIN=yourdomain.com
+# Leave the username out for a relay that takes mail without a login
 SMTP_USERNAME=your-smtp-username
 SMTP_PASSWORD=your-smtp-password
 
