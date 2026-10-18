@@ -43,10 +43,10 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 | **Lower priority** | | | | |
 | [CLN-13](#cln-13-actioncable-connection-skips-session-expiry-and-active-user-checks) | ActionCable connection skips session expiry and active-user checks | Low | **Fixed** | Small |
 | [CLN-14](#cln-14-userinfo-accepts-the-access-token-in-the-query-string) | Userinfo accepts the access token in the query string | Low | **Fixed** | Small |
-| [CLN-15](#cln-15-encryption-still-accepts-unencrypted-totp-secrets) | Encryption still accepts unencrypted TOTP secrets | Low | By inspection | Small |
+| [CLN-15](#cln-15-encryption-still-accepts-unencrypted-totp-secrets) | Encryption still accepts unencrypted TOTP secrets | Low | **Fixed** | Small |
 | [CLN-16](#cln-16-single-signing-key-with-no-rotation-path) | Single signing key with no rotation path | Low | By inspection | Medium |
 | [CLN-17](#cln-17-forward-auth-api-key-path-allows-requests-with-no-host-header) | Forward-auth API key path allows requests with no host header | Low | **Fixed** | Small |
-| [CLN-18](#cln-18-backchannel-logout-leaves-a-dns-rebinding-window-after-the-ssrf-check) | Backchannel logout leaves a DNS rebinding window after the SSRF check | Low | By inspection | Small |
+| [CLN-18](#cln-18-backchannel-logout-leaves-a-dns-rebinding-window-after-the-ssrf-check) | Backchannel logout leaves a DNS rebinding window after the SSRF check | Low | **Fixed** | Small |
 | [CLN-19](#cln-19-webauthn-failures-echo-library-exception-text-to-the-client) | WebAuthn failures echo library exception text to the client | Low | **Fixed** | Small |
 | [CLN-20](#cln-20-no-audit-log-of-admin-actions-or-authentication-events) | No audit log of admin actions or authentication events | Low | Gap | Large |
 
@@ -151,11 +151,25 @@ fifteen minutes, recorded in the host-only Rails session
 (`RecentAuthentication`). Since 16 October 2026 sign-out, `prompt=login` and an
 expired `max_age` delete the cookie on the domain it was set for, so the
 browser drops it (`delete_session_cookie`; test:
-`test/integration/session_cookie_domain_test.rb`). Still to do: the README
-note on the trust boundary, and a separate short-lived forward-auth cookie so
-the IdP session never leaves the auth host.
+`test/integration/session_cookie_domain_test.rb`). Since 18 October 2026 the
+cookie goes on the parent domain only while a ForwardAuth app exists, so an
+OIDC-only install keeps it on the auth host; sign-in and sign-out clear it under
+both scopes, in case it predates a change. The README now states the trust
+boundary. Still to do: a separate short-lived forward-auth cookie so the IdP
+session never leaves the auth host.
 
-Still open: CLN-10, CLN-15, CLN-16, CLN-18, CLN-20.
+CLN-15, 18 October 2026: `EncryptPlaintextTotpSecrets` encrypts any TOTP secret
+left in plaintext (and clears empty ones), and `support_unencrypted_data` is
+off, so plaintext in an encrypted column now raises. Tests:
+`test/models/user_totp_encryption_test.rb`.
+
+CLN-18, 18 October 2026: the backchannel job dials the address it checked
+(`Net::HTTP` `ipaddr:`), with the hostname kept for the Host header, SNI and
+certificate check, and refuses a hostname that does not resolve. It also keeps
+the logout URI's query string, which the spec allows. Tests:
+`test/jobs/backchannel_logout_job_test.rb`.
+
+Still open: CLN-10 (the separate forward-auth cookie), CLN-16, CLN-20.
 
 ---
 
@@ -462,9 +476,10 @@ and Authelia makes the same choice, but it deserves to be an explicit,
 documented decision rather than an implicit one. OIDC-only deployments pay the
 cost without the benefit.
 
-**Fix.** Document the trust boundary prominently in the README. Set the domain
-attribute only when at least one forward-auth application exists. Pass the same
-domain to every `cookies.delete` (done 16 October 2026). Longer term, consider a separate short-lived
+**Fix.** Document the trust boundary prominently in the README (done 18 October
+2026). Set the domain attribute only when at least one forward-auth application
+exists (done 18 October 2026). Pass the same domain to every `cookies.delete`
+(done 16 October 2026). Longer term, consider a separate short-lived
 forward-auth cookie so the primary IdP session never leaves the auth host.
 
 **Where.**
@@ -549,7 +564,7 @@ Authorization header and form body only.
 
 **Severity:** Low · **Effort:** Small
 
-- [ ] Fixed
+- [x] Fixed — 18 October 2026. See Progress.
 
 `support_unencrypted_data` is true, so a plaintext value in the TOTP secret
 column is read silently instead of raising. Run the re-encryption task on
@@ -565,7 +580,8 @@ existing rows and set the flag to false.
 
 - [ ] Fixed
 
-JWKS publishes one RSA key derived from `OIDC_PRIVATE_KEY`. Rotating it
+JWKS publishes one RSA key, from `OIDC_PRIVATE_KEY` or, since 0.19.0, generated
+and kept in `oidc_signing_keys`. Rotating it
 invalidates every outstanding ID token and logout token at once, so in practice
 it will never be rotated. Accept an optional previous key, publish both in JWKS
 during the overlap, sign with the current one, and document the procedure in
@@ -594,7 +610,7 @@ both paths.
 
 **Severity:** Low · **Effort:** Small
 
-- [ ] Fixed
+- [x] Fixed — 18 October 2026. See Progress.
 
 The job resolves the host to confirm it is public, then hands the hostname to
 Net::HTTP, which resolves it again. A hostile DNS server can answer differently
@@ -679,9 +695,10 @@ format-validated, and the QR code SVG is generated from a server-side value.
    to require user verification outright. Decide, then implement in one release
    with a changelog note.~~ **Done**: CLN-03 23 September, CLN-02 1 October 2026
    (touch-only keys count as one factor rather than being refused).
-3. **CLN-05, CLN-06, CLN-07** touch the contract with relying parties. Plan the
+3. ~~**CLN-05, CLN-06, CLN-07** touch the contract with relying parties. Plan the
    deterministic subject migration carefully so existing consents keep their
-   current `sid`.
+   current `sid`.~~ **Done**: CLN-05 and CLN-07 23 September, CLN-06 14 October
+   2026.
 4. Fold the remaining items into normal maintenance.
 
 Each fix should start from a failing test. The probes below assert the
