@@ -23,6 +23,7 @@ Rails.application.config.active_record.encryption.primary_key = primary_key
 Rails.application.config.active_record.encryption.deterministic_key = deterministic_key
 Rails.application.config.active_record.encryption.key_derivation_salt = key_derivation_salt
 
-# Allow unencrypted data for existing records (new/updated records will be encrypted)
-# Set to false after all existing encrypted columns have been migrated
-Rails.application.config.active_record.encryption.support_unencrypted_data = true
+# A plaintext value in an encrypted column raises rather than being read
+# (CLN-15). EncryptPlaintextTotpSecrets encrypted the secrets enrolled before
+# encryption was switched on.
+Rails.application.config.active_record.encryption.support_unencrypted_data = false
