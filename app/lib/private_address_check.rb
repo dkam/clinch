@@ -25,7 +25,9 @@ module PrivateAddressCheck
 
   # Authoritative check: resolves the hostname and blocks if ANY address is
   # internal. Suitable for request time — also defeats a public hostname that
-  # has been pointed at an internal IP (DNS rebinding to internal space).
+  # has been pointed at an internal IP. A caller that then dials the hostname
+  # lets it be resolved again; dial one of #addresses instead, as
+  # BackchannelLogoutJob does (CLN-18).
   def resolves_to_internal?(host)
     addresses(host).any? { |ip| internal_ip?(ip) }
   end

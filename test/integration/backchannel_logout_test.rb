@@ -78,7 +78,7 @@ class BackchannelLogoutTest < ActionDispatch::IntegrationTest
     clear_enqueued_jobs
     job = BackchannelLogoutJob.new(*ActiveJob::Arguments.deserialize(job_data[:args]))
 
-    PrivateAddressCheck.stub(:resolves_to_internal?, false) do
+    PrivateAddressCheck.stub(:addresses, [IPAddr.new("203.0.113.10")]) do
       Net::HTTP.stub(:start, ->(*, **) { raise Net::OpenTimeout }) do
         assert_enqueued_jobs 1, only: BackchannelLogoutJob do
           job.perform_now
@@ -99,7 +99,7 @@ class BackchannelLogoutTest < ActionDispatch::IntegrationTest
       Net::HTTPOK.new("1.1", "200", "OK")
     end
 
-    PrivateAddressCheck.stub(:resolves_to_internal?, false) do
+    PrivateAddressCheck.stub(:addresses, [IPAddr.new("203.0.113.10")]) do
       Net::HTTP.stub(:start, ->(*, **, &block) { block.call(rp) }) do
         perform_enqueued_jobs
       end
