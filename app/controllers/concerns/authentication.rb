@@ -129,7 +129,8 @@ module Authentication
   end
 
   def terminate_session
-    Current.session.destroy
+    Current.session&.destroy
+    Current.session = nil
     delete_session_cookies
   end
 
@@ -146,47 +147,44 @@ module Authentication
     # 24h / 30d window regardless.
     #
     # The jar signs the value in place, so each cookie gets its own copy.
-    if session.remember_me
-      cookies.signed.permanent[:session_id] = options.dup
-    else
-      cookies.signed[:session_id] = options.dup
-    end
-
-    # Earlier versions put the session cookie on the parent domain. Clear that
-    # copy, or the browser keeps sending it to every sibling host.
-    root = extract_root_domain(request.host)
-    expire_cookie(:session_id, domain: root) if root
+    (session.remember_me ? cookies.signed.permanent : cookies.signed)[:session_id] = options.dup
+    expire_parent_domain_session_cookie
 
     if Application.forward_auth.exists?
-      forward_auth = options.merge(domain: root)
+      forward_auth = options.merge(domain: parent_cookie_domain)
       forward_auth[:expires] = session.expires_at if session.remember_me
-      cookies.signed[FORWARD_AUTH_COOKIE] = forward_auth.compact
+      cookies.signed[FORWARD_AUTH_COOKIE] = forward_auth
     end
   end
 
-  # The forward-auth cookie goes on this host's parent domain, or on this host
-  # alone when it has none (an IP address or localhost).
+  def delete_session_cookies
+    cookies.delete(:session_id)
+    expire_parent_domain_session_cookie
+    cookies.delete(FORWARD_AUTH_COOKIE, domain: parent_cookie_domain)
+  end
+
+  # Whether the forward-auth cookie, set from this host, reaches `host`.
   def forward_auth_cookie_reaches?(host)
     host = host.to_s.downcase
-    root = extract_root_domain(request.host)
-    root ? host == root.delete_prefix(".") || host.end_with?(root) : host == request.host.downcase
+    root = parent_cookie_domain
+    root ? ".#{host}".end_with?(root) : host == request.host.downcase
   end
 
-  # A browser only removes a cookie when the deletion names the same domain, and
-  # the session cookie may predate the move to the auth host, so delete it under
-  # both.
-  def delete_session_cookies
-    root = extract_root_domain(request.host)
-    cookies.delete(:session_id)
-    expire_cookie(:session_id, domain: root) if root
-    cookies.delete(FORWARD_AUTH_COOKIE, **{domain: root}.compact)
+  # Where the forward-auth cookie goes: this host's parent domain, or this host
+  # alone (nil) when it has none, as with an IP address or localhost.
+  def parent_cookie_domain
+    return @parent_cookie_domain if defined?(@parent_cookie_domain)
+    @parent_cookie_domain = extract_root_domain(request.host)
   end
 
-  # The cookie jar holds one header per cookie name, so a deletion under the
-  # second scope goes on the response directly. The path has to match the
+  # Earlier versions put the session cookie on the parent domain, and a browser
+  # only removes a cookie when the deletion names the same domain. The jar
+  # holds one header per cookie name, already taken by the host-only cookie, so
+  # this deletion goes on the response directly. Its path has to match the
   # cookie's; left out, the browser would use the request's directory.
-  def expire_cookie(name, domain:)
-    response.delete_cookie(name.to_s, {domain: domain, path: "/"})
+  def expire_parent_domain_session_cookie
+    return unless parent_cookie_domain
+    response.delete_cookie("session_id", domain: parent_cookie_domain, path: "/")
   end
 
   # An administrator can require 2FA of someone who hasn't enrolled yet. They
@@ -214,11 +212,12 @@ module Authentication
     session.delete(:totp_setup_completed_by)
   end
 
-  # Extract root domain for cross-subdomain cookies in SSO forward_auth system.
+  # Extract root domain for the forward-auth cookie.
   #
-  # PURPOSE: Enables a single authentication session to work across multiple subdomains
-  # by setting cookies with the domain parameter (e.g., .example.com allows access from
-  # both app.example.com and api.example.com).
+  # PURPOSE: The forward-auth cookie goes on this domain so the browser sends it
+  # to every app behind ForwardAuth (e.g., .example.com reaches both
+  # app.example.com and api.example.com). The session cookie itself stays on
+  # the auth host (CLN-10).
   #
   # CRITICAL: Returns nil for IP addresses (IPv4 and IPv6) and localhost - this is intentional!
   # When accessing services by IP, there are no subdomains to share cookies with,
@@ -259,23 +258,28 @@ module Authentication
 
   # Create a one-time token for forward auth to handle the race condition
   # where the browser hasn't processed the session cookie yet.
+  def create_forward_auth_token(session_obj)
+    return_to = session[:return_to_after_authenticating]
+    return if return_to.blank?
+
+    session[:return_to_after_authenticating] = with_forward_auth_token(return_to, session_obj)
+  end
+
+  # `url` with a one-time fa_token added.
   #
   # The token is bound to the destination host so that anyone who observes
   # the token (Referer leaks, access logs, JS monitors) cannot redeem it for
   # a different application within the 60-second TTL.
-  def create_forward_auth_token(session_obj)
-    controller_session = session
-    return unless controller_session[:return_to_after_authenticating].present?
-
-    uri = URI.parse(controller_session[:return_to_after_authenticating])
+  def with_forward_auth_token(url, session_obj)
+    uri = URI.parse(url)
 
     # OAuth flow handles its own session propagation — no fa_token needed.
-    return if uri.path&.start_with?("/oauth/")
+    return url if uri.path&.start_with?("/oauth/")
 
     # Path-only URLs are same-origin on Clinch; the cookie race doesn't apply
     # and we have no destination host to bind against.
     bound_host = uri.hostname&.downcase
-    return if bound_host.blank?
+    return url if bound_host.blank?
 
     token = SecureRandom.urlsafe_base64(32)
     Rails.cache.write(
@@ -287,6 +291,6 @@ module Authentication
     query_params = URI.decode_www_form(uri.query || "").to_h
     query_params["fa_token"] = token
     uri.query = URI.encode_www_form(query_params)
-    controller_session[:return_to_after_authenticating] = uri.to_s
+    uri.to_s
   end
 end

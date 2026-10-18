@@ -28,11 +28,23 @@ class PrivateAddressCheckTest < ActiveSupport::TestCase
     refute PrivateAddressCheck.internal_host?("1.1.1.1")
   end
 
-  # resolves_to_internal? on IP literals (no DNS needed) exercises the same
+  # public_addresses on IP literals (no DNS needed) exercises the same
   # address classification used after resolution.
-  test "resolves_to_internal? classifies IP literals" do
-    assert PrivateAddressCheck.resolves_to_internal?("169.254.169.254")
-    assert PrivateAddressCheck.resolves_to_internal?("127.0.0.1")
-    refute PrivateAddressCheck.resolves_to_internal?("8.8.8.8")
+  test "public_addresses classifies IP literals" do
+    assert_nil PrivateAddressCheck.public_addresses("169.254.169.254")
+    assert_nil PrivateAddressCheck.public_addresses("127.0.0.1")
+    assert_equal [IPAddr.new("8.8.8.8")], PrivateAddressCheck.public_addresses("8.8.8.8")
+  end
+
+  test "public_addresses refuses a host that resolves to an internal address" do
+    PrivateAddressCheck.stub(:addresses, [IPAddr.new("203.0.113.10"), IPAddr.new("10.0.0.5")]) do
+      assert_nil PrivateAddressCheck.public_addresses("rp.example.com")
+    end
+  end
+
+  test "public_addresses doesn't look up a hostname that is internal by name" do
+    PrivateAddressCheck.stub(:addresses, ->(_) { flunk "looked up localhost" }) do
+      assert_nil PrivateAddressCheck.public_addresses("localhost")
+    end
   end
 end

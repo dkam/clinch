@@ -316,12 +316,9 @@ class OidcController < ApplicationController
     # Per OIDC Core spec §3.1.2.1: If prompt=login, the Authorization Server MUST prompt
     # the End-User for reauthentication, even if the End-User is currently authenticated
     if prompts.include?("login")
-      # Destroy current session to force re-authentication
+      # End the session and clear its cookies to force re-authentication.
       # This creates a fresh authentication event with a new auth_time
-      Current.session&.destroy!
-
-      # Clear the session cookie so the user is truly logged out
-      delete_session_cookies
+      terminate_session
 
       # Store the current URL (which contains all OAuth params) for redirect after login
       # Drop "login" from prompt to prevent an infinite re-auth loop, keeping
@@ -355,10 +352,8 @@ class OidcController < ApplicationController
         return_url = remove_query_param(request.url, "max_age")
         session[:return_to_after_authenticating] = return_url
 
-        # Destroy the Session record and clear its cookie
-        Current.session&.destroy!
-        delete_session_cookies
-        Current.session = nil
+        # Destroy the Session record and clear its cookies
+        terminate_session
 
         redirect_to signin_path, alert: "Please sign in to continue"
         return
@@ -1341,8 +1336,7 @@ class OidcController < ApplicationController
   def end_session_and_redirect
     if authenticated?
       send_backchannel_logout_notifications(Current.session.user)
-      Current.session&.destroy
-      delete_session_cookies
+      terminate_session
       reset_session
     end
 

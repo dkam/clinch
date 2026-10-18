@@ -20,13 +20,13 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   test "the session cookie stays on the auth host when a ForwardAuth app exists" do
     sign_in
 
-    assert_no_match(/domain=/i, set_cookie("session_id"))
+    assert_no_match(/domain=/i, response_cookie_set("session_id"))
   end
 
   test "signing in sets the forward-auth cookie on the parent domain" do
     sign_in
 
-    forward_auth = set_cookie("clinch_forward_auth")
+    forward_auth = response_cookie_set("clinch_forward_auth")
     assert forward_auth, "a ForwardAuth app needs a cookie the proxied hosts receive"
     assert_match(/domain=\.example\.com/i, forward_auth)
     assert_match(/path=\/(;|\z)/i, forward_auth)
@@ -39,14 +39,14 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
 
     sign_in
 
-    assert_nil set_cookie("clinch_forward_auth")
-    assert_no_match(/domain=/i, set_cookie("session_id"))
+    assert_nil response_cookie_set("clinch_forward_auth")
+    assert_no_match(/domain=/i, response_cookie_set("session_id"))
   end
 
   test "the forward-auth cookie lasts as long as a remembered session" do
     sign_in(remember_me: "1")
 
-    expires = set_cookie("clinch_forward_auth")[/expires=([^;]+)/i, 1]
+    expires = response_cookie_set("clinch_forward_auth")[/expires=([^;]+)/i, 1]
     assert expires, "a remembered session's forward-auth cookie should survive the browser closing"
     assert_in_delta @user.sessions.order(:created_at).last.expires_at, Time.httpdate(expires), 5
   end
@@ -54,7 +54,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   test "without Remember me the forward-auth cookie ends with the browser session" do
     sign_in(remember_me: "0")
 
-    forward_auth = set_cookie("clinch_forward_auth")
+    forward_auth = response_cookie_set("clinch_forward_auth")
     assert forward_auth
     assert_no_match(/expires=/i, forward_auth)
   end
@@ -74,7 +74,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   test "signing in clears a session cookie left on the parent domain" do
     sign_in
 
-    assert deletion("session_id", domain: ".example.com"), "an earlier version's parent-domain session cookie would linger"
+    assert response_cookie_deletion("session_id", domain: ".example.com"), "an earlier version's parent-domain session cookie would linger"
   end
 
   test "signing out deletes both cookies" do
@@ -82,9 +82,9 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
 
     delete signout_path
 
-    assert deletion("session_id", domain: nil)
-    assert deletion("session_id", domain: ".example.com"), "a deletion without the cookie's domain leaves the browser's copy in place"
-    assert deletion("clinch_forward_auth", domain: ".example.com")
+    assert response_cookie_deletion("session_id", domain: nil)
+    assert response_cookie_deletion("session_id", domain: ".example.com"), "a deletion without the cookie's domain leaves the browser's copy in place"
+    assert response_cookie_deletion("clinch_forward_auth", domain: ".example.com")
   end
 
   test "signing out through OIDC logout deletes both cookies" do
@@ -92,8 +92,8 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
 
     post confirm_logout_path
 
-    assert deletion("session_id", domain: nil), "the session is gone, but the browser would keep sending its cookie"
-    assert deletion("clinch_forward_auth", domain: ".example.com")
+    assert response_cookie_deletion("session_id", domain: nil), "the session is gone, but the browser would keep sending its cookie"
+    assert response_cookie_deletion("clinch_forward_auth", domain: ".example.com")
   end
 
   test "prompt=login deletes both cookies" do
@@ -102,8 +102,8 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     authorize(prompt: "login")
 
     assert_redirected_to signin_path
-    assert deletion("session_id", domain: ".example.com")
-    assert deletion("clinch_forward_auth", domain: ".example.com")
+    assert response_cookie_deletion("session_id", domain: ".example.com")
+    assert response_cookie_deletion("clinch_forward_auth", domain: ".example.com")
   end
 
   test "an expired max_age deletes both cookies" do
@@ -112,8 +112,8 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     authorize(max_age: "0")
 
     assert_redirected_to signin_path
-    assert deletion("session_id", domain: ".example.com")
-    assert deletion("clinch_forward_auth", domain: ".example.com")
+    assert response_cookie_deletion("session_id", domain: ".example.com")
+    assert response_cookie_deletion("clinch_forward_auth", domain: ".example.com")
   end
 
   # /api/verify sends a browser with no forward-auth cookie to /signin. One
@@ -127,7 +127,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_match %r{\Ahttps://app\.example\.com/dashboard\?fa_token=}, response.location
-    assert_match(/domain=\.example\.com/i, set_cookie("clinch_forward_auth"))
+    assert_match(/domain=\.example\.com/i, response_cookie_set("clinch_forward_auth"))
   end
 
   test "sending a signed-in browser back moves its session cookie onto the auth host" do
@@ -135,8 +135,8 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
 
     get signin_path, params: {rd: "https://app.example.com/dashboard"}
 
-    assert_no_match(/domain=/i, set_cookie("session_id"))
-    assert deletion("session_id", domain: ".example.com"), "an earlier version's parent-domain session cookie would linger"
+    assert_no_match(/domain=/i, response_cookie_set("session_id"))
+    assert response_cookie_deletion("session_id", domain: ".example.com"), "an earlier version's parent-domain session cookie would linger"
   end
 
   # Sent back to an app the cookie doesn't reach, the browser would arrive
@@ -154,7 +154,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     host! "192.168.1.10"
     Application.create!(name: "Same host", slug: "same-host", app_type: "forward_auth", domain_pattern: "192.168.1.10", active: true)
     sign_in
-    assert_no_match(/domain=/i, set_cookie("clinch_forward_auth"))
+    assert_no_match(/domain=/i, response_cookie_set("clinch_forward_auth"))
 
     get signin_path, params: {rd: "https://192.168.1.10:8443/"}
     assert_response :redirect
@@ -169,7 +169,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     get signin_path, params: {rd: "https://evil.example.net/"}
 
     assert_response :success
-    assert_nil set_cookie("clinch_forward_auth")
+    assert_nil response_cookie_set("clinch_forward_auth")
   end
 
   private
@@ -177,7 +177,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   def sign_in(remember_me: "0")
     post signin_path, params: {email_address: @user.email_address, password: "password", remember_me: remember_me}
     assert_response :redirect
-    assert set_cookie("session_id"), "signing in should set the session cookie"
+    assert response_cookie_set("session_id"), "signing in should set the session cookie"
   end
 
   def authorize(**extra)
@@ -188,27 +188,5 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
       scope: "openid",
       state: "st"
     }.merge(extra)
-  end
-
-  def cookie_headers(name)
-    Array(response.headers["Set-Cookie"]).flat_map { |h| h.split("\n") }
-      .select { |c| c.start_with?("#{name}=") }
-  end
-
-  def set_cookie(name)
-    cookie_headers(name).find { |c| !deletion?(c) }
-  end
-
-  def deletion?(header)
-    header.match?(/max-age=0|expires=Thu, 01 Jan 1970/i)
-  end
-
-  # A deletion with the given domain (nil: host-only) and path "/", which the
-  # cookie was set with; left out, the browser would use the request's directory.
-  def deletion(name, domain:)
-    cookie_headers(name).find do |c|
-      deletion?(c) && c.match?(/path=\/(;|\z)/i) &&
-        (domain ? c.match?(/domain=#{Regexp.escape(domain)}(;|\z)/i) : !c.match?(/domain=/i))
-    end
   end
 end

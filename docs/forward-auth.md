@@ -20,9 +20,9 @@ login_url = "#{base_url}/signin?#{login_params.to_query}"
 
 Example: `https://clinch.example.com/signin?rd=https://metube.example.com/&rm=GET`
 
-### Tip 2: Root Domain Cookies ✅
+### Tip 2: A Forward-Auth Cookie on the Root Domain ✅
 
-Clinch sets authentication cookies on the root domain to enable cross-subdomain authentication:
+Clinch's session cookie (`session_id`) stays on Clinch's own host. While any ForwardAuth application exists, sign-in also sets a second cookie, `clinch_forward_auth`, on the root domain, and `/api/verify` reads only that one:
 
 ```ruby
 def extract_root_domain(host)
@@ -31,7 +31,7 @@ def extract_root_domain(host)
   # localhost -> nil (no domain restriction)
 end
 
-cookies.signed.permanent[:session_id] = {
+cookies.signed[:clinch_forward_auth] = {
   value: session.id,
   httponly: true,
   same_site: :lax,
@@ -40,10 +40,11 @@ cookies.signed.permanent[:session_id] = {
 }
 ```
 
-This allows the same session cookie to work across:
-- `clinch.example.com` (auth service)
+The browser sends the forward-auth cookie to:
 - `metube.example.com` (protected app)
 - `sonarr.example.com` (protected app)
+
+Rails signs a cookie for its name, so an app that copies `clinch_forward_auth` can't use it as a session on Clinch itself. It lasts as long as the session. A browser that is signed in to Clinch but reaches an app without the cookie is sent to `/signin`, given the cookie, and sent straight back.
 
 ### Tip 3: Race Condition Solution with One-Time Tokens ✅
 
@@ -92,7 +93,7 @@ end
 ```
 
 **How it works:**
-1. User authenticates → Rails sets session cookie + generates one-time token
+1. User authenticates → Rails sets the session and forward-auth cookies + generates one-time token
 2. Token gets appended to redirect URL: `https://metube.example.com/?fa_token=abc123...`
 3. Browser follows redirect → Caddy makes forward auth request with token
 4. Forward auth validates token → authenticates user immediately
@@ -116,7 +117,7 @@ end
 **Clinch Current Implementation:**
 - Returns `302 Found` directly to login URL
 - Includes `rd` (redirect destination) and `rm` (request method) parameters
-- Uses root domain cookies for cross-subdomain authentication
+- Uses a forward-auth cookie on the root domain for cross-subdomain authentication
 
 ## How Clinch Forward Auth Works
 
@@ -129,12 +130,12 @@ end
    - **If not authenticated**: Returns `302 Found` to login URL with redirect parameters
 4. **Browser follows redirect** to Clinch login page
 5. **User logs in** (with TOTP if enabled):
-   - Rails creates session and sets cross-domain cookie
+   - Rails creates session and sets the forward-auth cookie on the root domain
    - **Rails generates one-time token** and appends to redirect URL
    - User is redirected to: `https://metube.example.com/?fa_token=abc123...`
 6. **Browser follows redirect** → Caddy makes forward auth request with token
 7. **Clinch validates one-time token** → authenticates user immediately
-8. **Token is deleted** → subsequent requests use normal session cookies
+8. **Token is deleted** → subsequent requests use the forward-auth cookie
 9. **Caddy forwards to MEtube** with proper authentication headers
 
 ### Response Headers
@@ -363,7 +364,7 @@ Clinch provides **defense in depth** security with multiple protection layers:
 
 ### Common Issues
 
-1. **Authentication Loop**: Check that cookies are set on the root domain
+1. **Authentication Loop**: Check that the `clinch_forward_auth` cookie is set on the root domain, and that the app is under that domain
 2. **Session Not Shared**: Verify `extract_root_domain` is working correctly
 3. **Caddy Connection**: Ensure service name/IP resolves from your Caddy container
 4. **Race Condition After Authentication**:

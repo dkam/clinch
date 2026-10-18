@@ -34,7 +34,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   test "session cookie has no Expires attribute when remember_me is off" do
     post session_path, params: {email_address: @user.email_address, password: "password", remember_me: "0"}
 
-    set_cookie = session_cookie_set
+    set_cookie = response_cookie_set("session_id")
     assert set_cookie, "session_id cookie should be set"
     refute_match(/expires=/i, set_cookie,
       "without Remember me, the session cookie must be a browser-session cookie (no Expires)")
@@ -43,18 +43,9 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   test "session cookie has long-lived Expires attribute when remember_me is on" do
     post session_path, params: {email_address: @user.email_address, password: "password", remember_me: "1"}
 
-    set_cookie = session_cookie_set
+    set_cookie = response_cookie_set("session_id")
     assert set_cookie, "session_id cookie should be set"
     assert_match(/expires=/i, set_cookie,
       "with Remember me, the cookie should have an Expires attribute")
-  end
-
-  private
-
-  # The cookie being set, not the deletion of it under the other domain scope
-  # that goes out alongside it.
-  def session_cookie_set
-    Array(response.headers["Set-Cookie"]).flat_map { |h| h.split("\n") }
-      .find { |c| c.start_with?("session_id=") && !c.start_with?("session_id=;") }
   end
 end

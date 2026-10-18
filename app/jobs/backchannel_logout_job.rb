@@ -17,8 +17,8 @@ class BackchannelLogoutJob < ApplicationJob
     # SSRF guard: re-check at request time (with DNS resolution) in case the URI
     # predates the validation, or a public hostname now resolves to an internal
     # address. Abort without retrying — retries would not change the outcome.
-    addresses = PrivateAddressCheck.addresses(uri.host)
-    if PrivateAddressCheck.internal_host?(uri.host) || addresses.any? { |ip| PrivateAddressCheck.internal_ip?(ip) }
+    addresses = PrivateAddressCheck.public_addresses(uri.host)
+    if addresses.nil?
       Rails.logger.error "BackchannelLogout: Refusing to send logout to #{logout_uri} - #{uri.host} is or resolves to a non-public address (SSRF guard)"
       return
     end

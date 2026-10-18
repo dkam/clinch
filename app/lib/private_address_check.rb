@@ -23,13 +23,16 @@ module PrivateAddressCheck
     ip ? internal_ip?(ip) : false
   end
 
-  # Authoritative check: resolves the hostname and blocks if ANY address is
-  # internal. Suitable for request time — also defeats a public hostname that
-  # has been pointed at an internal IP. A caller that then dials the hostname
-  # lets it be resolved again; dial one of #addresses instead, as
-  # BackchannelLogoutJob does (CLN-18).
-  def resolves_to_internal?(host)
-    addresses(host).any? { |ip| internal_ip?(ip) }
+  # Authoritative check for request time: the addresses to dial for `host`, or
+  # nil if it is, or resolves to, anything internal. That also defeats a public
+  # hostname pointed at an internal IP. Dial one of these rather than the
+  # hostname, which would be resolved again and could get a different answer
+  # (CLN-18). Empty when the host doesn't resolve.
+  def public_addresses(host)
+    return nil if internal_host?(host)
+
+    resolved = addresses(host)
+    resolved unless resolved.any? { |ip| internal_ip?(ip) }
   end
 
   def addresses(host)
@@ -38,8 +41,7 @@ module PrivateAddressCheck
 
     Resolv.getaddresses(host.to_s).filter_map { |a| parse_ip(a) }
   rescue
-    # Resolution failure: surface no addresses. Callers treat "can't resolve" as
-    # not-provably-internal; the dial itself will then fail safely.
+    # Resolution failure: no addresses, so nothing a caller can dial.
     []
   end
 
