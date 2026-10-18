@@ -16,6 +16,9 @@ module Authentication
     end
   end
 
+  # Read by /api/verify in place of the session cookie (CLN-10).
+  FORWARD_AUTH_COOKIE = :clinch_forward_auth
+
   private
 
   def authenticated?
@@ -117,45 +120,7 @@ module Authentication
     user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip, acr: acr, remember_me: remember_me).tap do |session|
       Current.session = session
       note_authentication
-
-      domain = session_cookie_domain
-
-      # Set cookie options based on environment
-      # Production: Use SameSite=None to allow cross-site cookies (needed for OIDC conformance testing)
-      # Development: Use SameSite=Lax since HTTPS might not be available
-      cookie_options = if Rails.env.production?
-        {
-          value: session.id,
-          httponly: true,
-          same_site: :lax,
-          secure: true
-        }
-      else
-        {
-          value: session.id,
-          httponly: true,
-          same_site: :lax,
-          secure: false
-        }
-      end
-
-      cookie_options[:domain] = domain if domain.present?
-
-      # A sign-in made before the first ForwardAuth app was added, or after the
-      # last was removed, left its cookie under the other scope. Clear it, or
-      # the browser keeps both and may send the stale one first.
-      root = extract_root_domain(request.host)
-      expire_session_cookie(domain: domain.present? ? nil : root) if root.present?
-
-      # When "Remember me" is off, issue a browser-session cookie (no Expires)
-      # so closing the browser signs the user out — especially important on
-      # shared devices. The server Session#expires_at still enforces the
-      # 24h / 30d window regardless.
-      if remember_me
-        cookies.signed.permanent[:session_id] = cookie_options
-      else
-        cookies.signed[:session_id] = cookie_options
-      end
+      write_session_cookies(session)
 
       # Create a one-time token for immediate forward auth after authentication
       # This solves the race condition where browser hasn't processed cookie yet
@@ -165,29 +130,63 @@ module Authentication
 
   def terminate_session
     Current.session.destroy
-    delete_session_cookie
+    delete_session_cookies
   end
 
-  # ForwardAuth needs the session cookie on the parent domain, where the browser
-  # sends it to each app the proxy checks. Without a ForwardAuth app it stays on
-  # the auth host, so sibling subdomains never see the IdP session (CLN-10).
-  def session_cookie_domain
-    extract_root_domain(request.host) if Application.forward_auth.exists?
+  # The session cookie stays on the auth host. ForwardAuth needs a cookie the
+  # browser sends to every app the proxy checks, so while a ForwardAuth app
+  # exists a second one goes on the parent domain. Rails signs a cookie for its
+  # name, so an app that copies that one can't present it as the session cookie.
+  def write_session_cookies(session)
+    options = {value: session.id, httponly: true, same_site: :lax, secure: Rails.env.production?}
+
+    # When "Remember me" is off, issue a browser-session cookie (no Expires)
+    # so closing the browser signs the user out — especially important on
+    # shared devices. The server Session#expires_at still enforces the
+    # 24h / 30d window regardless.
+    #
+    # The jar signs the value in place, so each cookie gets its own copy.
+    if session.remember_me
+      cookies.signed.permanent[:session_id] = options.dup
+    else
+      cookies.signed[:session_id] = options.dup
+    end
+
+    # Earlier versions put the session cookie on the parent domain. Clear that
+    # copy, or the browser keeps sending it to every sibling host.
+    root = extract_root_domain(request.host)
+    expire_cookie(:session_id, domain: root) if root
+
+    if Application.forward_auth.exists?
+      forward_auth = options.merge(domain: root)
+      forward_auth[:expires] = session.expires_at if session.remember_me
+      cookies.signed[FORWARD_AUTH_COOKIE] = forward_auth.compact
+    end
+  end
+
+  # The forward-auth cookie goes on this host's parent domain, or on this host
+  # alone when it has none (an IP address or localhost).
+  def forward_auth_cookie_reaches?(host)
+    host = host.to_s.downcase
+    root = extract_root_domain(request.host)
+    root ? host == root.delete_prefix(".") || host.end_with?(root) : host == request.host.downcase
   end
 
   # A browser only removes a cookie when the deletion names the same domain, and
-  # this cookie may predate a change of scope, so delete it under both.
-  def delete_session_cookie
-    cookies.delete(:session_id)
+  # the session cookie may predate the move to the auth host, so delete it under
+  # both.
+  def delete_session_cookies
     root = extract_root_domain(request.host)
-    expire_session_cookie(domain: root) if root.present?
+    cookies.delete(:session_id)
+    expire_cookie(:session_id, domain: root) if root
+    cookies.delete(FORWARD_AUTH_COOKIE, **{domain: root}.compact)
   end
 
   # The cookie jar holds one header per cookie name, so a deletion under the
   # second scope goes on the response directly. The path has to match the
   # cookie's; left out, the browser would use the request's directory.
-  def expire_session_cookie(domain:)
-    response.delete_cookie("session_id", {domain: domain, path: "/"}.compact)
+  def expire_cookie(name, domain:)
+    response.delete_cookie(name.to_s, {domain: domain, path: "/"})
   end
 
   # An administrator can require 2FA of someone who hasn't enrolled yet. They

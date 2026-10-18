@@ -37,7 +37,7 @@ CLN-03 below overlaps with its "Per-Account Rate Limiting" entry.
 | **Worth fixing** | | | | |
 | [CLN-08](#cln-08-consent-page-is-served-without-a-form-action-csp-directive) | Consent page is served without a form-action CSP directive | Medium | **Fixed** | Small |
 | [CLN-09](#cln-09-internal-ip-host-authorisation-patterns-are-unanchored) | Internal-IP host authorisation patterns are unanchored | Low | **Fixed** | Small |
-| [CLN-10](#cln-10-session-cookie-is-scoped-to-the-registrable-domain-and-never-fully-cleared) | Session cookie is scoped to the registrable domain and never fully cleared | Medium | By inspection | Small |
+| [CLN-10](#cln-10-session-cookie-is-scoped-to-the-registrable-domain-and-never-fully-cleared) | Session cookie is scoped to the registrable domain and never fully cleared | Medium | **Fixed** | Small |
 | [CLN-11](#cln-11-changing-a-password-from-the-profile-keeps-other-sessions-alive) | Changing a password from the profile keeps other sessions alive | Low | **Fixed** | Small |
 | [CLN-12](#cln-12-revocation-endpoint-does-not-check-token-ownership) | Revocation endpoint does not check token ownership | Low | **Fixed** | Small |
 | **Lower priority** | | | | |
@@ -144,19 +144,26 @@ client's redirect URIs only, or `client_id`'s, and the state is appended with
 `&` when the URI has a query. Tests: `test/controllers/oidc_logout_test.rb` and
 the inverted CLN-06 probe.
 
-CLN-10 is partly addressed. The cookie still has to reach every app for
-ForwardAuth, but since 14 October 2026 a replayed cookie can no longer add a
-passkey, API key or authenticator: those need a password entered in the last
-fifteen minutes, recorded in the host-only Rails session
-(`RecentAuthentication`). Since 16 October 2026 sign-out, `prompt=login` and an
-expired `max_age` delete the cookie on the domain it was set for, so the
-browser drops it (`delete_session_cookie`; test:
-`test/integration/session_cookie_domain_test.rb`). Since 18 October 2026 the
-cookie goes on the parent domain only while a ForwardAuth app exists, so an
-OIDC-only install keeps it on the auth host; sign-in and sign-out clear it under
-both scopes, in case it predates a change. The README now states the trust
-boundary. Still to do: a separate short-lived forward-auth cookie so the IdP
-session never leaves the auth host.
+CLN-10, fixed 18 October 2026. Since 14 October a replayed cookie could no
+longer add a passkey, API key or authenticator: those need a password entered
+in the last fifteen minutes, recorded in the host-only Rails session
+(`RecentAuthentication`). Since 16 October sign-out, `prompt=login` and an
+expired `max_age` delete the cookie on the domain it was set for. Now the
+session cookie stays on the auth host. While a ForwardAuth app exists, sign-in
+also sets `clinch_forward_auth` on the parent domain, and `/api/verify` reads
+only that. Rails signs a cookie for its name, so a copied forward-auth cookie
+can't be presented as `session_id`. It lasts as long as the session, and
+signing out ends both. When `/api/verify` sends a browser without it to
+`/signin`, a browser signed in on the auth host gets the cookie and goes
+straight back, so sessions from before the change carry across. It is only
+sent back to an app the cookie reaches, or it would go round in a loop. Sign-in, that
+redirect, sign-out (including OIDC logout) and the authorize paths also clear a
+session cookie an earlier version left on the parent domain. The README states
+the trust boundary. Tests: `test/integration/session_cookie_domain_test.rb` and
+`test/controllers/api/forward_auth_controller_test.rb`. Not covered: a sibling
+host can still plant its own signed `session_id` on the parent domain (session
+swapping); a `__Host-` cookie name would stop that, at the cost of signing
+everyone out.
 
 CLN-15, 18 October 2026: `EncryptPlaintextTotpSecrets` encrypts any TOTP secret
 left in plaintext (and clears empty ones), and `support_unencrypted_data` is
@@ -169,7 +176,7 @@ certificate check, and refuses a hostname that does not resolve. It also keeps
 the logout URI's query string, which the spec allows. Tests:
 `test/jobs/backchannel_logout_job_test.rb`.
 
-Still open: CLN-10 (the separate forward-auth cookie), CLN-16, CLN-20.
+Still open: CLN-16, CLN-20.
 
 ---
 
@@ -458,7 +465,7 @@ match with `IPAddr` in a proc.
 
 **Severity:** Medium · **Status:** By inspection · **Effort:** Small
 
-- [ ] Fixed
+- [x] Fixed — 18 October 2026. See Progress.
 
 **What.** On sign-in the session cookie is set with `Domain=.example.com` so
 that reverse proxies can forward it to `/api/verify`. Every host under that
@@ -480,7 +487,9 @@ cost without the benefit.
 2026). Set the domain attribute only when at least one forward-auth application
 exists (done 18 October 2026). Pass the same domain to every `cookies.delete`
 (done 16 October 2026). Longer term, consider a separate short-lived
-forward-auth cookie so the primary IdP session never leaves the auth host.
+forward-auth cookie so the primary IdP session never leaves the auth host (done
+18 October 2026, lasting as long as the session rather than short-lived, so
+background requests in open app tabs don't fail when it lapses).
 
 **Where.**
 - `app/controllers/concerns/authentication.rb:83` (domain derived and set)

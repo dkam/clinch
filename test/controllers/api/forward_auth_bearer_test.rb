@@ -210,7 +210,7 @@ module Api
     end
 
     test "cookie auth still works when no bearer token present" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "webdav.example.com"

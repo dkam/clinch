@@ -21,7 +21,7 @@ module Api
     end
 
     test "should redirect when user is inactive" do
-      sign_in_as(@inactive_user)
+      sign_in_to_forward_auth_as(@inactive_user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -30,16 +30,27 @@ module Api
     end
 
     test "should return 200 when user is authenticated" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
       assert_response 200
     end
 
+    # The IdP session cookie stays on the auth host. One that reaches an app
+    # anyway, left on the parent domain by an earlier version, doesn't count (CLN-10).
+    test "the session cookie is not accepted in place of the forward-auth cookie" do
+      sign_in_as(@user)
+
+      get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
+
+      assert_response 302
+      assert_equal "No session cookie", response.headers["x-auth-reason"]
+    end
+
     # Rule Matching Tests
     test "should return 200 when matching rule exists" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -47,7 +58,7 @@ module Api
     end
 
     test "should return 403 when no rule matches (fail-closed security)" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "unknown.example.com"}
 
@@ -56,7 +67,7 @@ module Api
     end
 
     test "should return 403 when rule exists but is inactive" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "inactive.example.com"}
 
@@ -66,7 +77,7 @@ module Api
 
     test "should return 403 when rule exists but user not in allowed groups" do
       @rule.allowed_groups = [@group]
-      sign_in_as(@user)  # User not in group
+      sign_in_to_forward_auth_as(@user)  # User not in group
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -77,7 +88,7 @@ module Api
     test "should return 200 when user is in allowed groups" do
       @rule.allowed_groups = [@group]
       @user.groups << @group
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -87,7 +98,7 @@ module Api
     # Domain Pattern Tests
     test "should match wildcard domains correctly" do
       grant_everyone_access Application.create!(name: "Wildcard App", slug: "wildcard-app", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "app.example.com"}
       assert_response 200
@@ -104,7 +115,7 @@ module Api
       grant_everyone_access Application.create!(name: "Everything", slug: "everything", app_type: "forward_auth", domain_pattern: "*.example.com", active: true)
       grafana = Application.create!(name: "Grafana", slug: "grafana", app_type: "forward_auth", domain_pattern: "grafana.example.com", active: true)
       grafana.allowed_groups << @group
-      sign_in_as(@user)  # Not in @group
+      sign_in_to_forward_auth_as(@user)  # Not in @group
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "grafana.example.com"}
       assert_response 403
@@ -114,7 +125,7 @@ module Api
     end
 
     test "should match a forwarded host that carries a port" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com:8443"}
 
@@ -123,7 +134,7 @@ module Api
 
     test "should match exact domains correctly" do
       grant_everyone_access Application.create!(name: "Exact App", slug: "exact-app", app_type: "forward_auth", domain_pattern: "api.example.com", active: true)
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "api.example.com"}
       assert_response 200
@@ -135,7 +146,7 @@ module Api
 
     # Header Configuration Tests
     test "should return default headers when rule has no custom config" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -159,7 +170,7 @@ module Api
           groups: "X-WEBAUTH-ROLES"
         }
       )
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "custom.example.com"}
 
@@ -180,7 +191,7 @@ module Api
         active: true,
         headers_config: {user: "", email: "", name: "", groups: "", admin: ""}
       )
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "noheaders.example.com"}
 
@@ -192,7 +203,7 @@ module Api
 
     test "should include groups header when user has groups" do
       @user.groups << @group
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -213,7 +224,7 @@ module Api
         active: true,
         headers_config: {groups: ""}
       )
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "hidden.example.com"}
 
@@ -222,7 +233,7 @@ module Api
     end
 
     test "should include admin header correctly" do
-      sign_in_as(@admin_user)  # Assuming users(:two) is admin
+      sign_in_to_forward_auth_as(@admin_user)  # Assuming users(:two) is admin
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -234,7 +245,7 @@ module Api
       group2 = groups(:two)
       @user.groups << @group
       @user.groups << group2
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
 
@@ -246,7 +257,7 @@ module Api
 
     # Header Fallback Tests
     test "should fall back to Host header when X-Forwarded-Host is missing" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"Host" => "test.example.com"}
 
@@ -254,7 +265,7 @@ module Api
     end
 
     test "should handle requests without any host headers" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify"
 
@@ -266,7 +277,7 @@ module Api
     # Fail closed when no host can be determined: emitting identity headers without
     # an application would bypass all per-domain group access control.
     test "should fail closed and emit no identity headers when host is absent" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # Blank both host sources so forwarded_host is not present.
       get "/api/verify", headers: {"X-Forwarded-Host" => "", "Host" => ""}
@@ -280,7 +291,7 @@ module Api
     # Security Tests
     test "should handle very long domain names" do
       long_domain = "a" * 250 + ".example.com"
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => long_domain}
 
@@ -289,7 +300,7 @@ module Api
     end
 
     test "should handle case insensitive domain matching" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "TEST.Example.COM"}
 
@@ -395,7 +406,7 @@ module Api
 
     # HTTP Method Tests
     test "should handle GET requests with appropriate response codes" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # Authenticated GET requests should return 200
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -454,7 +465,7 @@ module Api
     end
 
     test "should handle special characters in X-Forwarded-URI" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "test.example.com",
@@ -465,7 +476,7 @@ module Api
     end
 
     test "should handle unicode in X-Forwarded-Host" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "测试.example.com"
@@ -477,7 +488,7 @@ module Api
 
     # Protocol and Scheme Tests
     test "should handle X-Forwarded-Proto header" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "test.example.com",
@@ -488,7 +499,7 @@ module Api
     end
 
     test "should handle HTTP protocol in X-Forwarded-Proto" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "test.example.com",
@@ -501,7 +512,7 @@ module Api
 
     # Session and State Tests
     test "should maintain session across multiple requests" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # First request
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -516,7 +527,7 @@ module Api
     end
 
     test "should handle concurrent requests with same session" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # Simulate multiple concurrent requests
       threads = []
@@ -548,7 +559,7 @@ module Api
     end
 
     test "should handle null byte injection in headers" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {
         "X-Forwarded-Host" => "test.example.com\0.evil.com"
@@ -597,7 +608,7 @@ module Api
       assert_response 429
 
       travel 61.seconds do
-        sign_in_as(@user)
+        sign_in_to_forward_auth_as(@user)
         get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
         assert_response 200
       end
@@ -614,7 +625,7 @@ module Api
 
     test "should not count a forbidden request as a failure" do
       cache = Rails.application.config.forward_auth_cache
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "unknown.example.com"}
       assert_response 403
@@ -624,7 +635,7 @@ module Api
 
     test "should count a session that no longer exists as a failure" do
       cache = Rails.application.config.forward_auth_cache
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
       Current.session.destroy!
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -636,7 +647,7 @@ module Api
 
     test "should not track successful requests as failures" do
       cache = Rails.application.config.forward_auth_cache
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 200
@@ -647,7 +658,7 @@ module Api
 
     # Caching Tests
     test "should debounce last_activity_at updates" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
       session = Session.last
 
       # First request should update last_activity_at
@@ -663,7 +674,7 @@ module Api
 
     test "should bust app cache when forward auth application is saved" do
       cache = Rails.application.config.forward_auth_cache
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # Prime the cache
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -678,7 +689,7 @@ module Api
 
     test "should bust app cache when application group membership changes" do
       cache = Rails.application.config.forward_auth_cache
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       # Prime the cache
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -742,7 +753,7 @@ module Api
     end
 
     test "should update last_activity_at after debounce window expires" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
       session = Session.last
 
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
@@ -763,7 +774,7 @@ module Api
       # Simulate 30 prior failures
       cache.write("fa_fail:127.0.0.1", 30, expires_in: 1.minute)
 
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
       get "/api/verify", headers: {"X-Forwarded-Host" => "test.example.com"}
       assert_response 200
 
@@ -898,7 +909,7 @@ module Api
 
     # Performance and Load Tests
     test "should handle requests efficiently under load" do
-      sign_in_as(@user)
+      sign_in_to_forward_auth_as(@user)
 
       start_time = Time.current
       request_count = 10

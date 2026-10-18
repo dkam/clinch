@@ -14,7 +14,7 @@ class OlderBrowsersTest < ActionDispatch::IntegrationTest
 
   test "ForwardAuth answers for older Safari" do
     app = grant_everyone_access(Application.create!(name: "Old Browser App", slug: "old-browser-app", app_type: "forward_auth", domain_pattern: "old.example.com", active: true))
-    sign_in_as(users(:bob))
+    sign_in_to_forward_auth_as(users(:bob))
 
     get "/api/verify", headers: {"User-Agent" => IOS_16_SAFARI, "X-Forwarded-Host" => app.domain_pattern}
 

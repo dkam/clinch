@@ -161,9 +161,9 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
 
 **Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
 
-**Trust boundary.** While any ForwardAuth application exists, Clinch sets its session cookie on the parent domain (`.yourdomain.com`), so the browser sends it to every host under that domain: the apps behind ForwardAuth, and anything else on a sibling subdomain. Any of those hosts can read the cookie and replay it against Clinch as that user, admins included. Only run software you trust under that domain, and put untrusted or user-generated content on a separate one. A replayed cookie can't add a passkey, API key or authenticator: those ask for the password if it wasn't entered in the last 15 minutes.
+**Trust boundary.** Clinch's session cookie stays on its own host. While any ForwardAuth application exists, Clinch also sets a forward-auth cookie on the parent domain (`.yourdomain.com`), because the proxy can only check a cookie the browser sends to the app. The browser sends that cookie to every host under the domain: the apps behind ForwardAuth, and anything else on a sibling subdomain. Any of those hosts can copy it and pass ForwardAuth as that user at the other apps, until that session ends or the user signs out. It doesn't work as a session on Clinch itself, so it can't be used to change the account or reach OIDC applications. Only run software you trust under that domain, and put untrusted or user-generated content on a separate one.
 
-With no ForwardAuth application, as in an OIDC-only setup, the cookie stays on Clinch's own host. After you add the first ForwardAuth application, anyone already signed in has to sign in again before the proxy sees their session.
+With no ForwardAuth application, as in an OIDC-only setup, there is no forward-auth cookie. When a signed-in user first reaches a ForwardAuth application without one, Clinch issues it and sends them straight back, without asking them to sign in again.
 
 #### API Keys (Bearer Tokens)
 
@@ -315,21 +315,21 @@ Configure different claims for different applications on a per-user basis:
 ### ForwardAuth Flow
 1. User requests protected resource at `https://app.example.com/dashboard`
 2. Reverse proxy sends request to Clinch at `/api/verify`
-3. Clinch checks for valid session cookie
+3. Clinch checks for a valid forward-auth cookie
 4. If valid session and user allowed:
    - Return 200 with `X-Remote-User`, `X-Remote-Groups`, `X-Remote-Email` headers
    - Proxy forwards request to app with injected headers
 5. If no session or not allowed:
    - Return 401/403
    - Proxy redirects to Clinch login page
-   - After login, redirect back to original URL
+   - After login, redirect back to original URL. A user already signed in to Clinch is sent back straight away with a new forward-auth cookie
 
 #### Race Condition Handling
 
 After successful login, you may notice an `fa_token` query parameter appended to redirect URLs (e.g., `https://app.example.com/dashboard?fa_token=...`). This solves a timing issue:
 
 **The Problem:**
-1. User signs in → session cookie is set
+1. User signs in → forward-auth cookie is set
 2. Browser gets redirected to protected resource
 3. Browser may not have processed the `Set-Cookie` header yet
 4. Reverse proxy checks `/api/verify` → no cookie yet → auth fails ❌

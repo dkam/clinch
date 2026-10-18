@@ -209,8 +209,9 @@ module Api
       cached[:session_id]
     end
 
+    # Not the session cookie, which stays on the auth host (CLN-10).
     def extract_session_id
-      cookies.signed[:session_id]
+      cookies.signed[FORWARD_AUTH_COOKIE]
     end
 
     def render_unauthorized(reason = nil)

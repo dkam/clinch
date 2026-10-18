@@ -8,6 +8,17 @@ module SessionTestHelper
     end
   end
 
+  # What an app behind the proxy receives after its user signs in: the
+  # forward-auth cookie, and not the session cookie, which stays on the auth host.
+  def sign_in_to_forward_auth_as(user)
+    Current.session = user.sessions.create!
+
+    ActionDispatch::TestRequest.create.cookie_jar.tap do |cookie_jar|
+      cookie_jar.signed[:clinch_forward_auth] = Current.session.id
+      cookies["clinch_forward_auth"] = cookie_jar[:clinch_forward_auth]
+    end
+  end
+
   # sign_in_as sets only the session cookie. Adding an API key, passkey or
   # authenticator also needs a recently confirmed password (RecentAuthentication).
   def confirm_password(password = "password")

@@ -22,6 +22,19 @@ class SessionsController < ApplicationController
       return
     end
 
+    # /api/verify sends a browser with no forward-auth cookie here. One that is
+    # signed in on this host gets the cookie and goes straight back (CLN-10),
+    # unless the cookie won't reach the app, which would send it straight here
+    # again.
+    return_to = validate_redirect_url(params[:rd])
+    if return_to && authenticated? && forward_auth_cookie_reaches?(URI.parse(return_to).host)
+      write_session_cookies(Current.session)
+      session[:return_to_after_authenticating] = return_to
+      create_forward_auth_token(Current.session)
+      redirect_to after_authentication_url, allow_other_host: true
+      return
+    end
+
     # Extract login_hint from the return URL for pre-filling the email field (OIDC spec)
     @login_hint = nil
     if session[:return_to_after_authenticating].present?
