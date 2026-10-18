@@ -161,6 +161,10 @@ Works with reverse proxies (Caddy, Traefik, Nginx):
 
 **Note:** ForwardAuth requires applications to run on the same domain as Clinch (e.g., `app.yourdomain.com` with Clinch at `auth.yourdomain.com`) for secure session cookie sharing. Take a look at Authentik if you need multi domain support.
 
+**Trust boundary.** While any ForwardAuth application exists, Clinch sets its session cookie on the parent domain (`.yourdomain.com`), so the browser sends it to every host under that domain: the apps behind ForwardAuth, and anything else on a sibling subdomain. Any of those hosts can read the cookie and replay it against Clinch as that user, admins included. Only run software you trust under that domain, and put untrusted or user-generated content on a separate one. A replayed cookie can't add a passkey, API key or authenticator: those ask for the password if it wasn't entered in the last 15 minutes.
+
+With no ForwardAuth application, as in an OIDC-only setup, the cookie stays on Clinch's own host. After you add the first ForwardAuth application, anyone already signed in has to sign in again before the proxy sees their session.
+
 #### API Keys (Bearer Tokens)
 
 For server-to-server access to ForwardAuth-protected services (e.g., a video player accessing WebDAV, rclone syncing files), Clinch supports API keys that work as bearer tokens — no browser or cookies needed.

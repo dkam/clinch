@@ -118,8 +118,7 @@ module Authentication
       Current.session = session
       note_authentication
 
-      # Extract root domain for cross-subdomain cookies (required for forward auth)
-      domain = extract_root_domain(request.host)
+      domain = session_cookie_domain
 
       # Set cookie options based on environment
       # Production: Use SameSite=None to allow cross-site cookies (needed for OIDC conformance testing)
@@ -140,8 +139,13 @@ module Authentication
         }
       end
 
-      # Set domain for cross-subdomain authentication if we can extract it
       cookie_options[:domain] = domain if domain.present?
+
+      # A sign-in made before the first ForwardAuth app was added, or after the
+      # last was removed, left its cookie under the other scope. Clear it, or
+      # the browser keeps both and may send the stale one first.
+      root = extract_root_domain(request.host)
+      expire_session_cookie(domain: domain.present? ? nil : root) if root.present?
 
       # When "Remember me" is off, issue a browser-session cookie (no Expires)
       # so closing the browser signs the user out — especially important on
@@ -164,11 +168,26 @@ module Authentication
     delete_session_cookie
   end
 
-  # The cookie was set on the parent domain, and a browser only removes a
-  # cookie when the deletion names the same domain.
+  # ForwardAuth needs the session cookie on the parent domain, where the browser
+  # sends it to each app the proxy checks. Without a ForwardAuth app it stays on
+  # the auth host, so sibling subdomains never see the IdP session (CLN-10).
+  def session_cookie_domain
+    extract_root_domain(request.host) if Application.forward_auth.exists?
+  end
+
+  # A browser only removes a cookie when the deletion names the same domain, and
+  # this cookie may predate a change of scope, so delete it under both.
   def delete_session_cookie
-    domain = extract_root_domain(request.host)
-    domain.present? ? cookies.delete(:session_id, domain: domain) : cookies.delete(:session_id)
+    cookies.delete(:session_id)
+    root = extract_root_domain(request.host)
+    expire_session_cookie(domain: root) if root.present?
+  end
+
+  # The cookie jar holds one header per cookie name, so a deletion under the
+  # second scope goes on the response directly. The path has to match the
+  # cookie's; left out, the browser would use the request's directory.
+  def expire_session_cookie(domain:)
+    response.delete_cookie("session_id", {domain: domain, path: "/"}.compact)
   end
 
   # An administrator can require 2FA of someone who hasn't enrolled yet. They

@@ -1,28 +1,54 @@
 require "test_helper"
 
-# The session cookie is set on the parent domain (Domain=.example.com) so that
-# ForwardAuth works across subdomains. A cookie is only removed by a deletion
-# that names the same domain: one without it leaves the browser holding the
-# old cookie after sign-out (CLN-10).
+# ForwardAuth needs the session cookie on the parent domain (Domain=.example.com),
+# so the browser sends it to every app the proxy checks. That also hands the
+# IdP session to every sibling subdomain, so the cookie only goes there while
+# a ForwardAuth app exists (CLN-10). A cookie is only removed by a deletion that
+# names the same domain, so sign-in and sign-out clear both scopes: whichever
+# one an earlier sign-in used.
 class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   setup do
     host! "auth.example.com"
     @user = users(:alice)
     @application = applications(:kavita_app)
+    Application.create!(name: "Proxied", slug: "proxied", app_type: "forward_auth", domain_pattern: "app.example.com", active: true)
   end
 
   test "the session cookie is set on the parent domain" do
     sign_in
 
-    assert_match(/domain=\.example\.com/i, session_cookie_header)
+    assert_match(/domain=\.example\.com/i, session_cookie)
   end
 
-  test "signing out deletes the cookie on the parent domain" do
+  test "without a ForwardAuth app the session cookie stays on the auth host" do
+    Application.forward_auth.destroy_all
+
+    sign_in
+
+    assert_no_match(/domain=/i, session_cookie)
+  end
+
+  test "signing in on the parent domain clears a host-only cookie" do
+    sign_in
+
+    assert host_only_deletion, "a host-only cookie from before the first ForwardAuth app would shadow the new one"
+  end
+
+  test "signing in host-only clears a cookie on the parent domain" do
+    Application.forward_auth.destroy_all
+
+    sign_in
+
+    assert parent_domain_deletion, "a parent-domain cookie from before the last ForwardAuth app went would linger"
+  end
+
+  test "signing out deletes the cookie on both scopes" do
     sign_in
 
     delete signout_path
 
-    assert_deleted_on_parent_domain
+    assert parent_domain_deletion, "a deletion without the cookie's domain leaves the browser's copy in place"
+    assert host_only_deletion
   end
 
   test "prompt=login deletes the cookie on the parent domain" do
@@ -31,7 +57,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     authorize(prompt: "login")
 
     assert_redirected_to signin_path
-    assert_deleted_on_parent_domain
+    assert parent_domain_deletion
   end
 
   test "an expired max_age deletes the cookie on the parent domain" do
@@ -40,7 +66,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     authorize(max_age: "0")
 
     assert_redirected_to signin_path
-    assert_deleted_on_parent_domain
+    assert parent_domain_deletion
   end
 
   private
@@ -48,7 +74,7 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
   def sign_in
     post signin_path, params: {email_address: @user.email_address, password: "password"}
     assert_response :redirect
-    assert session_cookie_header, "signing in should set the session cookie"
+    assert session_cookie, "signing in should set the session cookie"
   end
 
   def authorize(**extra)
@@ -61,16 +87,24 @@ class SessionCookieDomainTest < ActionDispatch::IntegrationTest
     }.merge(extra)
   end
 
-  def session_cookie_header
+  def session_cookie_headers
     Array(response.headers["Set-Cookie"]).flat_map { |h| h.split("\n") }
-      .find { |c| c.start_with?("session_id=") }
+      .select { |c| c.start_with?("session_id=") }
   end
 
-  def assert_deleted_on_parent_domain
-    header = session_cookie_header
-    assert header, "the response should delete the session cookie"
-    assert_match(/max-age=0|expires=Thu, 01 Jan 1970/i, header)
-    assert_match(/domain=\.example\.com/i, header,
-      "a deletion without the cookie's domain leaves the browser's copy in place")
+  def session_cookie
+    session_cookie_headers.find { |c| !deletion?(c) }
+  end
+
+  def deletion?(header)
+    header.match?(/max-age=0|expires=Thu, 01 Jan 1970/i)
+  end
+
+  def parent_domain_deletion
+    session_cookie_headers.find { |c| deletion?(c) && c.match?(/domain=\.example\.com/i) && c.match?(/path=\/(;|\z)/i) }
+  end
+
+  def host_only_deletion
+    session_cookie_headers.find { |c| deletion?(c) && !c.match?(/domain=/i) && c.match?(/path=\/(;|\z)/i) }
   end
 end
