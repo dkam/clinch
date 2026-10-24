@@ -190,7 +190,9 @@ GEM
     mini_magick (5.4.0)
       logger
     mini_mime (1.1.5)
-    minitest (5.27.0)
+    minitest (6.0.6)
+      drb (~> 2.0)
+      prism (~> 1.5)
     msgpack (1.8.5)
     net-imap (0.6.7)
       date
@@ -458,7 +460,7 @@ DEPENDENCIES
   jwt (~> 3.1)
   kamal
   letter_opener
-  minitest (< 6.0)
+  minitest (< 7.0)
   propshaft
   public_suffix (~> 7.0)
   puma (>= 5.0)
