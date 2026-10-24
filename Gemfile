@@ -38,8 +38,8 @@ gem "webauthn", "~> 3.0"
 gem "public_suffix", "~> 7.0"
 
 # Error tracking and performance monitoring (optional, configured via SENTRY_DSN)
-gem "sentry-ruby", "~> 6.2"
-gem "sentry-rails", "~> 6.2"
+gem "sentry-ruby", "~> 7.1"
+gem "sentry-rails", "~> 7.1"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[windows jruby]
