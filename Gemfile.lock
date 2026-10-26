@@ -416,7 +416,7 @@ GEM
       actionview (>= 8.0.0)
       bindex (>= 0.4.0)
       railties (>= 8.0.0)
-    webauthn (3.4.3)
+    webauthn (3.5.0)
       android_key_attestation (~> 0.3.0)
       bindata (~> 2.4)
       cbor (~> 0.5.9)
@@ -480,7 +480,7 @@ DEPENDENCIES
   turbo-rails
   tzinfo-data
   web-console
-  webauthn (~> 3.0)
+  webauthn (~> 3.5)
 
 BUNDLED WITH
   4.0.20
