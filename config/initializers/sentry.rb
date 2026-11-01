@@ -58,8 +58,9 @@ Sentry.init do |config|
   # Breadcrumbs for debugging
   config.breadcrumbs_logger = [:active_support_logger, :http_logger]
 
-  # Performance monitoring sample rate (0.0 to 1.0)
-  config.traces_sample_rate = ENV.fetch("SENTRY_TRACES_SAMPLE_RATE", 0.1).to_f
+  # Performance monitoring sample rate (0.0 to 1.0), higher in development
+  # where there is little traffic to sample from.
+  config.traces_sample_rate = ENV.fetch("SENTRY_TRACES_SAMPLE_RATE", Rails.env.development? ? 0.5 : 0.1).to_f
 
   # Profiling: disabled in production by default due to cost.
   config.profiles_sample_rate =
