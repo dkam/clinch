@@ -186,7 +186,10 @@ GEM
     marcel (1.2.1)
     matrix (0.4.3)
     mini_mime (1.1.5)
-    minitest (5.27.0)
+    minitest (6.0.6)
+      drb (~> 2.0)
+      prism (~> 1.5)
+    minitest-mock (5.27.0)
     msgpack (1.8.7)
     net-imap (0.6.8)
       date
@@ -455,7 +458,7 @@ DEPENDENCIES
   jwt (~> 3.1)
   kamal
   letter_opener
-  minitest (< 6.0)
+  minitest-mock
   propshaft
   public_suffix (~> 7.0)
   puma (>= 5.0)
