@@ -39,8 +39,21 @@ Sentry.init do |config|
       %w[production]
     end
 
-  # Don't send cookies, request bodies, or user IPs by default.
-  config.send_default_pii = false
+  # Don't send cookies, request bodies, query strings or user IPs. Query strings
+  # and bodies carry authorization codes, state and client secrets here. These
+  # are what send_default_pii = false used to imply; it is deprecated in 7.x and
+  # goes in 8.0, and a bare DataCollection collects all of them.
+  data_collection = config.data_collection
+  data_collection.user_info = false
+  data_collection.cookies = false
+  data_collection.http_headers.request.terms = Sentry::DataCollection::PII_HEADER_SNIPPETS
+  data_collection.http_headers.response.terms = Sentry::DataCollection::PII_HEADER_SNIPPETS
+  data_collection.http_bodies = []
+  data_collection.url_query_params = false
+  data_collection.database_query_data = false
+  data_collection.queues = false
+  data_collection.graphql.document = false
+  data_collection.graphql.variables = false
 
   # Breadcrumbs for debugging
   config.breadcrumbs_logger = [:active_support_logger, :http_logger]
