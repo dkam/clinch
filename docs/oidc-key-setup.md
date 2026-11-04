@@ -10,7 +10,7 @@ The key is encrypted with keys derived from `SECRET_KEY_BASE`, like TOTP secrets
 
 Supply a key yourself, as below, if you'd rather manage it outside Clinch. A key in `OIDC_PRIVATE_KEY` or credentials always wins over the stored one.
 
-## Option 1: Environment Variable (Recommended for Docker/Kamal)
+## Option 1: Environment Variable (Recommended for Docker)
 
 ### 1. Generate the key
 
@@ -35,25 +35,13 @@ MIIEpAIBAAKCAQEAyZ0qaICMiLVWSFs+ef9Xok3fzy0p6k/7D5TQzmxf7C2vQG7s
 
 **Important:** Keep the quotes and include the full key with `-----BEGIN` and `-----END` lines.
 
-### 3. For Kamal deployment
+### 3. For Docker Compose
 
-Add to your Kamal secrets:
-
-```yaml
-# config/deploy.yml
-env:
-  secret:
-    - OIDC_PRIVATE_KEY
-```
-
-Then set it securely:
+`compose.yaml` passes `OIDC_PRIVATE_KEY` through from the `.env` file next to it,
+so put the key there as in step 2, then recreate the container:
 
 ```bash
-# Generate key
-bin/generate_oidc_key > oidc_private_key.pem
-
-# Add to .kamal/secrets
-echo "OIDC_PRIVATE_KEY=$(cat oidc_private_key.pem)" >> .kamal/secrets
+docker compose up -d
 ```
 
 ### 4. Verify it's loaded
@@ -69,13 +57,13 @@ bin/rails runner "puts OidcJwtService.send(:private_key).present? ? 'Key loaded'
 
 | Feature | ENV Variable | Rails Credentials |
 |---------|-------------|-------------------|
-| **Best for** | Docker, Kamal, 12-factor | Simple deployments |
+| **Best for** | Docker, 12-factor | Simple deployments |
 | **Key rotation** | Easy (just update ENV) | Medium (re-encrypt) |
 | **Per-environment** | Yes (dev/staging/prod can differ) | No (same key everywhere) |
 | **Secrets manager** | Compatible (AWS Secrets, etc.) | Needs RAILS_MASTER_KEY |
 | **Setup complexity** | Low | Medium |
 
-**Recommendation:** Use ENV variable (`OIDC_PRIVATE_KEY`) for production with Kamal.
+**Recommendation:** Use ENV variable (`OIDC_PRIVATE_KEY`) for production with Docker.
 
 ---
 
@@ -141,5 +129,5 @@ The key changed. You either:
 Check logs for warnings and verify key is loaded:
 
 ```bash
-kamal app logs --grep "OIDC"
+docker compose logs clinch | grep OIDC
 ```

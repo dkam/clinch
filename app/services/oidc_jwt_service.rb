@@ -245,7 +245,7 @@ class OidcJwtService
       @private_key ||= begin
         key_source = nil
 
-        # Try ENV variable first (best for Docker/Kamal)
+        # Try ENV variable first (best for Docker)
         if ENV["OIDC_PRIVATE_KEY"].present?
           key_source = ENV["OIDC_PRIVATE_KEY"]
         # Then try Rails credentials
