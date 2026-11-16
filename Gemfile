@@ -32,7 +32,7 @@ gem "rqrcode", "~> 3.1"
 gem "jwt", "~> 3.1"
 
 # WebAuthn for passkey support
-gem "webauthn", "~> 3.0"
+gem "webauthn", "~> 3.5"
 
 # Public Suffix List for domain parsing
 gem "public_suffix", "~> 7.0"
