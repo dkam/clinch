@@ -124,6 +124,17 @@ class SessionsController < ApplicationController
   end
 
   def verify_totp
+    # The form can arrive again after it has signed the browser in: a second
+    # click or Enter while the browser is still on its way to the app, or a
+    # password manager submitting it as well as the user. The pending sign-in
+    # is gone by then, so this has to come first, or a signed-in user is told
+    # their session expired. Send the repeat where the first one went.
+    if authenticated?
+      destination = session[:totp_signed_in_to] if pending_fresh?(:totp_signed_in_at)
+      redirect_to destination || root_path, allow_other_host: true
+      return
+    end
+
     # Get the pending user from session
     user_id = session[:pending_totp_user_id]
     unless user_id && pending_fresh?(:pending_totp_started_at)
@@ -143,12 +154,6 @@ class SessionsController < ApplicationController
     # Handle form submission
     if request.post?
       code = params[:code]&.strip
-
-      # Check if user is already authenticated (prevent duplicate submissions)
-      if authenticated?
-        redirect_to root_path, notice: "Already signed in."
-        return
-      end
 
       # Re-check account status: active? was verified at the password step, but an
       # admin may have disabled the account while the user sat on this 2FA screen.
@@ -177,7 +182,7 @@ class SessionsController < ApplicationController
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
         start_new_session_for user, acr: "2", remember_me: remember_me
-        redirect_to after_authentication_url, notice: "Signed in successfully.", allow_other_host: true
+        redirect_to totp_destination, notice: "Signed in successfully.", allow_other_host: true
         return
       end
 
@@ -191,7 +196,7 @@ class SessionsController < ApplicationController
           session[:return_to_after_authenticating] = session.delete(:totp_redirect_url)
         end
         start_new_session_for user, acr: "2", remember_me: remember_me
-        redirect_to after_authentication_url, notice: "Signed in successfully using backup code.", allow_other_host: true
+        redirect_to totp_destination, notice: "Signed in successfully using backup code.", allow_other_host: true
         return
       end
 
@@ -418,6 +423,13 @@ class SessionsController < ApplicationController
 
   def remember_me?
     ActiveModel::Type::Boolean.new.cast(params[:remember_me]) || false
+  end
+
+  # Where a completed 2FA step sends the browser, kept for as long as a pending
+  # sign-in so that verify_totp can send a repeat of the form there too.
+  def totp_destination
+    session[:totp_signed_in_at] = Time.current.to_i
+    session[:totp_signed_in_to] = after_authentication_url
   end
 
   # create sets pending_totp_user_id only once the password has been accepted;
